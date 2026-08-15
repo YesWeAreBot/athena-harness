@@ -6,7 +6,7 @@
 
 - one Agent Factory can be registered per registry;
 - `create()` creates a new Agent;
-- `resume()` restores an existing in-memory Session;
+- `resume()` restores an existing persisted or in-memory Session;
 - lookup returns a non-owning Agent reference;
 - only the owner handle can dispose an Agent;
 - registry disposal removes the Agent from the public registry.
@@ -51,6 +51,8 @@ The default `agentLoop` now calls AI SDK `streamText()` directly:
 - it snapshots schema-only tools through `ctx.tools`;
 - it runs manual Steps and records `step/start`, `assistant/message`, `tool/call`, `tool/result`, and `step/end`;
 - it executes tool calls and appends durable event records;
+- it forwards native AI SDK stream parts through `agent/stream-part`;
+- `cancel()` aborts the active AI SDK call, and `dispose()` waits for the loop to quiesce;
 - it exposes idle/running status and `whenIdle()`.
 
 ## Developer Value
@@ -61,4 +63,4 @@ The default `agentLoop` now calls AI SDK `streamText()` directly:
 
 ## Current Boundary
 
-The registry rejects duplicate live Agent ids before invoking the factory and drains registered Agents when the registry is disposed. The real loop is not yet wired to `ctx.persist`, so durable checkpoints before model calls and tool side effects are not implemented yet. `resume()` still only restores in-memory Sessions.
+The registry rejects duplicate live Agent ids before invoking the factory and drains registered Agents when the registry is disposed. The real loop is wired to `ctx.persist` for new Agents and flushes before model calls and tool side effects. When `ctx.persist` is installed, `resume()` restores a Session from JSONL and reopens a live binding.

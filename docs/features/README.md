@@ -17,6 +17,7 @@ See [Positioning](../positioning.md) for the project's target layer and ecosyste
 | [05 - Body and Percept](./05-body-and-percept.md)                       | Body registration and non-IM percept events.                                            |
 | [06 - Persistence](./06-persistence.md)                                 | JSONL lifetime memory, restore, and crash-orphaned Turn repair.                         |
 | [07 - Tools and System Prompt](./07-tools-and-system-prompt.md)         | Scoped tool and prompt composition for the future Agent Loop.                           |
+| [08 - Agent Events](./08-agent-events.md)                               | Agent status/output/stream-part observation and abort behavior.                         |
 
 ## Current Status
 
@@ -30,5 +31,6 @@ The repository is an early prototype. The following are implemented and tested:
 - `BodyRegistry` and `PerceptEvent`
 - `Persistence` and `JsonlPersistence`
 - `ToolRuntime` and `SystemPrompt`
+- Agent Events with `agentEvents(ctx, agent)`
 
-The real AI SDK `streamText()` loop now runs with model Surface, system prompt, tools, and event recording. Durable checkpoints, full restore wiring, Mode architecture, and actuator execution are not implemented yet.
+The real AI SDK `streamText()` loop now runs with model Surface, system prompt, tools, event recording, durable checkpoints, and JSONL resume. Mode architecture and actuator execution are not implemented yet.

@@ -59,4 +59,4 @@ It never reruns a Tool, and malformed or truncated records are rejected.
 
 ## Current Boundary
 
-Persistence is not yet wired into the default `agentLoop`. The current slice provides the backend and restore validation; the Agent Loop will call it at durable checkpoints once the real loop is implemented.
+Persistence is wired into the default `agentLoop`. Newly created Agents get a live binding; the Agent Loop flushes before model calls and tool side effects, and closes the binding on disposal. When `ctx.persist` is installed, `resume()` restores a Session from JSONL and reopens a live binding.

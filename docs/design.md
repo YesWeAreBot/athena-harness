@@ -442,6 +442,7 @@ The minimum public backend operations are conceptually:
 - create one immutable Session header;
 - append one contiguous batch of committed Session Events;
 - prepare one exclusively reserved unpublished Session for restoration;
+- open an existing prepared Session as a live binding for continuation;
 - flush one Session's queued writes through a durable media synchronization boundary;
 - close and release one active Session binding.
 
@@ -538,31 +539,41 @@ The package does not expose every internal directory as a public subpath.
 ### Initial Internal Layout
 
 ```text
-src/
-  index.ts
-  agent/
-    index.ts
-    types.ts
-  agent-loop/
-    index.ts
-    driver.ts
-  session/
-    index.ts
-    types.ts
-    surface.ts
-  model-surface.ts
-  tools.ts
-  system-prompt.ts
-  persist/
-    index.ts
-    jsonl.ts
-    format.ts
-  scope.ts
-  id.ts
-  json.ts
+packages/
+  harness-core/
+    src/
+      index.ts
+      agent/
+        index.ts
+        types.ts
+      agent-loop/
+        index.ts
+        driver.ts
+      session/
+        index.ts
+        types.ts
+        surface.ts
+      model-surface.ts
+      tools.ts
+      system-prompt.ts
+      persist/
+        index.ts
+        jsonl.ts
+        format.ts
+      scope.ts
+      id.ts
+      freeze.ts
+    test/
+  athena-runtime/
+    src/
+      index.ts
+      body/
+        index.ts
+        types.ts
+    test/
 ```
 
-Only `agent`, `agent-loop`, `session`, and `persist` begin as directories because they already have distinct stable contracts and implementation responsibilities. Smaller Services stay single files until their implementations require another cohesive unit.
+`agent`, `agent-loop`, `session`, `persist`, and `body` begin as directories because they already have distinct stable contracts and implementation responsibilities. Smaller Services stay single files until their implementations require another cohesive unit.
 
 ## Invariants
 
@@ -691,3 +702,4 @@ Implementation may choose exact helper names and local data structures, but it m
 - 2026-08-15: `BodyRegistry` first version registers Bodies and dispatches percepts only; it does not route Modes, ingest memory, or execute actuators.
 - 2026-08-15: model provider and model hot-switching is a target capability; the current one-`LanguageModel`-per-Agent design is a temporary simplification, not the long-term architecture.
 - 2026-08-15: auxiliary models and perception pipelines belong to Mode/Body plugins; the prototype kernel does not implement them.
+- 2026-08-15: durable `resume()` uses `prepare()` plus `open()`; the restored Session is published through `SessionStore.restore()` and continues with a live binding.

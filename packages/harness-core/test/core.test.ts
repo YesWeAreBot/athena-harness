@@ -3,6 +3,7 @@ import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
 import { agentLoop } from "../src/agent-loop/index.js";
+import { agentEvents } from "../src/agent/events.js";
 import { agentRegistry } from "../src/agent/index.js";
 import { modelSurface } from "../src/model-surface.js";
 import { sessionStore } from "../src/session/index.js";
@@ -57,12 +58,24 @@ describe("athena harness core slice", () => {
       }),
     ).rejects.toThrow(/Agent already exists/);
 
+    const subject = agentEvents(ctx, handle.agent);
+    const statuses: string[] = [];
+    const outputs: string[] = [];
+    const streamParts: Array<{ type?: string }> = [];
+    subject.on("agent/status", (event) => statuses.push(event.status));
+    subject.on("agent/output", (event) => outputs.push(event.kind));
+    subject.on("agent/stream-part", (event) => streamParts.push(event.part as { type?: string }));
+
     handle.agent.send("user/message", { content: "hello" });
     await handle.agent.whenIdle();
     expect(handle.agent.session.snapshotEvents.length).toBeGreaterThan(1);
     expect(handle.agent.session.snapshotEvents.some((event) => event.type === "user/message")).toBe(true);
     expect(handle.agent.session.snapshotEvents.some((event) => event.type === "assistant/message")).toBe(true);
     expect(handle.agent.status).toBe("idle");
+    expect(statuses).toContain("running");
+    expect(statuses).toContain("idle");
+    expect(outputs).toContain("assistant-message");
+    expect(streamParts.some((part) => part.type === "text-delta")).toBe(true);
 
     await ctx.agents.dispose(handle.agent.id);
     expect(ctx.agents.get(handle.agent.id)).toBeUndefined();

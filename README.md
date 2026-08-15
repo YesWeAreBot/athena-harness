@@ -6,15 +6,15 @@ Athena Harness is a small, platform-agnostic digital life runtime prototype buil
 
 ## Repository Status
 
-| Item                   | Value                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package                | `@yesimbot/harness-core`, `@yesimbot/athena-runtime`                                                                                                    |
-| Visibility             | Private prototype                                                                                                                                       |
-| Topology               | Yarn workspaces monorepo                                                                                                                                |
-| Package manager        | Yarn 4, `node-modules` linker                                                                                                                           |
-| Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                                                                                                               |
-| Source of truth        | `docs/design.md`                                                                                                                                        |
-| Current implementation | Core slices: `SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, `BodyRegistry`, `Persistence`, `ToolRuntime`, `SystemPrompt`, real `agentLoop` |
+| Item                   | Value                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package                | `@yesimbot/harness-core`, `@yesimbot/athena-runtime`                                                                                                                  |
+| Visibility             | Private prototype                                                                                                                                                     |
+| Topology               | Yarn workspaces monorepo                                                                                                                                              |
+| Package manager        | Yarn 4, `node-modules` linker                                                                                                                                         |
+| Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                                                                                                                             |
+| Source of truth        | `docs/design.md`                                                                                                                                                      |
+| Current implementation | Core slices: `SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, `BodyRegistry`, `Persistence`, `ToolRuntime`, `SystemPrompt`, Agent Events, real `agentLoop` |
 
 The repository deliberately does not contain a Koishi integration, a YesImBot-compatible runtime, or a copy of deepseek-harness's application framework. The first version is intended to prove the smallest viable Cordis-based kernel before it becomes a shared foundation for YesImBot modes and community modes.
 

@@ -18,30 +18,29 @@ The CI workflow runs `install`, `typecheck`, `lint`, `test`, and `build` on GitH
 ## Module Layout
 
 ```text
-src/
-  agent/
-    index.ts        AgentRegistry
-    types.ts        Agent, AgentHandle, AgentFactory
-  agent-loop/
-    index.ts        placeholder Agent Loop provider
-  session/
-    events.ts       SessionEventMap and built-in vocabulary
-    index.ts        Session, SessionStore
-    surface.ts      SurfaceManager
-    types.ts        shared session types
-  model-surface.ts  ModelSurface and user projectors
-  id.ts             id generation
-  index.ts          public exports
-test/
-  core.test.ts
-  surface.test.ts
-  model-surface.test.ts
+packages/
+  harness-core/
+    src/
+      agent/           AgentRegistry and Agent contracts
+      agent-loop/      real AI SDK Agent Loop provider
+      session/         Session, SessionStore, Surface, Event vocabulary
+      persist/         Persistence and JsonlPersistence
+      model-surface.ts ModelSurface and user projectors
+      tools.ts         ToolRuntime
+      system-prompt.ts SystemPrompt
+      index.ts         public exports
+    test/
+  athena-runtime/
+    src/
+      body/            BodyRegistry, PerceptEvent, Sense/Actuator contracts
+      index.ts         public exports
+    test/
 ```
 
 ## Contribution Loop
 
 1. Read `docs/design.md` before adding a feature.
-2. Keep changes inside the current single package.
+2. Keep changes inside the correct package; add a new `packages/*` workspace only when a real package boundary is proven.
 3. Add tests for the failure boundary, not just the happy path.
 4. Run the full verification chain before submitting.
 5. Update `docs/features/*` when a feature becomes usable by developers.

@@ -26,6 +26,8 @@ export abstract class Persistence extends Service {
 
   abstract create(header: SessionHeader): Awaitable<PersistenceSessionBinding>;
 
+  abstract open(id: string): Awaitable<PersistenceSessionBinding>;
+
   abstract prepare(id: string): Awaitable<PreparedSession>;
 }
 

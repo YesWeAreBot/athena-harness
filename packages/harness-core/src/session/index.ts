@@ -125,6 +125,15 @@ export class SessionStore extends Service {
     return session;
   }
 
+  restore(header: SessionHeader, events: readonly SessionEvent[]): Session {
+    if (this.sessions.has(header.id)) {
+      throw new Error(`Session already exists: ${header.id}`);
+    }
+    const session = Session.restore(header, events);
+    this.sessions.set(header.id, session);
+    return session;
+  }
+
   get(id: string): Session | undefined {
     return this.sessions.get(id);
   }

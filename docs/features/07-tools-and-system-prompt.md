@@ -50,4 +50,4 @@ const snapshot = await ctx.systemPrompt.snapshot();
 
 ## Current Boundary
 
-This slice provides registration, shadowing, and snapshot assembly, and is wired into the real `agentLoop`. Scopes are currently explicit symbols rather than derived automatically from an Agent-scoped Cordis Context. Durable checkpoints before tool side effects are not implemented yet.
+This slice provides registration, shadowing, and snapshot assembly, and is wired into the real `agentLoop`. Scopes are currently explicit symbols rather than derived automatically from an Agent-scoped Cordis Context. Durable checkpoints are now flushed before tool side effects.

@@ -47,6 +47,28 @@ export class JsonlPersistence extends Persistence {
     return binding;
   }
 
+  async open(id: string): Promise<PersistenceSessionBinding> {
+    if (this.bindings.has(id) || this.prepared.has(id)) {
+      throw new Error(`Session already active or prepared: ${id}`);
+    }
+    const path = filePath(this.config.root, id);
+    const content = await readFile(path, "utf8");
+    const parsed = parseSessionFile(content, id);
+    Session.restore(parsed.header, parsed.events);
+
+    const handle = await open(path, "a");
+    const binding = new JsonlSessionBinding(
+      id,
+      handle,
+      () => {
+        this.bindings.delete(id);
+      },
+      parsed.events.length,
+    );
+    this.bindings.set(id, binding);
+    return binding;
+  }
+
   async prepare(id: string): Promise<PreparedSession> {
     if (this.bindings.has(id) || this.prepared.has(id)) {
       throw new Error(`Session already active or prepared: ${id}`);
@@ -187,7 +209,7 @@ function repairOpenTurn(events: readonly SessionEvent[]): SessionEvent[] {
 }
 
 class JsonlSessionBinding implements PersistenceSessionBinding {
-  private count = 0;
+  private count: number;
 
   private tail: Promise<void> = Promise.resolve();
 
@@ -197,7 +219,10 @@ class JsonlSessionBinding implements PersistenceSessionBinding {
     readonly id: string,
     private handle: FileHandle,
     private onClose: () => void,
-  ) {}
+    initialCount = 0,
+  ) {
+    this.count = initialCount;
+  }
 
   append(events: readonly SessionEvent[]): void {
     if (this.closed) throw new Error(`Session binding is closed: ${this.id}`);
