@@ -4,17 +4,17 @@ Athena Harness 使用 Life/Body/Percept/Actuator/Mode 这些词，并不是为�
 
 ## Quick Mapping
 
-| Koishi / YesImBot 旧概念 | Athena Harness 新概念 | 说明 |
-| --- | --- | --- |
-| `message-created` Event | `PerceptEvent` | Body 产生的感知事件，`kind` 是开放字符串 |
-| OneBot / Satori / Discord Adapter | `Body` | 一个 Body = Senses + Actuators + Body State |
-| Bot / 机器人身份 | `Life` | 持久身份，拥有 Session 和当前 Mode |
-| 插件行为 / 对话模式 | `Mode` | Life 当前选择的生活方式，不是事件定义者 |
-| `bot.sendMessage()` / 群管 API | `Actuator` | Body 暴露给 Life/Mode 的执行能力 |
-| Event payload / 消息内容 | `PerceptEvent.data` | 结构化感知数据，不预渲染为聊天消息 |
-| Channel / Group / User | Body State / Life Context | 具体平台概念留在 Body，不进入内核 |
-| Middleware / Event 路由 | LifeRegistry 路由 | 按 Life attach 的 Body 将 Percept 投递给 activeMode |
-| 会话/聊天记录 | Session Log | 低层执行事实，未来可派生 Life Memory |
+| Koishi / YesImBot 旧概念          | Athena Harness 新概念     | 说明                                                |
+| --------------------------------- | ------------------------- | --------------------------------------------------- |
+| `message-created` Event           | `PerceptEvent`            | Body 产生的感知事件，`kind` 是开放字符串            |
+| OneBot / Satori / Discord Adapter | `Body`                    | 一个 Body = Senses + Actuators + Body State         |
+| Bot / 机器人身份                  | `Life`                    | 持久身份，拥有 Session 和当前 Mode                  |
+| 插件行为 / 对话模式               | `Mode`                    | Life 当前选择的生活方式，不是事件定义者             |
+| `bot.sendMessage()` / 群管 API    | `Actuator`                | Body 暴露给 Life/Mode 的执行能力                    |
+| Event payload / 消息内容          | `PerceptEvent.data`       | 结构化感知数据，不预渲染为聊天消息                  |
+| Channel / Group / User            | Body State / Life Context | 具体平台概念留在 Body，不进入内核                   |
+| Middleware / Event 路由           | LifeRegistry 路由         | 按 Life attach 的 Body 将 Percept 投递给 activeMode |
+| 会话/聊天记录                     | Session Log               | 低层执行事实，未来可派生 Life Memory                |
 
 ## Why
 

@@ -7,12 +7,12 @@ Life Body. It intentionally does not implement Mode behavior.
 
 ```ts
 interface BodyAdapter {
-  id: string
-  name?: string
-  senses?: Sense[]
-  actuators?: Actuator[]
-  start?(context: BodyAdapterContext): Awaitable<void>
-  stop?(): Awaitable<void>
+  id: string;
+  name?: string;
+  senses?: Sense[];
+  actuators?: Actuator[];
+  start?(context: BodyAdapterContext): Awaitable<void>;
+  stop?(): Awaitable<void>;
 }
 ```
 
@@ -57,12 +57,12 @@ The OneBot implementation itself remains a Koishi adapter. Athena Runtime only c
 OneBot capabilities such as 拍一拍, reactions, group ban, and message sending are all mapped to
 `Actuator` entries:
 
-| OneBot action | Actuator |
-| --- | --- |
-| `friend_poke` / `group_poke` | `{ id: "poke", kind: "poke", act: ({ userId }) => ... }` |
-| `set_msg_emoji_like` | `{ id: "react", kind: "react", act: ({ messageId, emoji }) => ... }` |
-| `set_group_ban` | `{ id: "group-ban", kind: "group-ban", act: ({ userId, minutes }) => ... }` |
-| `send_msg` / `send_group_msg` | `{ id: "send", kind: "chat", act: ({ channelId, content }) => ... }` |
+| OneBot action                 | Actuator                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| `friend_poke` / `group_poke`  | `{ id: "poke", kind: "poke", act: ({ userId }) => ... }`                    |
+| `set_msg_emoji_like`          | `{ id: "react", kind: "react", act: ({ messageId, emoji }) => ... }`        |
+| `set_group_ban`               | `{ id: "group-ban", kind: "group-ban", act: ({ userId, minutes }) => ... }` |
+| `send_msg` / `send_group_msg` | `{ id: "send", kind: "chat", act: ({ channelId, content }) => ... }`        |
 
 The exact actuator id/kind is chosen by the BodyAdapter. athena-runtime does not define a closed list
 of OneBot actions.
@@ -71,13 +71,13 @@ of OneBot actions.
 
 Every Body event is a `PerceptEvent`. `kind` is an open string chosen by the BodyAdapter:
 
-| Source | PerceptEvent.kind | data |
-| --- | --- | --- |
-| OneBot message | `message-created` | sender, channel, content, elements |
-| OneBot 拍一拍 | `notice.poke` | userId, targetId |
-| Minecraft damage | `entity.damage` | entity, amount, source |
-| Bilibili live message | `live.message` | room, sender, content |
-| World tick | `world.tingle` | worldTime, interval |
+| Source                | PerceptEvent.kind | data                               |
+| --------------------- | ----------------- | ---------------------------------- |
+| OneBot message        | `message-created` | sender, channel, content, elements |
+| OneBot 拍一拍         | `notice.poke`     | userId, targetId                   |
+| Minecraft damage      | `entity.damage`   | entity, amount, source             |
+| Bilibili live message | `live.message`    | room, sender, content              |
+| World tick            | `world.tingle`    | worldTime, interval                |
 
 The BodyAdapter emits these through `ctx.bodies.dispatch(bodyId, kind, data)`. Life routes the
 `PerceptEvent` to its active Mode; Mode may filter by `ModePerceptInterest` and consume it in

@@ -28,13 +28,13 @@ Mode 通过 ModeContext.bodies.act(...) 使用 Actuator
 
 ```ts
 interface ModeCapabilities {
-  driver: "finite-tool-loop" | "continuous-mailbox" | "narrative-decision" | "custom"
-  percepts: ModePerceptInterest[]
-  actuators: ModeActuatorInterest[]
-  scheduling: ModeSchedulingKind[]
-  memory: ModeMemoryKind[]
-  productState: ModeProductStateKind[]
-  bodies?: string[]
+  driver: "finite-tool-loop" | "continuous-mailbox" | "narrative-decision" | "custom";
+  percepts: ModePerceptInterest[];
+  actuators: ModeActuatorInterest[];
+  scheduling: ModeSchedulingKind[];
+  memory: ModeMemoryKind[];
+  productState: ModeProductStateKind[];
+  bodies?: string[];
 }
 ```
 
@@ -48,14 +48,14 @@ interface ModeCapabilities {
 
 ## 三个历史产品的能力范围
 
-| 维度 | Chat / YesImBot | World | Interlude |
-| --- | --- | --- | --- |
-| driver | finite-tool-loop | continuous-mailbox | narrative-decision |
-| percepts | message-created 等 IM Body 事件 | phone-notification、world-event、tingle | message-created、story-intent、sweep/due |
-| actuators | chat-send、platform-ops、workspace | world-act、phone-app、computer、chat-send | story-state、chat-send、web-observation |
-| scheduling | event、timer | timer、tingle、wait/wake | debounce、due-intent、sweep、auto-advance |
-| memory | conversation、facts、embedding | world-status、facts、life-stream | story-facts、facts、embedding |
-| productState | channel | world | story |
+| 维度         | Chat / YesImBot                    | World                                     | Interlude                                 |
+| ------------ | ---------------------------------- | ----------------------------------------- | ----------------------------------------- |
+| driver       | finite-tool-loop                   | continuous-mailbox                        | narrative-decision                        |
+| percepts     | message-created 等 IM Body 事件    | phone-notification、world-event、tingle   | message-created、story-intent、sweep/due  |
+| actuators    | chat-send、platform-ops、workspace | world-act、phone-app、computer、chat-send | story-state、chat-send、web-observation   |
+| scheduling   | event、timer                       | timer、tingle、wait/wake                  | debounce、due-intent、sweep、auto-advance |
+| memory       | conversation、facts、embedding     | world-status、facts、life-stream          | story-facts、facts、embedding             |
+| productState | channel                            | world                                     | story                                     |
 
 具体事件名和 Actuator 名由对应 Body/Mode 插件声明，不进入 `athena-runtime` 的封闭枚举。
 
