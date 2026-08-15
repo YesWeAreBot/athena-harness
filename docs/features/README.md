@@ -2,7 +2,7 @@
 
 This series is developer-facing. It explains the features that currently have implementation and tests, how to use them, and why they matter to someone building on Athena Harness.
 
-It is intentionally different from [docs/design.md](../design.md): the design document records architecture decisions and acceptance criteria, while these guides describe the current developer experience.
+It is intentionally different from [docs/design.md](../design.md) and [athena-runtime-design.md](../athena-runtime-design.md): the design documents record architecture decisions and acceptance criteria, while these guides describe the current developer experience.
 
 See [Positioning](../positioning.md) for the project's target layer and ecosystem boundaries.
 
@@ -18,6 +18,7 @@ See [Positioning](../positioning.md) for the project's target layer and ecosyste
 | [06 - Persistence](./06-persistence.md)                                 | JSONL lifetime memory, restore, and crash-orphaned Turn repair.                         |
 | [07 - Tools and System Prompt](./07-tools-and-system-prompt.md)         | Scoped tool and prompt composition for the future Agent Loop.                           |
 | [08 - Agent Events](./08-agent-events.md)                               | Agent status/output/stream-part observation and abort behavior.                         |
+| [09 - Life and Mode](./09-life-and-mode.md)                             | Life identity, Mode definition registry, and Percept routing.                           |
 
 ## Current Status
 
@@ -32,5 +33,6 @@ The repository is an early prototype. The following are implemented and tested:
 - `Persistence` and `JsonlPersistence`
 - `ToolRuntime` and `SystemPrompt`
 - Agent Events with `agentEvents(ctx, agent)`
+- `LifeRegistry` and `ModeRegistry`
 
 The real AI SDK `streamText()` loop now runs with model Surface, system prompt, tools, event recording, durable checkpoints, and JSONL resume. Mode architecture and actuator execution are not implemented yet.

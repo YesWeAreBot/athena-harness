@@ -2,13 +2,15 @@
 
 ## Status
 
-This document is the source of truth for confirmed architecture decisions in the Athena Harness monorepo.
+This document is the source of truth for confirmed architecture decisions in `@yesimbot/harness-core`.
+
+Athena Runtime decisions live in [athena-runtime-design.md](./athena-runtime-design.md).
 
 Update it as decisions are confirmed. Sections marked **Pending** are unresolved and must not be filled by inference during implementation.
 
 ## Purpose
 
-Athena Harness is a small, platform-agnostic runtime kernel for AI digital life forms, built directly on Cordis and AI SDK. It is an independent technical prototype, not a replacement for or compatibility layer around YesImBot's existing `@yesimbot/agent-runtime`.
+Athena Harness core is a small, platform-agnostic agent-runtime toolkit built directly on Cordis and AI SDK. It serves Athena Runtime, the next YesImBot digital life framework, but it is not a compatibility layer around YesImBot's existing `@yesimbot/agent-runtime`.
 
 The prototype validates whether Cordis can provide composable service dependencies and reversible lifecycle ownership without inheriting deepseek-harness's full application framework.
 
@@ -38,48 +40,15 @@ The first version does not provide:
 - a custom LLM protocol or a second message type system over AI SDK;
 - a runtime `InvariantRegistry` service.
 
-## Mode-Oriented Framework Direction
+## Layered Boundary
 
-Athena Harness is the kernel prototype for a later Cordis-based digital life framework. The first implementation deliberately excludes that application layer, but the target architecture is confirmed:
+Athena Harness core is the agent-runtime toolkit. Athena Runtime is the digital life framework layer and the next YesImBot core.
 
-- `@yesimbot/framework` will expose shared framework services and a first-class `Mode` registry.
-- Chat, World, and community-created modes are equal plugins; none of them is baked into the framework.
-- Koishi is an optional sense or transport adapter, not a dependency of the framework.
-- Platform access is sense/actuator-oriented, for example Satori or a Koishi bridge, rather than hard-coded into life execution.
-- IM is a door, not a home. Chat and World are two life modes, not the definition of the framework.
-- Body is a composable plugin surface: Senses + Actuators + Body State. A Body may be an IM account, a web account, a Minecraft avatar, a device, or a physical shell; the core does not implement any specific Body.
-- Model provider and model are swappable runtime capabilities. A life may switch at any time without losing identity, memory, or current mode; the first version's one-`LanguageModel`-per-Agent is a simplification, not the target.
-- Auxiliary models and perception pipelines are Mode/Body plugin concerns, not prototype kernel responsibilities. The kernel only needs Percept, Attention, and Actuator contracts.
-- World is redesigned as a Mode plugin using framework sense, actuator, model, store, and scheduler services. It does not own the framework or a separate WebUI.
-- The repository is a Yarn workspaces monorepo with `@yesimbot/harness-core` and `@yesimbot/athena-runtime`. Future `mode-chat`, `mode-world`, `adapter-*`, or `plugin-*` packages will be added under `packages/*`.
+This document describes Harness core only. Life, Mode, Body, Percept, Actuator, and Athena Runtime Memory contracts are defined in [athena-runtime-design.md](./athena-runtime-design.md).
 
-The conceptual Mode contract is:
+Harness core does not implement Mode behavior. It provides the reusable execution components that Athena Runtime and Mode consumers can use.
 
-```ts
-export interface Mode<C = any> {
-  name: string;
-  schema?: Schema<C>;
-  setup(ctx: FrameworkContext, config: C): Awaitable<ModeHandle>;
-}
-
-export interface ModeHandle {
-  start?(): Awaitable<void>;
-  stop?(): Awaitable<void>;
-  handle?(event: PerceptEvent): Awaitable<boolean>;
-}
-```
-
-`PerceptEvent` is deliberately not a chat event. It may represent an IM message, a Bilibili or Xiaohongshu event, a Minecraft observation, a timer tick, a world event, a sensor reading, or a physical-body input.
-
-The exact `Mode` and `FrameworkContext` shapes are not committed yet. The first prototype must not implement the Mode contract by inference.
-
-The minimal `Body` and `PerceptEvent` contracts used by `BodyRegistry` are confirmed for the current kernel slice:
-
-- `PerceptEvent` has a stable id, epoch time, body id, kind, and structured data;
-- `Body` exposes id, optional name, state, optional senses, and optional actuators;
-- `BodyRegistry` registers Bodies and dispatches `body/percept` events;
-- the core does not implement any specific Body;
-- Mode routing, memory ingestion, and actuator execution remain pending.
+The repository is a Yarn workspaces monorepo with `@yesimbot/harness-core` and `@yesimbot/athena-runtime`. Future `mode-chat`, `mode-world`, `adapter-*`, or `plugin-*` packages will be added under `packages/*`.
 
 ## Repository
 
@@ -564,16 +533,11 @@ packages/
       id.ts
       freeze.ts
     test/
-  athena-runtime/
-    src/
-      index.ts
-      body/
-        index.ts
-        types.ts
-    test/
 ```
 
-`agent`, `agent-loop`, `session`, `persist`, and `body` begin as directories because they already have distinct stable contracts and implementation responsibilities. Smaller Services stay single files until their implementations require another cohesive unit.
+Athena Runtime layout is documented in `docs/athena-runtime-design.md`.
+
+`agent`, `agent-loop`, `session`, and `persist` begin as directories because they already have distinct stable contracts and implementation responsibilities. Smaller Services stay single files until their implementations require another cohesive unit.
 
 ## Invariants
 
@@ -698,8 +662,8 @@ Implementation may choose exact helper names and local data structures, but it m
 - 2026-08-15: after prototype acceptance, evolve the harness into a mode-oriented Cordis framework; Chat, World, and community modes are plugins and Koishi is an optional transport adapter.
 - 2026-08-15: the first prototype remains kernel-only and does not implement the Mode registry, transport adapters, mode packages, or a separate WebUI.
 - 2026-08-15: use a Yarn workspaces monorepo with `@yesimbot/harness-core` and `@yesimbot/athena-runtime`; future mode, adapter, and plugin packages will be added under `packages/*`.
-- 2026-08-15: confirm the minimal `Body` and `PerceptEvent` contracts plus `BodyRegistry`; the Mode contract remains pending.
-- 2026-08-15: `BodyRegistry` first version registers Bodies and dispatches percepts only; it does not route Modes, ingest memory, or execute actuators.
+- 2026-08-15: Athena Runtime contracts, including Body, Percept, Life, and Mode decisions, are tracked in `docs/athena-runtime-design.md`.
 - 2026-08-15: model provider and model hot-switching is a target capability; the current one-`LanguageModel`-per-Agent design is a temporary simplification, not the long-term architecture.
 - 2026-08-15: auxiliary models and perception pipelines belong to Mode/Body plugins; the prototype kernel does not implement them.
 - 2026-08-15: durable `resume()` uses `prepare()` plus `open()`; the restored Session is published through `SessionStore.restore()` and continues with a live binding.
+- 2026-08-15: Athena Runtime is a separate design domain from Harness core and is documented in `docs/athena-runtime-design.md`.

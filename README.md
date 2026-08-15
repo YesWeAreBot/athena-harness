@@ -1,20 +1,20 @@
 # Athena Harness
 
-Athena Harness is a small, platform-agnostic digital life runtime prototype built directly on **Cordis v4** and **AI SDK v7**. It is an independent architecture experiment for the next YesImBot framework layer, not an AI agent assistant, not a wrapper around Koishi, and not a compatibility layer around the existing `@yesimbot/agent-runtime`.
+Athena Harness is a Yarn workspaces monorepo. `@yesimbot/harness-core` is a small, platform-agnostic agent-runtime toolkit built directly on **Cordis v4** and **AI SDK v7**. `@yesimbot/athena-runtime` is the digital life framework layer and the next YesImBot core.
 
-> Status: early prototype. This repository contains the architecture and core slices (`SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, `BodyRegistry`, `Persistence`, `ToolRuntime`, `SystemPrompt`, real `agentLoop`); the full digital life runtime has not landed yet. See [docs/design.md](./docs/design.md) for the authoritative design.
+> Status: early prototype. This repository contains Harness core slices and early Athena Runtime contracts (`SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, `BodyRegistry`, `Persistence`, `ToolRuntime`, `SystemPrompt`, real `agentLoop`); the full digital life runtime has not landed yet. See [docs/design.md](./docs/design.md) and [athena-runtime-design.md](./docs/athena-runtime-design.md).
 
 ## Repository Status
 
-| Item                   | Value                                                                                                                                                                 |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package                | `@yesimbot/harness-core`, `@yesimbot/athena-runtime`                                                                                                                  |
-| Visibility             | Private prototype                                                                                                                                                     |
-| Topology               | Yarn workspaces monorepo                                                                                                                                              |
-| Package manager        | Yarn 4, `node-modules` linker                                                                                                                                         |
-| Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                                                                                                                             |
-| Source of truth        | `docs/design.md`                                                                                                                                                      |
-| Current implementation | Core slices: `SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, `BodyRegistry`, `Persistence`, `ToolRuntime`, `SystemPrompt`, Agent Events, real `agentLoop` |
+| Item                   | Value                                                                                                                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package                | `@yesimbot/harness-core`, `@yesimbot/athena-runtime`                                                                                                                                                  |
+| Visibility             | Private prototype                                                                                                                                                                                     |
+| Topology               | Yarn workspaces monorepo                                                                                                                                                                              |
+| Package manager        | Yarn 4, `node-modules` linker                                                                                                                                                                         |
+| Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                                                                                                                                                             |
+| Source of truth        | Harness core: `docs/design.md`; Athena Runtime: `docs/athena-runtime-design.md`                                                                                                                       |
+| Current implementation | Core slices: `SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, `BodyRegistry`, `Persistence`, `ToolRuntime`, `SystemPrompt`, Agent Events, `LifeRegistry`, `ModeRegistry`, real `agentLoop` |
 
 The repository deliberately does not contain a Koishi integration, a YesImBot-compatible runtime, or a copy of deepseek-harness's application framework. The first version is intended to prove the smallest viable Cordis-based kernel before it becomes a shared foundation for YesImBot modes and community modes.
 
@@ -177,7 +177,7 @@ corepack yarn build
 corepack yarn format
 ```
 
-The design and acceptance criteria are defined in [docs/design.md](./docs/design.md). Implementation should not move ahead of that document's confirmed decisions.
+The Harness core design and acceptance criteria are defined in [docs/design.md](./docs/design.md). Athena Runtime contracts are defined in [docs/athena-runtime-design.md](./docs/athena-runtime-design.md). Implementation should not move ahead of their confirmed decisions.
 
 Developer-facing feature guides are available in [docs/features](./docs/features/README.md). The project's vision and ecosystem boundaries are described in [docs/vision.md](./docs/vision.md) and [docs/positioning.md](./docs/positioning.md).
 
@@ -191,11 +191,11 @@ Developer-facing feature guides are available in [docs/features](./docs/features
 
 ## Related Repositories
 
-Athena Harness is intentionally independent from:
+Athena Harness core is intentionally independent from the existing runtime implementation:
 
-- `YesImBot` and its existing `@yesimbot/agent-runtime`;
+- `YesImBot` and its existing `@yesimbot/agent-runtime` implementation;
 - Koishi plugin integrations;
 - `pi-ai`;
 - deepseek-harness and any deepseek-harness application framework.
 
-It borrows selected architectural concepts from deepseek-harness's design, but it does not depend on its implementation or type system.
+It borrows selected architectural concepts from deepseek-harness's design, but it does not depend on its implementation or type system. The project's digital life vision is documented in [docs/vision.md](./docs/vision.md).
