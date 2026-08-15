@@ -2,19 +2,19 @@
 
 Athena Harness is a small, platform-agnostic agent runtime prototype built directly on **Cordis v4** and **AI SDK v7**. It is an independent architecture experiment for the next YesImBot framework layer, not a wrapper around Koishi and not a compatibility layer around the existing `@yesimbot/agent-runtime`.
 
-> Status: early prototype. This repository contains the architecture and the first core slice (`SessionStore`, `AgentRegistry`, default `agentLoop` factory); the full runtime has not landed yet. See [docs/design.md](./docs/design.md) for the authoritative design.
+> Status: early prototype. This repository contains the architecture and the first core slices (`SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, default `agentLoop` factory); the full runtime has not landed yet. See [docs/design.md](./docs/design.md) for the authoritative design.
 
 ## Repository Status
 
-| Item                   | Value                                                            |
-| ---------------------- | ---------------------------------------------------------------- |
-| Package                | `@yesimbot/athena-harness`                                       |
-| Visibility             | Private prototype                                                |
-| Topology               | Single package now; future Yarn workspaces migration             |
-| Package manager        | Yarn 4, `node-modules` linker                                    |
-| Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                        |
-| Source of truth        | `docs/design.md`                                                 |
-| Current implementation | Initial core slice: `SessionStore`, `AgentRegistry`, `agentLoop` |
+| Item                   | Value                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| Package                | `@yesimbot/athena-harness`                                                           |
+| Visibility             | Private prototype                                                                    |
+| Topology               | Single package now; future Yarn workspaces migration                                 |
+| Package manager        | Yarn 4, `node-modules` linker                                                        |
+| Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                                            |
+| Source of truth        | `docs/design.md`                                                                     |
+| Current implementation | Core slices: `SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, `agentLoop` |
 
 The repository deliberately does not contain a Koishi integration, a YesImBot-compatible runtime, or a copy of deepseek-harness's application framework. The first version is intended to prove the smallest viable Cordis-based kernel before it becomes a shared foundation for YesImBot modes and community modes.
 

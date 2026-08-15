@@ -3,5 +3,8 @@ export * from "./agent-loop/index.js";
 export * from "./agent/index.js";
 export * from "./agent/types.js";
 export * from "./id.js";
+export * from "./model-surface.js";
+export * from "./session/events.js";
 export * from "./session/index.js";
+export * from "./session/surface.js";
 export * from "./session/types.js";

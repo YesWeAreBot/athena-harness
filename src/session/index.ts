@@ -2,6 +2,8 @@ import { Service } from "cordis";
 import type { Context } from "cordis";
 
 import { createId } from "../id.js";
+import { LIFECYCLE_EVENT_TYPES, MODEL_VISIBLE_EVENT_TYPES, type SessionEventMap } from "./events.js";
+import { SurfaceManager } from "./surface.js";
 import type { AppendOptions, SessionEvent, SessionHeader, SessionOptions, SessionSnapshot } from "./types.js";
 
 function freeze<T>(value: T): T {
@@ -10,6 +12,8 @@ function freeze<T>(value: T): T {
 
 export class Session {
   readonly header: SessionHeader;
+
+  readonly surface = new SurfaceManager();
 
   private events: SessionEvent[] = [];
 
@@ -32,22 +36,49 @@ export class Session {
     return this.events;
   }
 
-  append<T>(type: string, data: T, options: AppendOptions = {}): SessionEvent<T> {
+  append<K extends keyof SessionEventMap>(type: K, data: SessionEventMap[K], options?: AppendOptions): SessionEvent<SessionEventMap[K]>;
+  append<T>(type: string, data: T, options?: AppendOptions): SessionEvent<T>;
+  append(type: string, data: unknown, options: AppendOptions = {}): SessionEvent<unknown> {
+    if (options.surfaceOp && LIFECYCLE_EVENT_TYPES.has(type)) {
+      throw new Error(`Surface op is forbidden for lifecycle event: ${type}`);
+    }
+    if (MODEL_VISIBLE_EVENT_TYPES.has(type) && !options.surfaceOp) {
+      throw new Error(`Model-visible event requires a Surface op: ${type}`);
+    }
+
+    const seq = this.events.length + 1;
+    let sourceEventSeqs: number[] | undefined;
+    if (options.surfaceOp === "append") {
+      this.surface.append(seq);
+      sourceEventSeqs = [seq];
+    } else if (options.surfaceOp) {
+      const { start, end } = options.surfaceOp;
+      this.surface.replace(seq, start, end, options.sourceEventSeqs ?? []);
+      sourceEventSeqs = this.surface.snapshot.nodes.find((node) => node.seq === seq)?.sourceEventSeqs;
+    }
+
     const event = Object.freeze({
       type,
-      seq: this.events.length + 1,
+      seq,
       time: Date.now(),
       data: freeze(data),
       ...(options.ignorable ? { ignorable: true } : {}),
+      ...(options.surfaceOp ? { surfaceOp: options.surfaceOp } : {}),
+      ...(sourceEventSeqs ? { sourceEventSeqs } : {}),
     });
     this.events.push(event);
     return event;
+  }
+
+  getEvent(seq: number): SessionEvent | undefined {
+    return this.events.find((event) => event.seq === seq);
   }
 
   snapshot(): SessionSnapshot {
     return {
       header: { ...this.header },
       events: [...this.events],
+      surface: this.surface.snapshot,
     };
   }
 }

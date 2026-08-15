@@ -4,7 +4,7 @@ import type { Agent, AgentFactory, AgentHandle, AgentStatus } from "../agent/typ
 import type { Session } from "../session/index.js";
 
 export const agentLoop = {
-  inject: ["agents", "sessions"] as const,
+  inject: ["agents", "sessions", "modelSurface"] as const,
   apply(ctx: Context) {
     const factory: AgentFactory = {
       create: (input) => {
@@ -47,8 +47,11 @@ function createHandle(
     send(type, data) {
       if (disposed) throw new Error("Agent is disposed");
       if (status !== "idle") throw new Error("Agent is busy");
+      if (type !== "user/message" && !ctx.modelSurface.hasUserProjector(type)) {
+        throw new Error(`No user projector registered for event: ${type}`);
+      }
       status = "running";
-      session.append(type, data);
+      session.append(type, data, { surfaceOp: "append" });
       idle = new Promise<void>((resolve) => {
         resolveIdle = resolve;
       });
