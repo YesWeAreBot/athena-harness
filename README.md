@@ -33,7 +33,7 @@ The repository deliberately does not contain a Koishi integration, a YesImBot-co
 
 Athena Harness is a **minimal harness SDK/kernel**. The embedding application owns one Cordis root context and explicitly installs the Services and Providers it wants. Athena Harness does not provide a top-level `createRuntime()` factory or a default Core bundle.
 
-One root may host multiple live Agents. Each Agent owns one scoped Cordis context, one Session, and one AI SDK `LanguageModel`. The Agent Loop drives one `streamText()` call per Step and owns Step progression, durable checkpoints, and tool execution boundaries.
+One root may host multiple live Agents. Each Agent owns one scoped Cordis context, one or more Sessions, and one AI SDK `LanguageModel`. The default Agent Loop uses one primary Session, drives one `streamText()` call per Step, and owns Step progression, durable checkpoints, and tool execution boundaries.
 
 ### Relationship to the YesImBot Roadmap
 
@@ -63,7 +63,8 @@ This README and the design document keep the first version intentionally kernel-
 ### Agent and Session Model
 
 - A **Session** is one Agent's durable source of truth: one header, an append-only sequence of Session Events, deterministic model Surface derivation, and optional JSONL persistence.
-- An **Agent** is a temporary live execution driver with one scoped Cordis context and one Session. A Session can be restored into a newly composed Agent after the previous Agent is disposed.
+- An **Agent** is a temporary live execution driver with one scoped Cordis context and one or more Sessions. A Session can be restored into a newly composed Agent after the previous Agent is disposed.
+- The default Agent exposes `primarySession`, `sessions`, and `getSession(id)`; creation and restoration accept an optional `setup(agentCtx)` callback for Agent-scoped tools, prompt sections, context providers, and user projectors.
 - A **Turn** is one accepted external input followed by zero or more model Steps and one final outcome.
 - A **Step** is one AI SDK model call and the tool activity produced by that call.
 - Only one Turn may be active per Agent in the first version.
@@ -89,6 +90,7 @@ Agent creation and restoration are rollback-covered transactions. On failure, th
 
 - `ctx.agents.create()` creates a new Session.
 - `ctx.agents.resume()` restores an existing persisted Session.
+- Optional `setup(agentCtx)` runs before publication and its scoped registrations are removed when the Agent is disposed.
 - `agent.send(type, data)` accepts one external-input Session Event.
 - `agent.cancel(cause)` aborts the active Turn without disposing the Agent.
 - `agent.whenIdle()` resolves when the active Turn is fully closed and required checkpoints are complete.

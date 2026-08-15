@@ -86,4 +86,26 @@ describe("model surface", () => {
 
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
+
+  it("projects context snapshots as user messages", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(sessionStore), ctx.plugin(modelSurface)];
+    await Promise.all(fibers);
+
+    const session = ctx.sessions.create({ id: "model-context" });
+    session.append(
+      "context/snapshot",
+      {
+        turn: 1,
+        step: 1,
+        rendered: "<context>\nnow: 12:00\n</context>",
+        sections: [],
+      },
+      { surfaceOp: "append" },
+    );
+
+    expect(ctx.modelSurface.deriveMessages(session)).toEqual([{ role: "user", content: "<context>\nnow: 12:00\n</context>" }]);
+
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
 });

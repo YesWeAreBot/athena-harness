@@ -39,6 +39,15 @@ export interface SessionEventMap {
     step: number;
     header: unknown;
   };
+  "context/snapshot": {
+    turn: number;
+    step: number;
+    rendered: string;
+    sections: ReadonlyArray<{
+      name: string;
+      content: string;
+    }>;
+  };
 }
 
 export interface TurnEndReasonMap {
@@ -67,6 +76,6 @@ export interface TurnEndReasonMap {
 
 export type TurnEndReason = TurnEndReasonMap[keyof TurnEndReasonMap];
 
-export const MODEL_VISIBLE_EVENT_TYPES: ReadonlySet<string> = new Set(["user/message", "assistant/message", "tool/result"]);
+export const MODEL_VISIBLE_EVENT_TYPES: ReadonlySet<string> = new Set(["user/message", "assistant/message", "tool/result", "context/snapshot"]);
 
 export const NON_SURFACE_EVENT_TYPES: ReadonlySet<string> = new Set(["turn/start", "turn/end", "step/start", "step/end", "tool/call", "request/header"]);

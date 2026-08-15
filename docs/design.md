@@ -148,7 +148,9 @@ Each Agent directly owns the AI SDK `LanguageModel` capability supplied during c
 
 ### Agent
 
-An Agent is one live execution driver with one scoped Cordis context and one Session. Multiple Agents may run independently under the same root, while each Agent permits at most one active Turn in the first version.
+An Agent is one live execution driver with one scoped Cordis context and one or more Sessions. Multiple Agents may run independently under the same root, while each Agent permits at most one active Turn in the first version.
+
+Creation and restoration accept an optional `setup(agentCtx)` callback. `AgentContext` exposes the Agent id, its Cordis scope, scoped tool/prompt/user-projector registration, and ordinary Cordis plugin installation. Contributions made through `AgentContext` are removed when the Agent is disposed.
 
 The Agent control and event APIs are specified in [Public API and Modules](#public-api-and-modules).
 
@@ -181,11 +183,12 @@ Custom events retain their complete structured data in the Session log. A custom
 
 ### Model Surface
 
-The model Surface is closed to three semantic categories:
+The model Surface is closed to four semantic categories:
 
 - `user/message`;
 - `assistant/message`;
-- `tool/result`.
+- `tool/result`;
+- `context/snapshot`, projected as a `user/message` containing the rendered dynamic context.
 
 The Session Event vocabulary is open; the model Surface algebra is closed. Custom Session Events may project to `user/message`, but the derived user message is not separately persisted as a `user/message` Session Event.
 
@@ -469,15 +472,15 @@ The stable `AgentRegistry` public surface conceptually provides:
 - non-owning lookup and immutable listing of live Agents;
 - owner-only `AgentHandle` disposal.
 
-Creation requires a Session id, AI SDK `LanguageModel`, positive `maxSteps`, optional creation-only `AbortSignal`, and optional `setup(agentCtx)` callback. Restoration requires the same live composition plus the persisted Session id. Setup runs against the unpublished Agent-scoped Context and may install ordinary Cordis plugins; no Athena-specific Plugin descriptor array is introduced.
+Creation requires a Session id, AI SDK `LanguageModel`, positive `maxSteps`, and optional `setup(agentCtx)` callback. Restoration requires the same live composition plus the persisted Session id. Setup runs against the unpublished Agent-scoped Context and may install ordinary Cordis plugins, tools, prompt sections, dynamic context providers, and user projectors; no Athena-specific Plugin descriptor array is introduced.
 
 The caller Context and active Agent-factory Provider structurally co-own each returned handle. Caller or factory disposal reaches the same memoized Agent quiescence boundary. Concurrent create/resume operations for one Session id may prepare privately, but only one may enter the registries; every loser rolls back without publication.
 
 ### Agent API
 
-A live Agent exposes its Session id, Session, scoped Context, AI SDK model, current `idle | running` status, and configured `maxSteps`.
+A live Agent exposes its id, `primarySession`, `sessions`, `getSession(id)`, AI SDK model, current `idle | running` status, and configured `maxSteps`.
 
-`agent.send(type, data)` synchronously accepts one external-input Session Event and wakes the Agent. It permits the built-in `user/message` type or a custom Event Type with a registered root-global user projector; lifecycle, assistant, and tool event types are rejected. Sending while running, stopping, or disposed throws synchronously.
+`agent.send(type, data)` synchronously accepts one external-input Session Event and wakes the Agent. It permits the built-in `user/message` type or a custom Event Type with a registered root-global or Agent-scoped user projector; lifecycle, assistant, and tool event types are rejected. Sending while running, stopping, or disposed throws synchronously.
 
 `agent.cancel(cause)` aborts the active Turn without disposing the Agent. `agent.whenIdle()` resolves when the active driver has fully closed its Step/Turn, completed required persistence checkpoints, and returned to idle. `AgentHandle.dispose()` is the only public teardown capability.
 

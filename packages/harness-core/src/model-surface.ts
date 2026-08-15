@@ -19,16 +19,34 @@ interface UserEventData {
   content: UserContent;
 }
 
+interface ContextSnapshotData {
+  rendered: string;
+}
+
 export class ModelSurface extends Service {
   static provide = "modelSurface";
 
   private userProjectors = new Map<string, UserProjector>();
 
+  private scopedUserProjectors = new Map<symbol, Map<string, UserProjector>>();
+
   constructor(ctx: Context) {
     super(ctx, "modelSurface");
   }
 
-  registerUserProjector(type: string, projector: UserProjector): () => Promise<void> {
+  registerUserProjector(type: string, projector: UserProjector, scope?: symbol): () => Promise<void> {
+    if (scope) {
+      const layer = this.scopedUserProjectors.get(scope) ?? new Map();
+      if (layer.has(type)) {
+        throw new Error(`User projector already registered in scope: ${type}`);
+      }
+      layer.set(type, projector);
+      this.scopedUserProjectors.set(scope, layer);
+      return this.ctx.effect(() => () => {
+        layer.delete(type);
+      });
+    }
+
     if (this.userProjectors.has(type)) {
       throw new Error(`User projector already registered: ${type}`);
     }
@@ -38,24 +56,24 @@ export class ModelSurface extends Service {
     });
   }
 
-  hasUserProjector(type: string): boolean {
-    return this.userProjectors.has(type);
+  hasUserProjector(type: string, scope?: symbol): boolean {
+    return (scope && this.scopedUserProjectors.get(scope)?.has(type)) || this.userProjectors.has(type);
   }
 
-  deriveMessages(session: Session): ModelMessage[] {
+  deriveMessages(session: Session, scope?: symbol): ModelMessage[] {
     const messages: ModelMessage[] = [];
     for (const node of session.surface.snapshot.nodes) {
       const event = session.getEvent(node.seq);
       if (!event) {
         throw new Error(`Surface references missing event: ${node.seq}`);
       }
-      const message = this.project(event);
+      const message = this.project(event, scope);
       if (message) messages.push(message);
     }
     return messages;
   }
 
-  private project(event: SessionEvent): ModelMessage | undefined {
+  private project(event: SessionEvent, scope?: symbol): ModelMessage | undefined {
     if (event.type === "user/message") {
       return this.projectUser(event);
     }
@@ -65,7 +83,13 @@ export class ModelSurface extends Service {
     if (event.type === "tool/result") {
       return (event.data as ToolResultEventData).message;
     }
-    return this.projectCustom(event);
+    if (event.type === "context/snapshot") {
+      return {
+        role: "user",
+        content: (event.data as ContextSnapshotData).rendered,
+      };
+    }
+    return this.projectCustom(event, scope);
   }
 
   private projectUser(event: SessionEvent): UserModelMessage | undefined {
@@ -73,8 +97,8 @@ export class ModelSurface extends Service {
     return { role: "user", content };
   }
 
-  private projectCustom(event: SessionEvent): ModelMessage | undefined {
-    const projector = this.userProjectors.get(event.type);
+  private projectCustom(event: SessionEvent, scope?: symbol): ModelMessage | undefined {
+    const projector = (scope && this.scopedUserProjectors.get(scope)?.get(event.type)) ?? this.userProjectors.get(event.type);
     if (!projector) {
       throw new Error(`No user projector registered for surface event: ${event.type}`);
     }

@@ -59,4 +59,4 @@ It never reruns a Tool, and malformed or truncated records are rejected.
 
 ## Current Boundary
 
-Persistence is wired into the default `agentLoop`. Newly created Agents get a live binding; the Agent Loop flushes before model calls and tool side effects, and closes the binding on disposal. When `ctx.persist` is installed, `resume()` restores a Session from JSONL and reopens a live binding.
+Persistence is wired into the default `agentLoop`. Newly created Agents get a live binding; the Agent Loop flushes before model calls and tool side effects, and closes the binding on disposal. Context snapshots and request headers are persisted with the same event log. When `ctx.persist` is installed, `resume()` restores a Session from JSONL, runs the new Agent setup, and reopens a live binding; setup failure rolls back the restored Session and closes the binding without deleting the durable file.

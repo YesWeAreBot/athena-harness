@@ -3,8 +3,10 @@ import type { AssistantModelMessage, Tool, ToolCallPart, ToolModelMessage, ToolS
 import type { Context } from "cordis";
 
 import "../agent/events.js";
+import { createAgentContext, type AgentContext } from "../agent/context.js";
 import type { Agent, AgentFactory, AgentHandle, AgentStatus } from "../agent/types.js";
 import type { Persistence, PersistenceSessionBinding } from "../persist/index.js";
+import type { TurnEndReason } from "../session/events.js";
 import type { Session } from "../session/index.js";
 
 export const agentLoop = {
@@ -14,8 +16,23 @@ export const agentLoop = {
       create: async (input) => {
         const session = ctx.sessions.create({ id: input.id });
         const persist = ctx.get("persist") as Persistence | undefined;
-        const binding = persist ? await persist.create(session.header) : undefined;
-        return createHandle(ctx, session, input, binding);
+        let binding: PersistenceSessionBinding | undefined;
+        try {
+          binding = persist ? await persist.create(session.header) : undefined;
+        } catch (error) {
+          ctx.sessions.remove(session.id);
+          throw error;
+        }
+        const agentContext = createAgentContext(ctx, session.id);
+        try {
+          await input.setup?.(agentContext);
+        } catch (error) {
+          await agentContext.dispose();
+          await binding?.close();
+          ctx.sessions.remove(session.id);
+          throw error;
+        }
+        return createHandle(ctx, session, input, binding, agentContext);
       },
       resume: async (input) => {
         const persist = ctx.get("persist") as Persistence | undefined;
@@ -26,7 +43,16 @@ export const agentLoop = {
             session = ctx.sessions.restore(prepared.header, prepared.events);
             await prepared.close();
             const binding = await persist.open(input.id);
-            return createHandle(ctx, session, input, binding);
+            const agentContext = createAgentContext(ctx, session.id);
+            try {
+              await input.setup?.(agentContext);
+            } catch (error) {
+              await agentContext.dispose();
+              await binding.close();
+              ctx.sessions.remove(session.id);
+              throw error;
+            }
+            return createHandle(ctx, session, input, binding, agentContext);
           } catch (error) {
             if (session) ctx.sessions.remove(session.id);
             await prepared.close();
@@ -37,7 +63,15 @@ export const agentLoop = {
         if (!session) {
           throw new Error(`Session not found: ${input.id}`);
         }
-        return createHandle(ctx, session, input);
+        const agentContext = createAgentContext(ctx, session.id);
+        try {
+          await input.setup?.(agentContext);
+        } catch (error) {
+          await agentContext.dispose();
+          ctx.sessions.remove(session.id);
+          throw error;
+        }
+        return createHandle(ctx, session, input, undefined, agentContext);
       },
     };
     return ctx.agents.setFactory(factory);
@@ -51,18 +85,22 @@ function createHandle(
     model: Agent["model"];
     maxSteps: number;
   },
-  binding?: PersistenceSessionBinding,
+  binding: PersistenceSessionBinding | undefined,
+  agentContext: AgentContext,
 ): AgentHandle {
   let status: AgentStatus = "idle";
   let disposed = false;
   let resolveIdle: () => void = () => {};
   let idle: Promise<void> = Promise.resolve();
   let controller: AbortController | undefined;
-  const scope = Symbol(session.id);
+  const scope = agentContext.scope;
+  const contextState = { rendered: "" };
 
   const agent: Agent = {
     id: session.id,
-    session,
+    primarySession: session,
+    sessions: [session],
+    getSession: (id) => (session.id === id ? session : undefined),
     model: input.model,
     maxSteps: input.maxSteps,
     get status() {
@@ -71,7 +109,7 @@ function createHandle(
     send(type, data) {
       if (disposed) throw new Error("Agent is disposed");
       if (status !== "idle") throw new Error("Agent is busy");
-      if (type !== "user/message" && !ctx.modelSurface.hasUserProjector(type)) {
+      if (type !== "user/message" && !ctx.modelSurface.hasUserProjector(type, scope)) {
         throw new Error(`No user projector registered for event: ${type}`);
       }
       status = "running";
@@ -79,7 +117,7 @@ function createHandle(
       appendEvent(ctx, session, binding, type, data, { surfaceOp: "append" });
       const active = new AbortController();
       controller = active;
-      idle = runTurn(ctx, agent, session, scope, binding, active.signal).finally(() => {
+      idle = runTurn(ctx, agent, session, scope, binding, active.signal, contextState).finally(() => {
         if (controller === active) controller = undefined;
         if (!disposed) {
           status = "idle";
@@ -111,6 +149,7 @@ function createHandle(
         await idle;
       } catch {}
       await binding?.close();
+      await agentContext.dispose();
       ctx.sessions.remove(session.id);
     },
   };
@@ -123,23 +162,51 @@ async function runTurn(
   scope: symbol,
   binding: PersistenceSessionBinding | undefined,
   signal: AbortSignal,
+  contextState: { rendered: string },
 ): Promise<void> {
   const turn = session.snapshotEvents.filter((event) => event.type === "turn/start").length + 1;
   appendEvent(ctx, session, binding, "turn/start", { turn });
   let activeStep: number | undefined;
+  let endReason: TurnEndReason = { kind: "completed" };
   try {
     for (let step = 1; step <= agent.maxSteps; step++) {
       activeStep = step;
       appendEvent(ctx, session, binding, "step/start", { turn, step });
-      const messages = ctx.modelSurface.deriveMessages(session);
+      const messages = ctx.modelSurface.deriveMessages(session, scope);
       const prompt = await ctx.systemPrompt.snapshot(scope);
+      if (prompt.rendered !== contextState.rendered) {
+        appendEvent(
+          ctx,
+          session,
+          binding,
+          "context/snapshot",
+          {
+            turn,
+            step,
+            rendered: prompt.rendered,
+            sections: Object.entries(prompt.context).map(([name, content]) => ({ name, content })),
+          },
+          { surfaceOp: "append" },
+        );
+        contextState.rendered = prompt.rendered;
+      }
       const tools = ctx.tools.snapshot(scope);
+      const schemaTools = schemaOnly(tools);
+      appendEvent(ctx, session, binding, "request/header", {
+        turn,
+        step,
+        header: {
+          model: describeModel(agent.model),
+          system: prompt.system || undefined,
+          tools: Object.keys(schemaTools),
+        },
+      });
       await binding?.flush();
       const result = streamText({
         model: agent.model,
         messages,
         system: prompt.system || undefined,
-        tools: schemaOnly(tools),
+        tools: schemaTools,
         abortSignal: signal,
       });
       const streamTask = (async () => {
@@ -151,6 +218,12 @@ async function runTurn(
       })();
       const finalStep = await result.finalStep;
       await streamTask;
+      const wantsContinue = finalStep.toolCalls.length > 0;
+      if (finalStep.finishReason === "length") {
+        endReason = { kind: "max-tokens" };
+      } else if (wantsContinue && step === agent.maxSteps) {
+        endReason = { kind: "max-steps", limit: agent.maxSteps };
+      }
 
       const assistantMessage: AssistantModelMessage = {
         role: "assistant",
@@ -170,11 +243,11 @@ async function runTurn(
       }
 
       appendEvent(ctx, session, binding, "step/end", { turn, step });
-      if (!finalStep.toolCalls.length) break;
+      if (!wantsContinue || finalStep.finishReason === "length") break;
     }
     appendEvent(ctx, session, binding, "turn/end", {
       turn,
-      reason: { kind: "completed" },
+      reason: endReason,
     });
     await binding?.flush();
   } catch (error) {
@@ -259,6 +332,17 @@ function schemaOnly(tools: ToolSet): ToolSet {
     result[name] = clone as Tool;
   }
   return result as ToolSet;
+}
+
+function describeModel(model: Agent["model"]): unknown {
+  if (typeof model === "string") {
+    return { modelId: model };
+  }
+  const record = model as { provider?: string; modelId?: string };
+  return {
+    provider: record.provider,
+    modelId: record.modelId,
+  };
 }
 
 function appendEvent(

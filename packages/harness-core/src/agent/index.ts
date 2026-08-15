@@ -62,14 +62,17 @@ export class AgentRegistry extends Service {
     return this.factory;
   }
 
-  private register(handle: AgentHandle): AgentHandle {
+  private async register(handle: AgentHandle): Promise<AgentHandle> {
     if (this.handles.has(handle.agent.id)) {
+      try {
+        await handle.dispose();
+      } catch {}
       throw new Error(`Agent already exists: ${handle.agent.id}`);
     }
 
     let disposed = false;
     const originalDispose = handle.dispose;
-    const registered: AgentHandle = {
+    const registered = {
       agent: handle.agent,
       dispose: async () => {
         if (disposed) return;

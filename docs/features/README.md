@@ -28,7 +28,8 @@ The repository is an early prototype. The following are implemented and tested:
 - `SessionEventMap` and built-in event vocabulary
 - `SurfaceManager` with append and replace semantics
 - `ModelSurface` and custom user projectors
-- `AgentRegistry`, owner-scoped handles, and a real `agentLoop` with text/tool Steps
+- `AgentRegistry`, owner-scoped handles, `AgentContext` setup, and a real `agentLoop` with text/tool Steps
+- durable `context/snapshot` events, `request/header` records, and `max-tokens` / `max-steps` end reasons
 - `BodyRegistry` and `PerceptEvent`
 - `Persistence` and `JsonlPersistence`
 - `ToolRuntime` and `SystemPrompt`

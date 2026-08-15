@@ -27,6 +27,30 @@ export interface AgentOutputEvent {
   message?: AssistantModelMessage;
 }
 
+interface AgentStatusCordisEvent {
+  agent: unknown;
+  status: AgentStatus;
+}
+
+interface AgentErrorCordisEvent {
+  agent: unknown;
+  turn?: number;
+  step?: number;
+  error: unknown;
+}
+
+interface AgentStreamPartCordisEvent {
+  agent: unknown;
+  part: unknown;
+}
+
+interface AgentOutputCordisEvent {
+  agent: unknown;
+  kind: "text-delta" | "assistant-message";
+  text?: string;
+  message?: AssistantModelMessage;
+}
+
 export interface AgentEventMap {
   "agent/status"(event: AgentStatusEvent): void;
   "agent/error"(event: AgentErrorEvent): void;
@@ -60,9 +84,9 @@ export function agentEvents(ctx: Context, agent: Agent): AgentEventSubject {
 
 declare module "cordis" {
   interface Events {
-    "agent/status"(event: AgentStatusEvent): void;
-    "agent/error"(event: AgentErrorEvent): void;
-    "agent/stream-part"(event: AgentStreamPartEvent): void;
-    "agent/output"(event: AgentOutputEvent): void;
+    "agent/status"(event: AgentStatusCordisEvent): void;
+    "agent/error"(event: AgentErrorCordisEvent): void;
+    "agent/stream-part"(event: AgentStreamPartCordisEvent): void;
+    "agent/output"(event: AgentOutputCordisEvent): void;
   }
 }

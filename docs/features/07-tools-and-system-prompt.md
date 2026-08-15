@@ -2,7 +2,7 @@
 
 ## What It Gives You
 
-`ctx.tools` and `ctx.systemPrompt` are the scoped composition services used by the future Agent Loop.
+`ctx.tools` and `ctx.systemPrompt` are the scoped composition services consumed by the real Agent Loop.
 
 They let plugins register capabilities in two layers:
 
@@ -20,14 +20,16 @@ const dispose = ctx.tools.register("echo", tool);
 const snapshot = ctx.tools.snapshot();
 ```
 
-For an agent scope:
+Inside `AgentContext.setup`, the same registration is installed against the Agent's scope:
 
 ```ts
-const scope = Symbol("life-1");
-ctx.tools.register("echo", scopedTool, scope);
+setup: (agent) => {
+  agent.tools.register("echo", scopedTool);
+  agent.systemPrompt.registerSection("identity", "scoped identity");
+},
 ```
 
-`snapshot(scope)` returns the merged model-facing tool set with scoped entries shadowing globals.
+`ctx.tools.snapshot(scope)` returns the merged model-facing tool set with scoped entries shadowing globals.
 
 ## Assemble a System Prompt
 
@@ -50,4 +52,4 @@ const snapshot = await ctx.systemPrompt.snapshot();
 
 ## Current Boundary
 
-This slice provides registration, shadowing, and snapshot assembly, and is wired into the real `agentLoop`. Scopes are currently explicit symbols rather than derived automatically from an Agent-scoped Cordis Context. Durable checkpoints are now flushed before tool side effects.
+This slice provides registration, shadowing, and snapshot assembly, and is wired into the real `agentLoop`. `AgentContext` creates and owns the Agent scope symbol, so setup callers do not need to manage symbols manually. Durable checkpoints are now flushed before tool side effects.

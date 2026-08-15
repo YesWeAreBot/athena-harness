@@ -60,6 +60,7 @@ The result is a fresh AI SDK `ModelMessage[]`:
 - `user/message` becomes a user message;
 - `assistant/message` becomes an assistant message;
 - `tool/result` becomes a tool message;
+- `context/snapshot` becomes a user message containing the rendered dynamic context;
 - custom Surface events require a registered user projector.
 
 ## Custom User Projector
@@ -69,6 +70,17 @@ ctx.modelSurface.registerUserProjector("external/message", (event) => {
   const data = event.data as { text: string };
   return `external:${data.text}`;
 });
+```
+
+Agent-scoped plugins can register the same projector through `AgentContext`:
+
+```ts
+setup: (agent) => {
+  agent.modelSurface.registerUserProjector("external/message", (event) => {
+    const data = event.data as { text: string };
+    return `external:${data.text}`;
+  });
+},
 ```
 
 The custom event remains unchanged in the log; only the derived model message is generated from it.
@@ -81,4 +93,4 @@ The custom event remains unchanged in the log; only the derived model message is
 
 ## Current Boundary
 
-Only user-message projection is extensible. Assistant and tool messages are core-owned. Projectors must be pure; the runtime does not yet enforce purity at runtime.
+Only user-message projection is extensible. Assistant and tool messages are core-owned. User projectors may be registered root-globally or per Agent scope, and scoped projectors are removed when the Agent is disposed. Projectors must be pure; the runtime does not yet enforce purity at runtime.

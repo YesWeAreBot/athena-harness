@@ -6,7 +6,7 @@
       "outputs": ["lib/**"]
     },
     "typecheck": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build"],
       "outputs": []
     },
     "test": {

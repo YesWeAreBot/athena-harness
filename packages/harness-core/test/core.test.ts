@@ -49,7 +49,7 @@ describe("athena harness core slice", () => {
     });
 
     expect(ctx.agents.get(handle.agent.id)).toBe(handle.agent);
-    expect(ctx.sessions.get(handle.agent.id)).toBe(handle.agent.session);
+    expect(ctx.sessions.get(handle.agent.id)).toBe(handle.agent.primarySession);
     await expect(
       ctx.agents.create({
         id: handle.agent.id,
@@ -62,15 +62,18 @@ describe("athena harness core slice", () => {
     const statuses: string[] = [];
     const outputs: string[] = [];
     const streamParts: Array<{ type?: string }> = [];
+    ctx.systemPrompt.registerContextProvider("time", async () => "12:00");
     subject.on("agent/status", (event) => statuses.push(event.status));
     subject.on("agent/output", (event) => outputs.push(event.kind));
     subject.on("agent/stream-part", (event) => streamParts.push(event.part as { type?: string }));
 
     handle.agent.send("user/message", { content: "hello" });
     await handle.agent.whenIdle();
-    expect(handle.agent.session.snapshotEvents.length).toBeGreaterThan(1);
-    expect(handle.agent.session.snapshotEvents.some((event) => event.type === "user/message")).toBe(true);
-    expect(handle.agent.session.snapshotEvents.some((event) => event.type === "assistant/message")).toBe(true);
+    expect(handle.agent.primarySession.snapshotEvents.length).toBeGreaterThan(1);
+    expect(handle.agent.primarySession.snapshotEvents.some((event) => event.type === "user/message")).toBe(true);
+    expect(handle.agent.primarySession.snapshotEvents.some((event) => event.type === "assistant/message")).toBe(true);
+    expect(handle.agent.primarySession.snapshotEvents.some((event) => event.type === "request/header")).toBe(true);
+    expect(handle.agent.primarySession.snapshotEvents.some((event) => event.type === "context/snapshot")).toBe(true);
     expect(handle.agent.status).toBe("idle");
     expect(statuses).toContain("running");
     expect(statuses).toContain("idle");
