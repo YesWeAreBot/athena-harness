@@ -4,6 +4,8 @@ This series is developer-facing. It explains the features that currently have im
 
 It is intentionally different from [docs/design.md](../design.md): the design document records architecture decisions and acceptance criteria, while these guides describe the current developer experience.
 
+See [Positioning](../positioning.md) for the project's target layer and ecosystem boundaries.
+
 ## Guides
 
 | Guide                                                                   | What it covers                                                                          |

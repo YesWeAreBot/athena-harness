@@ -1,6 +1,6 @@
 # Athena Harness
 
-Athena Harness is a small, platform-agnostic agent runtime prototype built directly on **Cordis v4** and **AI SDK v7**. It is an independent architecture experiment for the next YesImBot framework layer, not a wrapper around Koishi and not a compatibility layer around the existing `@yesimbot/agent-runtime`.
+Athena Harness is a small, platform-agnostic digital life runtime prototype built directly on **Cordis v4** and **AI SDK v7**. It is an independent architecture experiment for the next YesImBot framework layer, not an AI agent assistant, not a wrapper around Koishi, and not a compatibility layer around the existing `@yesimbot/agent-runtime`.
 
 > Status: early prototype. This repository contains the architecture and the first core slices (`SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, default `agentLoop` factory); the full runtime has not landed yet. See [docs/design.md](./docs/design.md) for the authoritative design.
 
@@ -179,7 +179,7 @@ corepack yarn format
 
 The design and acceptance criteria are defined in [docs/design.md](./docs/design.md). Implementation should not move ahead of that document's confirmed decisions.
 
-Developer-facing feature guides are available in [docs/features](./docs/features/README.md).
+Developer-facing feature guides are available in [docs/features](./docs/features/README.md). The project's vision and ecosystem boundaries are described in [docs/vision.md](./docs/vision.md) and [docs/positioning.md](./docs/positioning.md).
 
 ## Roadmap
 

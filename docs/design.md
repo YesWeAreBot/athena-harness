@@ -8,7 +8,7 @@ Update it as decisions are confirmed. Sections marked **Pending** are unresolved
 
 ## Purpose
 
-Athena Harness is a small, platform-agnostic agent runtime built directly on Cordis and AI SDK. It is an independent technical prototype, not a replacement for or compatibility layer around YesImBot's existing `@yesimbot/agent-runtime`.
+Athena Harness is a small, platform-agnostic runtime kernel for AI digital life forms, built directly on Cordis and AI SDK. It is an independent technical prototype, not a replacement for or compatibility layer around YesImBot's existing `@yesimbot/agent-runtime`.
 
 The prototype validates whether Cordis can provide composable service dependencies and reversible lifecycle ownership without inheriting deepseek-harness's full application framework.
 
@@ -40,13 +40,15 @@ The first version does not provide:
 
 ## Mode-Oriented Framework Direction
 
-Athena Harness is the kernel prototype for a later Cordis-based YesImBot framework. The first implementation deliberately excludes that application layer, but the target architecture is confirmed:
+Athena Harness is the kernel prototype for a later Cordis-based digital life framework. The first implementation deliberately excludes that application layer, but the target architecture is confirmed:
 
 - `@yesimbot/framework` will expose shared framework services and a first-class `Mode` registry.
 - Chat, World, and community-created modes are equal plugins; none of them is baked into the framework.
-- Koishi is an optional transport adapter, not a dependency of the framework.
-- Platform access is transport-oriented, for example Satori or a Koishi bridge, rather than hard-coded into Agent execution.
-- World is redesigned as a Mode plugin using framework transport, model, store, and scheduler services. It does not own the framework or a separate WebUI.
+- Koishi is an optional sense or transport adapter, not a dependency of the framework.
+- Platform access is sense/actuator-oriented, for example Satori or a Koishi bridge, rather than hard-coded into life execution.
+- IM is a door, not a home. Chat and World are two life modes, not the definition of the framework.
+- Body is a composable plugin surface: Senses + Actuators + Body State. A Body may be an IM account, a web account, a Minecraft avatar, a device, or a physical shell; the core does not implement any specific Body.
+- World is redesigned as a Mode plugin using framework sense, actuator, model, store, and scheduler services. It does not own the framework or a separate WebUI.
 - The repository remains a single package while only one real package exists. When the first independent `mode-chat`, `mode-world`, `adapter-*`, or `plugin-*` package is introduced, the repository will migrate to Yarn workspaces.
 
 The conceptual Mode contract is:
@@ -61,11 +63,11 @@ export interface Mode<C = any> {
 export interface ModeHandle {
   start?(): Awaitable<void>;
   stop?(): Awaitable<void>;
-  handle?(event: ChatEvent): Awaitable<boolean>;
+  handle?(event: PerceptEvent): Awaitable<boolean>;
 }
 ```
 
-The exact `Mode`, `ChatEvent`, and `FrameworkContext` shapes are not committed yet. The first prototype must not implement this contract by inference; it should only leave the service, plugin, and lifecycle seams that a later Mode layer can use without rewriting the kernel.
+`PerceptEvent` is deliberately not a chat event. It may represent an IM message, a Bilibili or Xiaohongshu event, a Minecraft observation, a timer tick, a world event, a sensor reading, or a physical-body input. The exact `Mode`, `PerceptEvent`, `Body`, and `FrameworkContext` shapes are not committed yet. The first prototype must not implement this contract by inference; it should only leave the service, plugin, and lifecycle seams that a later Mode and Body layer can use without rewriting the kernel.
 
 ## Repository
 
