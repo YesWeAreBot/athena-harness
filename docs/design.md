@@ -38,6 +38,35 @@ The first version does not provide:
 - a custom LLM protocol or a second message type system over AI SDK;
 - a runtime `InvariantRegistry` service.
 
+## Mode-Oriented Framework Direction
+
+Athena Harness is the kernel prototype for a later Cordis-based YesImBot framework. The first implementation deliberately excludes that application layer, but the target architecture is confirmed:
+
+- `@yesimbot/framework` will expose shared framework services and a first-class `Mode` registry.
+- Chat, World, and community-created modes are equal plugins; none of them is baked into the framework.
+- Koishi is an optional transport adapter, not a dependency of the framework.
+- Platform access is transport-oriented, for example Satori or a Koishi bridge, rather than hard-coded into Agent execution.
+- World is redesigned as a Mode plugin using framework transport, model, store, and scheduler services. It does not own the framework or a separate WebUI.
+- The prototype remains one package. A future framework repo may split into `@yesimbot/framework`, `mode-chat`, `mode-world`, `adapter-*`, and `plugin-*` packages after real consumers prove those boundaries.
+
+The conceptual Mode contract is:
+
+```ts
+export interface Mode<C = any> {
+  name: string
+  schema?: Schema<C>
+  setup(ctx: FrameworkContext, config: C): Awaitable<ModeHandle>
+}
+
+export interface ModeHandle {
+  start?(): Awaitable<void>
+  stop?(): Awaitable<void>
+  handle?(event: ChatEvent): Awaitable<boolean>
+}
+```
+
+The exact `Mode`, `ChatEvent`, and `FrameworkContext` shapes are not committed yet. The first prototype must not implement this contract by inference; it should only leave the service, plugin, and lifecycle seams that a later Mode layer can use without rewriting the kernel.
+
 ## Repository
 
 - Repository: `/home/workspace/athena-harness`
@@ -641,3 +670,5 @@ Implementation may choose exact helper names and local data structures, but it m
 - 2026-08-14: when `ctx.persist` is installed, make every new Session in that root durable; without it, new Sessions are memory-only.
 - 2026-08-14: export stable contracts from the package root and concrete Providers only through `./agent-loop` and `./persist/jsonl`.
 - 2026-08-14: use Cordis `agentEvents(ctx, agent)` observation, with public output limited to text deltas and final Assistant Messages.
+- 2026-08-15: after prototype acceptance, evolve the harness into a mode-oriented Cordis framework; Chat, World, and community modes are plugins and Koishi is an optional transport adapter.
+- 2026-08-15: the first prototype remains kernel-only and does not implement the Mode registry, transport adapters, mode packages, or a separate WebUI.
