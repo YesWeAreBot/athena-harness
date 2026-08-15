@@ -1,13 +1,13 @@
-import { agentRegistry } from "@athena/agent";
-import { systemPrompt } from "@athena/prompt";
-import { sessionRegistry } from "@athena/session";
-import { toolRegistry } from "@athena/tools";
+import { AgentRegistry } from "@athena/agent";
+import { SystemPrompt } from "@athena/prompt";
+import { SessionRegistry } from "@athena/session";
+import { ToolRegistry } from "@athena/tools";
 import type { FinishReason } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { agentLoop } from "../src/index.js";
+import { AgentLoop } from "../src/index.js";
 
 function makeStreamModel(text = "hello", finishReason: FinishReason = "stop") {
   return new MockLanguageModelV4({
@@ -31,7 +31,7 @@ function makeStreamModel(text = "hello", finishReason: FinishReason = "stop") {
 
 async function setup() {
   const ctx = new Context();
-  await Promise.all([ctx.plugin(sessionRegistry), ctx.plugin(agentRegistry), ctx.plugin(toolRegistry), ctx.plugin(systemPrompt), ctx.plugin(agentLoop)]);
+  await Promise.all([ctx.plugin(SessionRegistry), ctx.plugin(AgentRegistry), ctx.plugin(ToolRegistry), ctx.plugin(SystemPrompt), ctx.plugin(AgentLoop)]);
   return ctx;
 }
 

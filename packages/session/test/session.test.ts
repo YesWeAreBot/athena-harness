@@ -1,7 +1,7 @@
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { InvalidReplaceRangeError, Session, ToolCallMissingError, TurnClosedError, TurnNotOpenError, restoreSession, sessionRegistry } from "../src/index.js";
+import { InvalidReplaceRangeError, Session, SessionRegistry, ToolCallMissingError, TurnClosedError, TurnNotOpenError, restoreSession } from "../src/index.js";
 
 // ── Invariant: TurnNotOpenError ────────────────────────────────────────────
 describe("Session write-time invariants", () => {
@@ -118,7 +118,7 @@ describe("snapshot / restore", () => {
 describe("SessionRegistry", () => {
   it("create + get + remove", async () => {
     const ctx = new Context();
-    await ctx.plugin(sessionRegistry);
+    await ctx.plugin(SessionRegistry);
     const session = ctx.sessions.create({ id: "s1" });
     expect(ctx.sessions.get("s1")).toBe(session);
     ctx.sessions.remove("s1");
@@ -127,14 +127,14 @@ describe("SessionRegistry", () => {
 
   it("duplicate create throws", async () => {
     const ctx = new Context();
-    await ctx.plugin(sessionRegistry);
+    await ctx.plugin(SessionRegistry);
     ctx.sessions.create({ id: "dup" });
     expect(() => ctx.sessions.create({ id: "dup" })).toThrow(/already exists/);
   });
 
   it("setPersistence duplicate throws", async () => {
     const ctx = new Context();
-    await ctx.plugin(sessionRegistry);
+    await ctx.plugin(SessionRegistry);
     const handler = {
       prepare: async () => {
         throw new Error();

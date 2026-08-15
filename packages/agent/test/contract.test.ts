@@ -1,9 +1,9 @@
-import { sessionRegistry } from "@athena/session";
+import { SessionRegistry } from "@athena/session";
 import type { LanguageModel } from "ai";
 import { Context } from "cordis";
 import { describe, expect, it, vi } from "vitest";
 
-import { agentRegistry } from "../src/registry.js";
+import { AgentRegistry } from "../src/registry.js";
 import type { Agent, AgentFactory, AgentHandle } from "../src/types.js";
 
 function stubAgent(id: string): Agent {
@@ -30,8 +30,8 @@ function stubHandle(id: string): AgentHandle {
 describe("AgentRegistry factory seam", () => {
   it("setFactory registers the factory; create delegates to it", async () => {
     const ctx = new Context();
-    await ctx.plugin(sessionRegistry);
-    await ctx.plugin(agentRegistry);
+    await ctx.plugin(SessionRegistry);
+    await ctx.plugin(AgentRegistry);
 
     const createAgent = vi.fn(async () => stubHandle("a1"));
     const factory: AgentFactory = {
@@ -49,7 +49,7 @@ describe("AgentRegistry factory seam", () => {
 
   it("get(id) returns the agent after create", async () => {
     const ctx = new Context();
-    await ctx.plugin(agentRegistry);
+    await ctx.plugin(AgentRegistry);
     ctx.agents.setFactory({
       createAgent: async () => stubHandle("b1"),
       resumeAgent: async () => {
@@ -62,7 +62,7 @@ describe("AgentRegistry factory seam", () => {
 
   it("list() returns all live agents", async () => {
     const ctx = new Context();
-    await ctx.plugin(agentRegistry);
+    await ctx.plugin(AgentRegistry);
     ctx.agents.setFactory({
       createAgent: async (opts) => stubHandle(opts.id ?? "c1"),
       resumeAgent: async () => {
@@ -78,7 +78,7 @@ describe("AgentRegistry factory seam", () => {
 
   it("dispose() removes agent from list()", async () => {
     const ctx = new Context();
-    await ctx.plugin(agentRegistry);
+    await ctx.plugin(AgentRegistry);
     ctx.agents.setFactory({
       createAgent: async () => stubHandle("d1"),
       resumeAgent: async () => {
@@ -93,7 +93,7 @@ describe("AgentRegistry factory seam", () => {
 
   it("setFactory twice throws", async () => {
     const ctx = new Context();
-    await ctx.plugin(agentRegistry);
+    await ctx.plugin(AgentRegistry);
     const f: AgentFactory = {
       createAgent: async () => stubHandle("x"),
       resumeAgent: async () => {

@@ -16,6 +16,7 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "@total-typescript/shoehorn": "^0.1.2",
     "@types/node": "^22.20.1",
     "oxfmt": "^0.62.0",
     "oxlint": "^1.77.0",

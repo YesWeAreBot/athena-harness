@@ -501,6 +501,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@total-typescript/shoehorn@npm:^0.1.2":
+  version: 0.1.2
+  resolution: "@total-typescript/shoehorn@npm:0.1.2"
+  checksum: 10c0/e1bb904a3c46bd00a3a31a4f24a07a5de8f6c4aebb811f4ac108dfad066d2797c682b49bbcd09e98e2bd12e8b67db9bcb793e02e2ed8a996e1fe0d232a7efcf1
+  languageName: node
+  linkType: hard
+
 "@turbo/darwin-64@npm:2.10.8":
   version: 2.10.8
   resolution: "@turbo/darwin-64@npm:2.10.8"
@@ -724,6 +731,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "athena-harness@workspace:."
   dependencies:
+    "@total-typescript/shoehorn": "npm:^0.1.2"
     "@types/node": "npm:^22.20.1"
     oxfmt: "npm:^0.62.0"
     oxlint: "npm:^1.77.0"

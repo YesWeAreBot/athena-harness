@@ -1,7 +1,7 @@
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { systemPrompt } from "../src/index.js";
+import { SystemPrompt } from "../src/index.js";
 import type { PromptSection } from "../src/index.js";
 
 function section(name: string, content: string, order?: number): PromptSection {
@@ -11,7 +11,7 @@ function section(name: string, content: string, order?: number): PromptSection {
 describe("SystemPrompt", () => {
   it("assembles sections in order weight (ascending)", async () => {
     const ctx = new Context();
-    await ctx.plugin(systemPrompt);
+    await ctx.plugin(SystemPrompt);
     ctx.systemPrompt.add(section("b", "B", 2));
     ctx.systemPrompt.add(section("a", "A", 1));
     const result = await ctx.systemPrompt.assemble();
@@ -21,7 +21,7 @@ describe("SystemPrompt", () => {
 
   it("default order 0 — sections with same order maintain insertion order (stable sort)", async () => {
     const ctx = new Context();
-    await ctx.plugin(systemPrompt);
+    await ctx.plugin(SystemPrompt);
     ctx.systemPrompt.add(section("x", "X"));
     ctx.systemPrompt.add(section("y", "Y"));
     const result = await ctx.systemPrompt.assemble();
@@ -31,7 +31,7 @@ describe("SystemPrompt", () => {
 
   it("scoped section overrides global of same name", async () => {
     const ctx = new Context();
-    await ctx.plugin(systemPrompt);
+    await ctx.plugin(SystemPrompt);
     const key = Symbol("agent");
     ctx.systemPrompt.add(section("greeting", "global"));
     ctx.systemPrompt.add(section("greeting", "scoped"), key);
@@ -41,7 +41,7 @@ describe("SystemPrompt", () => {
 
   it("rendered fingerprint is stable when content unchanged", async () => {
     const ctx = new Context();
-    await ctx.plugin(systemPrompt);
+    await ctx.plugin(SystemPrompt);
     ctx.systemPrompt.add(section("s", "hello world"));
     const r1 = await ctx.systemPrompt.assemble();
     const r2 = await ctx.systemPrompt.assemble();
@@ -50,7 +50,7 @@ describe("SystemPrompt", () => {
 
   it("rendered fingerprint changes when content changes", async () => {
     const ctx = new Context();
-    await ctx.plugin(systemPrompt);
+    await ctx.plugin(SystemPrompt);
     let value = "v1";
     ctx.systemPrompt.add({ name: "dynamic", render: () => value });
     const r1 = await ctx.systemPrompt.assemble();
@@ -61,14 +61,14 @@ describe("SystemPrompt", () => {
 
   it("duplicate global section registration throws", async () => {
     const ctx = new Context();
-    await ctx.plugin(systemPrompt);
+    await ctx.plugin(SystemPrompt);
     ctx.systemPrompt.add(section("dup", "x"));
     expect(() => ctx.systemPrompt.add(section("dup", "y"))).toThrow(/already registered/);
   });
 
   it("AbortSignal is forwarded to async render", async () => {
     const ctx = new Context();
-    await ctx.plugin(systemPrompt);
+    await ctx.plugin(SystemPrompt);
     let received: AbortSignal | undefined;
     ctx.systemPrompt.add({
       name: "spy",

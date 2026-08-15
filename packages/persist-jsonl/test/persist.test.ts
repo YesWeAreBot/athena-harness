@@ -2,11 +2,11 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { sessionRegistry, type SessionEvent, type SessionHeader } from "@athena/session";
+import { SessionRegistry, type SessionEvent, type SessionHeader } from "@athena/session";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { persistJsonl } from "../src/index.js";
+import { PersistJsonl } from "../src/index.js";
 
 async function makeDir() {
   return mkdtemp(join(tmpdir(), "athena-persist-"));
@@ -17,8 +17,8 @@ describe("JsonlHandler", () => {
     const dir = await makeDir();
     try {
       const ctx = new Context();
-      await ctx.plugin(sessionRegistry);
-      await ctx.plugin(persistJsonl({ dir }));
+      await ctx.plugin(SessionRegistry);
+      await ctx.plugin(PersistJsonl({ dir }));
 
       const header: SessionHeader = { id: "session-1", createdAt: Date.now() };
       const binding = await ctx.sessions.persistence!.create(header);
@@ -47,8 +47,8 @@ describe("JsonlHandler", () => {
     const dir = await makeDir();
     try {
       const ctx = new Context();
-      await ctx.plugin(sessionRegistry);
-      await ctx.plugin(persistJsonl({ dir }));
+      await ctx.plugin(SessionRegistry);
+      await ctx.plugin(PersistJsonl({ dir }));
 
       const header: SessionHeader = { id: "session-2", createdAt: Date.now() };
       const b1 = await ctx.sessions.persistence!.create(header);
@@ -75,8 +75,8 @@ describe("JsonlHandler", () => {
     const dir = await makeDir();
     try {
       const ctx = new Context();
-      await ctx.plugin(sessionRegistry);
-      await ctx.plugin(persistJsonl({ dir }));
+      await ctx.plugin(SessionRegistry);
+      await ctx.plugin(PersistJsonl({ dir }));
 
       const header: SessionHeader = { id: "session-3", createdAt: Date.now() };
       const binding = await ctx.sessions.persistence!.create(header);
@@ -100,8 +100,8 @@ describe("JsonlHandler", () => {
     const dir = await makeDir();
     try {
       const ctx = new Context();
-      await ctx.plugin(sessionRegistry);
-      await ctx.plugin(persistJsonl({ dir }));
+      await ctx.plugin(SessionRegistry);
+      await ctx.plugin(PersistJsonl({ dir }));
 
       const header: SessionHeader = { id: "session-dup", createdAt: Date.now() };
       const b = await ctx.sessions.persistence!.create(header);
@@ -116,8 +116,8 @@ describe("JsonlHandler", () => {
     const dir = await makeDir();
     try {
       const ctx = new Context();
-      await ctx.plugin(sessionRegistry);
-      await ctx.plugin(persistJsonl({ dir }));
+      await ctx.plugin(SessionRegistry);
+      await ctx.plugin(PersistJsonl({ dir }));
 
       await writeFile(join(dir, `${encodeURIComponent("broken")}.jsonl`), "not json\n");
       await expect(ctx.sessions.persistence!.prepare("broken")).rejects.toThrow(/malformed JSON/);
