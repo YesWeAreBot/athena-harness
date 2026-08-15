@@ -1,9 +1,8 @@
 import type { LanguageModel } from "ai";
 import type { Context } from "cordis";
 
+import type { Awaitable } from "../awaitable.js";
 import type { Session } from "../session/index.js";
-
-export type Awaitable<T> = T | PromiseLike<T>;
 
 export type AgentStatus = "idle" | "running" | "stopping" | "disposed";
 

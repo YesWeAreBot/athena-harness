@@ -14,6 +14,7 @@ See [Positioning](../positioning.md) for the project's target layer and ecosyste
 | [02 - Surface and Model Surface](./02-surface-model-surface.md)         | Surface topology, event replacement, and deterministic AI SDK message derivation.       |
 | [03 - Agent Registry and Agent Loop](./03-agent-registry-agent-loop.md) | Cordis composition, agent creation, ownership, disposal, and the current loop boundary. |
 | [04 - Development Workflow](./04-development-workflow.md)               | Local commands, module layout, verification, and contribution loop.                     |
+| [05 - Body and Percept](./05-body-and-percept.md)                       | Body registration and non-IM percept events.                                            |
 
 ## Current Status
 
@@ -24,5 +25,6 @@ The repository is an early prototype. The following are implemented and tested:
 - `SurfaceManager` with append and replace semantics
 - `ModelSurface` and custom user projectors
 - `AgentRegistry`, owner-scoped handles, and a placeholder `agentLoop` factory
+- `BodyRegistry` and `PerceptEvent`
 
-The real AI SDK `streamText()` loop, durable persistence, tools, prompt composition, and Mode architecture are not implemented yet.
+The real AI SDK `streamText()` loop, durable persistence, tools, prompt composition, Mode architecture, and actuator execution are not implemented yet.

@@ -67,7 +67,17 @@ export interface ModeHandle {
 }
 ```
 
-`PerceptEvent` is deliberately not a chat event. It may represent an IM message, a Bilibili or Xiaohongshu event, a Minecraft observation, a timer tick, a world event, a sensor reading, or a physical-body input. The exact `Mode`, `PerceptEvent`, `Body`, and `FrameworkContext` shapes are not committed yet. The first prototype must not implement this contract by inference; it should only leave the service, plugin, and lifecycle seams that a later Mode and Body layer can use without rewriting the kernel.
+`PerceptEvent` is deliberately not a chat event. It may represent an IM message, a Bilibili or Xiaohongshu event, a Minecraft observation, a timer tick, a world event, a sensor reading, or a physical-body input.
+
+The exact `Mode` and `FrameworkContext` shapes are not committed yet. The first prototype must not implement the Mode contract by inference.
+
+The minimal `Body` and `PerceptEvent` contracts used by `BodyRegistry` are confirmed for the current kernel slice:
+
+- `PerceptEvent` has a stable id, epoch time, body id, kind, and structured data;
+- `Body` exposes id, optional name, state, optional senses, and optional actuators;
+- `BodyRegistry` registers Bodies and dispatches `body/percept` events;
+- the core does not implement any specific Body;
+- Mode routing, memory ingestion, and actuator execution remain pending.
 
 ## Repository
 
@@ -675,3 +685,5 @@ Implementation may choose exact helper names and local data structures, but it m
 - 2026-08-15: after prototype acceptance, evolve the harness into a mode-oriented Cordis framework; Chat, World, and community modes are plugins and Koishi is an optional transport adapter.
 - 2026-08-15: the first prototype remains kernel-only and does not implement the Mode registry, transport adapters, mode packages, or a separate WebUI.
 - 2026-08-15: keep the repository single-package while only one real package exists; migrate to Yarn workspaces when the first independent mode, adapter, or plugin package is introduced.
+- 2026-08-15: confirm the minimal `Body` and `PerceptEvent` contracts plus `BodyRegistry`; the Mode contract remains pending.
+- 2026-08-15: `BodyRegistry` first version registers Bodies and dispatches percepts only; it does not route Modes, ingest memory, or execute actuators.
