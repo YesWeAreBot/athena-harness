@@ -28,6 +28,10 @@ await life.setMode(await ctx.modes.create("chat", {}));
 await life.dispatchPercept(event);
 ```
 
+`LifeHandle.createMode(name, config)` builds a complete `ModeContext` before creating the Mode. It
+injects the Life, its Session, Body access, Memory, Scheduler, and AgentLoop provider slot, then
+attaches the new Mode to the Life.
+
 ## Developer Value
 
 - Life is now a distinct root concept from Agent.

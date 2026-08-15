@@ -1,6 +1,10 @@
 import type { Awaitable, Session } from "@yesimbot/harness-core";
 
+import type { AgentLoopAccess } from "../agent-loop/types.js";
 import type { PerceptEvent } from "../body/types.js";
+import type { Life } from "../life/types.js";
+import type { LifeMemory } from "../memory/index.js";
+import type { ModeSchedulerAccess, SchedulingKind } from "../scheduler/types.js";
 
 export type ModeDriverKind = "finite-tool-loop" | "continuous-mailbox" | "narrative-decision" | "custom";
 
@@ -15,7 +19,7 @@ export interface ModeActuatorInterest {
   readonly kind?: string;
 }
 
-export type ModeSchedulingKind = "none" | "event" | "timer" | "tingle" | "due-intent" | "sweep" | "auto-advance" | "custom";
+export type ModeSchedulingKind = SchedulingKind;
 
 export type ModeMemoryKind = "none" | "conversation" | "life-stream" | "world-status" | "facts" | "story-facts" | "embedding" | "custom";
 
@@ -38,8 +42,12 @@ export interface ModeBodyAccess {
 
 export interface ModeContext {
   readonly lifeId?: string;
+  readonly life?: Life;
   readonly session?: Session;
   readonly bodies?: ModeBodyAccess;
+  readonly memory?: LifeMemory;
+  readonly scheduler?: ModeSchedulerAccess;
+  readonly agentLoop?: AgentLoopAccess;
 }
 
 export interface Mode<C = any> {

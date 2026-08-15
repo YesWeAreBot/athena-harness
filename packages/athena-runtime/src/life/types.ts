@@ -14,6 +14,7 @@ export interface LifeHandle {
   readonly life: Life;
   readonly activeModeId?: string;
   setMode(mode: ModeHandle | undefined): Awaitable<void>;
+  createMode<C = any>(name: string, config: C): Promise<ModeHandle>;
   dispatchPercept(event: PerceptEvent): Awaitable<boolean>;
   attachBody(bodyId: string): Awaitable<void>;
   detachBody(bodyId: string): Awaitable<void>;

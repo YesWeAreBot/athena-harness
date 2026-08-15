@@ -19,6 +19,9 @@ See [Positioning](../positioning.md) for the project's target layer and ecosyste
 | [07 - Tools and System Prompt](./07-tools-and-system-prompt.md)         | Scoped tool and prompt composition for the real Agent Loop.                             |
 | [08 - Agent Events](./08-agent-events.md)                               | Agent status/output/stream-part observation and abort behavior.                         |
 | [09 - Life and Mode](./09-life-and-mode.md)                             | Life identity, Mode definition registry, and Percept routing.                           |
+| [10 - Memory Infrastructure](./10-memory-infrastructure.md)             | Early Life-scoped memory contract, in-memory and JSONL providers.                       |
+| [11 - Scheduler Infrastructure](./11-scheduler-infrastructure.md)       | Generic timer/tingle/due-intent/sweep/auto-advance primitives.                          |
+| [12 - AgentLoop Provider](./12-agent-loop-provider.md)                  | Mode-selectable AgentLoop provider slot.                                                |
 
 ## Current Status
 
@@ -33,6 +36,8 @@ The repository is an early prototype. The following are implemented and tested:
 - Tool Call intent/results with explicit `ok`, `error`, and `interrupted` status
 - `BodyRegistry`, `PerceptEvent`, and Actuator execution through `ctx.bodies.act()`
 - `LifeRegistry` / `ModeRegistry` lifecycle with hot-unload-safe disposal
+- Early `LifeMemory` contract with in-memory and JSONL providers
+- `SchedulerRegistry` primitives and `AgentLoopRegistry` provider slot
 - `Persistence` and `JsonlPersistence`
 - `ToolRuntime` and `SystemPrompt`
 - Agent Events with `agentEvents(ctx, agent)`

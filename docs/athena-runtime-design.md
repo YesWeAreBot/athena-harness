@@ -74,7 +74,7 @@ Confirmed contracts:
 
 Session Log is the low-level durable fact store provided by Harness core.
 
-Athena Runtime Memory is not yet implemented. It will sit above the Session Log and represent identity, biography, preferences, relationships, and derived state.
+A minimal LifeMemory infrastructure now exists above the Session Log: it defines identity, biography, preference, relationship, and derived records, with in-memory and JSONL providers. Ingestion from Percepts, derived memory, compaction, and production stability are still pending.
 
 ## Confirmed Decisions
 
@@ -84,6 +84,7 @@ Athena Runtime Memory is not yet implemented. It will sit above the Session Log 
 - 2026-08-15: LifeHandle Body attachment and automatic `body/percept` routing are confirmed.
 - 2026-08-15: ModeRegistry creates tracked ModeHandles with id, name, and idempotent dispose(); LifeHandle stops the old Mode before starting a new one and clears activeMode if start fails.
 - 2026-08-15: BodyRegistry executes registered Actuators through act(); Body and Mode disposal emit body/disposed / mode/disposed so LifeRegistry reacts to Cordis plugin hot unload.
+- 2026-08-15: LifeMemory, SchedulerRegistry, and AgentLoopRegistry are added as early Mode infrastructure; they are not product Mode implementations.
 
 ## Pending
 

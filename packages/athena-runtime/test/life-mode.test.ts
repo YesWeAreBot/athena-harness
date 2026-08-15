@@ -2,10 +2,13 @@ import { sessionStore } from "@yesimbot/harness-core";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
+import { agentLoopRegistry } from "../src/agent-loop/index.js";
 import { bodyRegistry } from "../src/body/index.js";
 import { lifeRegistry } from "../src/life/index.js";
+import { memoryRegistry } from "../src/memory/index.js";
 import { modeRegistry } from "../src/mode/index.js";
 import type { Mode } from "../src/mode/types.js";
+import { schedulerRegistry } from "../src/scheduler/index.js";
 
 describe("life and mode registries", () => {
   it("creates and disposes a life", async () => {
@@ -217,5 +220,56 @@ describe("life and mode registries", () => {
 
     await fiber.dispose();
     expect(stops).toEqual(["chat"]);
+  });
+
+  it("injects the full ModeContext through Life.createMode", async () => {
+    const ctx = new Context();
+    const fibers = [
+      ctx.plugin(sessionStore),
+      ctx.plugin(bodyRegistry),
+      ctx.plugin(memoryRegistry),
+      ctx.plugin(schedulerRegistry),
+      ctx.plugin(agentLoopRegistry),
+      ctx.plugin(modeRegistry),
+      ctx.plugin(lifeRegistry),
+    ];
+    await Promise.all(fibers);
+
+    let captured: unknown;
+    ctx.modes.register({
+      name: "chat",
+      setup: async (modeCtx) => {
+        captured = modeCtx;
+        return {
+          start: async () => {},
+          handle: async () => true,
+        };
+      },
+    });
+
+    ctx.bodies.register({ id: "im", state: {} });
+    const handle = ctx.lives.create({ id: "life-context" });
+    await handle.attachBody("im");
+    const mode = await handle.createMode("chat", {});
+
+    expect(mode.name).toBe("chat");
+    expect(handle.activeModeId).toBe(mode.id);
+    const modeCtx = captured as {
+      lifeId?: string;
+      session?: unknown;
+      bodies?: unknown;
+      memory?: unknown;
+      scheduler?: unknown;
+      agentLoop?: unknown;
+    };
+    expect(modeCtx.lifeId).toBe("life-context");
+    expect(modeCtx.session).toBe(handle.life.session);
+    expect(modeCtx.bodies).toBeDefined();
+    expect(modeCtx.memory).toBeDefined();
+    expect(modeCtx.scheduler).toBeDefined();
+    expect(modeCtx.agentLoop).toBeDefined();
+
+    await ctx.lives.dispose("life-context");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 });

@@ -1,10 +1,15 @@
-import type { Session } from "@yesimbot/harness-core";
+import type { Persistence, Session } from "@yesimbot/harness-core";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
+import type { AgentLoopAccess } from "../agent-loop/types.js";
 import "../body/index.js";
 import type { PerceptEvent } from "../body/types.js";
-import type { ModeHandle } from "../mode/types.js";
+import type { LifeMemory } from "../memory/index.js";
+import type { ModeRegistry } from "../mode/index.js";
+import type { ModeContext, ModeHandle } from "../mode/types.js";
+import type { SchedulerRegistry } from "../scheduler/index.js";
+import type { ModeSchedulerAccess, ScheduledTaskOptions } from "../scheduler/types.js";
 import type { CreateLifeInput, Life, LifeHandle, ResumeLifeInput } from "./types.js";
 
 export class LifeRegistry extends Service {
@@ -46,7 +51,19 @@ export class LifeRegistry extends Service {
     return this.register(session);
   }
 
-  resume(input: ResumeLifeInput): LifeHandle {
+  async resume(input: ResumeLifeInput): Promise<LifeHandle> {
+    const persist = this.ctx.get("persist") as Persistence | undefined;
+    if (persist) {
+      const prepared = await persist.prepare(input.id);
+      try {
+        const session = this.ctx.sessions.restore(prepared.header, prepared.events);
+        await prepared.close();
+        return this.register(session);
+      } catch (error) {
+        await prepared.close();
+        throw error;
+      }
+    }
     const session = this.ctx.sessions.get(input.id);
     if (!session) {
       throw new Error(`Life session not found: ${input.id}`);
@@ -86,6 +103,19 @@ export class LifeRegistry extends Service {
       },
     };
 
+    const modeContext = (): ModeContext => ({
+      lifeId: life.id,
+      life,
+      session,
+      bodies: {
+        dispatch: <T>(bodyId: string, kind: string, data: T) => this.ctx.bodies.dispatch(bodyId, kind, data),
+        act: (bodyId: string, actuatorId: string, action: unknown) => this.ctx.bodies.act(bodyId, actuatorId, action),
+      },
+      memory: this.ctx.get("memory") as LifeMemory | undefined,
+      scheduler: createModeScheduler(this.ctx, life.id),
+      agentLoop: this.ctx.get("agentLoop") as AgentLoopAccess | undefined,
+    });
+
     const handle: LifeHandle = {
       life,
       get activeModeId() {
@@ -104,6 +134,14 @@ export class LifeRegistry extends Service {
           activeMode = undefined;
           throw error;
         }
+      },
+      createMode: async (name, config) => {
+        if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+        const modes = this.ctx.get("modes") as ModeRegistry | undefined;
+        if (!modes) throw new Error("ModeRegistry is not installed");
+        const created = await modes.create(name, config, modeContext());
+        await handle.setMode(created);
+        return created;
       },
       dispatchPercept: async (event: PerceptEvent) => {
         if (activeMode?.disposed) activeMode = undefined;
@@ -135,6 +173,16 @@ async function stopMode(mode: ModeHandle | undefined): Promise<void> {
   if (!mode) return;
   if (mode.dispose) await mode.dispose();
   else await mode.stop?.();
+}
+
+function createModeScheduler(ctx: Context, lifeId: string): ModeSchedulerAccess | undefined {
+  const scheduler = ctx.get("scheduler") as SchedulerRegistry | undefined;
+  if (!scheduler) return undefined;
+  return {
+    schedule: (options: Omit<ScheduledTaskOptions, "lifeId" | "owner">) => scheduler.schedule({ ...options, lifeId }),
+    cancel: (id: string) => scheduler.cancel(id),
+    cancelAll: () => scheduler.cancelByLife(lifeId),
+  };
 }
 
 export const lifeRegistry = {

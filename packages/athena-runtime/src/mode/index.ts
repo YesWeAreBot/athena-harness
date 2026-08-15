@@ -43,6 +43,7 @@ export class ModeRegistry extends Service {
     }
     const created: ModeSetupHandle = await mode.setup(context, config);
     const id = createId("mode");
+    const lifeId = context.lifeId;
     let disposed = false;
     const handle: ModeHandle = {
       ...created,
@@ -59,6 +60,9 @@ export class ModeRegistry extends Service {
           await created.stop?.();
         } finally {
           await created.dispose?.();
+        }
+        if (lifeId) {
+          (this.ctx.get("scheduler") as { cancelByLife(lifeId: string): void } | undefined)?.cancelByLife(lifeId);
         }
         this.ctx.emit("mode/disposed", { id, name: handle.name });
       },
