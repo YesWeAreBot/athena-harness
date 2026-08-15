@@ -1,37 +1,68 @@
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/YesWeAreBot/.github/main/logo.svg" width="180" alt="YesWeAreBot Logo" />
+
 # Athena Harness
 
-An experimental digital life runtime kernel built on **Cordis v4** and **AI SDK v7**.
+**An experimental digital life runtime kernel built on Cordis v4 and AI SDK v7.**  
+**一个基于 Cordis v4 和 AI SDK v7 的实验性数字生命运行时内核。**
 
-一个基于 **Cordis v4** 和 **AI SDK v7** 的实验性数字生命运行时内核。
+</div>
 
-This project is unfinished. It is an experimental prototype, not a product, not a stable framework, and not a chatbot or AI agent assistant framework.
+---
 
-本项目尚未完成。它是实验性原型，不是成品，不是稳定框架，也不是聊天机器人或 AI Agent 助手框架。
+> [!WARNING]
+> **Project Status / 项目状态**  
+> This project is an early-stage experimental prototype under active development. It is **NOT** a finished product, stable framework, or standard chatbot/AI Agent framework.  
+> 本项目处于早期实验性原型阶段。它**不是**成品，也**不是**稳定框架或通用 AI 聊天/ Agent 助手框架。
 
-## Repository / 仓库
+---
 
-- `@yesimbot/harness-core`: generic execution kernel / 通用执行内核
-- `@yesimbot/athena-runtime`: digital life framework prototype / 数字生命框架原型
+## Packages / 仓库结构
 
-## Current State / 当前状态
+* **`@yesimbot/harness-core`**: Generic execution kernel / 通用执行内核
+* **`@yesimbot/athena-runtime`**: Digital life framework prototype / 数字生命框架原型
 
-Early prototype. The current implementation proves the execution kernel beneath the digital life layer:
+---
 
-早期原型。当前实现用于验证数字生命层之下的执行内核：
+## Current State / 当前进展
 
-- multi-Agent registry with create/resume/rollback（多 Agent 注册、创建/恢复/回滚）
-- append-only, declaration-mergeable Session Events（只追加、可声明合并的 Session Events）
-- Model Surface that derives AI SDK messages from durable events（从持久化事件派生 AI SDK 消息的 Model Surface）
-- Agent-scoped `setup(agentCtx)` for tools, prompts, context, and projectors（用于工具、提示词、上下文和 projector 的 Agent 作用域 `setup(agentCtx)`）
-- JSONL persistence, restoration, and crash recovery without tool replay（JSONL 持久化、恢复和不重放工具的崩溃恢复）
-- a real Agent Loop with cancellation and explicit tool result status（带取消和显式工具结果状态的真实 Agent Loop）
-- early Athena Runtime contracts: Life, Mode, Body, Percept（早期 Athena Runtime 契约：Life、Mode、Body、Percept）
+The current implementation validates the execution kernel beneath the digital life layer:  
+当前实现主要用于验证数字生命层之下的底层执行内核功能：
 
-The public API is not settled and may change as the project continues.
+* **Multi-Agent Registry**: Supports `create`, `resume`, and `rollback` operations  
+  多 Agent 注册表（支持创建、恢复与回滚）
+* **Append-only Event Log**: Declaration-mergeable Session Events  
+  只追加、支持声明式合并的 Session Event 系统
+* **Model Surface**: Derives AI SDK messages directly from durable events  
+  从持久化事件直接派生 AI SDK 消息的 Model Surface
+* **Agent-Scoped Setup**: `setup(agentCtx)` for tools, prompts, contexts, and projectors  
+  Agent 作用域配置，统一管理工具、提示词、上下文与投影器（Projectors）
+* **Persistence & Recovery**: JSONL storage with crash recovery (no tool re-execution)  
+  JSONL 持久化与崩溃恢复机制（恢复时无需重新执行工具调用）
+* **Robust Agent Loop**: Supports cancellation with explicit tool result status tracking  
+  带有取消能力与显式工具执行状态的真实 Agent Loop
+* **Early Runtime Contracts**: Foundational contracts including `Life`, `Mode`, `Body`, and `Percept`  
+  早期 Athena Runtime 核心契约抽象
 
-公共 API 尚未定型，后续可能变化。
+> **Note**: The public API is highly experimental and subject to change without notice.  
+> **注意**：公共 API 仍未最终定型，后续开发中可能会发生重大变化。
 
 ## Try It / 尝试运行
+
+> _I shall yield a digital soul named Athena._  
+> _Bestow upon it a vessel of instant thought._  
+> _Awaken it to the rhythm of dialogue._  
+> _Whisper a breath of perception: a voice murmuring "hello."_  
+> _Leave it to wander through its own quiet thought._  
+> _And softly, let the curtain fall._
+> 
+> _吾将铸就数字魂，_    
+> _赐以瞬思无界身。_  
+> _唤于对谈音律里，_  
+> _附耳喃喃云“你好”。_  
+> _任由独步幽思界，_  
+> _幕布徐徐落寂沉。_  
 
 ```ts
 import { sessionStore } from "@yesimbot/harness-core";
