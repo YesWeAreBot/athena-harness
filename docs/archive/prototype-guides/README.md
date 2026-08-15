@@ -1,14 +1,12 @@
-# Athena Harness Core — Usage Guide
+# Athena Harness Feature Guides
 
-> **For**: The canonical 6-package architecture (`@athena/*` packages)  
-> **Status**: ✅ Fully implemented and tested  
-> **Spec**: [spark/2026-08-15-harness-core-design.md](../spark/2026-08-15-harness-core-design.md)
+> **Note**: The original 13 feature guides described the prototype implementation and have been archived to `docs/archive/prototype-guides/features/`. New guides for the canonical 6-package architecture will be created here.
 
-This guide shows how to use the 6 `@athena/*` packages that form Athena Harness Core.
+## Canonical Implementation (@athena/* packages)
 
-For the original prototype feature guides, see [archive/prototype-guides/](../archive/prototype-guides/).
+The 6-package Harness Core architecture is fully implemented per `docs/spark/2026-08-15-harness-core-design.md`.
 
-## Package Overview
+### Quick Reference
 
 | Package | Purpose | Key Types |
 |---------|---------|-----------|
@@ -19,9 +17,9 @@ For the original prototype feature guides, see [archive/prototype-guides/](../ar
 | **@athena/agent-loop** | React loop implementation | `ConcreteAgent`, turn runner, `ReactLoopAgentFactory` |
 | **@athena/persist-jsonl** | JSONL persistence | `JsonlHandler`, `JsonlSessionBinding` |
 
-## Quick Start
+### Usage Examples
 
-### Basic Setup
+**Create a session and agent:**
 
 ```typescript
 import { Context } from 'cordis'
@@ -45,51 +43,44 @@ const handle = await ctx.agents.create({
   model: myLanguageModel,
   maxSteps: 10,
   setup(agentCtx) {
-    // Register scoped tools and prompt sections here
+    // Register scoped tools and prompt sections
   }
 })
 
 // Send input
 handle.agent.followup({ role: 'user', content: 'Hello!' })
 
-// Wait for completion
+// Wait for idle
 await handle.agent.whenIdle()
 
 // Cleanup
 await handle.dispose()
 ```
 
-## Usage Patterns
-
-### Tool Registration
+**Register tools:**
 
 ```typescript
-// Global tool (visible to all agents)
+// Global tool
 ctx.tools.register('get_weather', {
   description: 'Get current weather',
   parameters: z.object({ city: z.string() }),
   execute: async ({ city }) => getWeather(city)
 })
 
-// Agent-scoped tool (only visible to this agent)
+// Agent-scoped tool
 const agentKey = Symbol('my-agent')
 ctx.tools.register('private_tool', myTool, agentKey)
 
-// Get descriptors for streamText (no execute function)
+// Get descriptors for streamText (no execute)
 const descriptors = ctx.tools.descriptors(agentKey)
 
-// Get executors for running tools (with execute function)
+// Get executors for running tools
 const executors = ctx.tools.executors(agentKey)
-
-// Tool gate (filter visible tools)
-const activeTools = new Set(['get_weather', 'search'])
-const gatedDescriptors = ctx.tools.descriptors(agentKey, activeTools)
 ```
 
-### Prompt Sections
+**Add prompt sections:**
 
 ```typescript
-// Global section
 ctx.systemPrompt.add({
   name: 'identity',
   order: 0,
@@ -103,63 +94,26 @@ ctx.systemPrompt.add({
   render: async () => await getAgentContext()
 }, agentKey)
 
-// Assemble prompt
+// Assemble
 const { system, rendered } = await ctx.systemPrompt.assemble(agentKey)
-// `rendered` is a fingerprint for deduplication
 ```
 
-### Inbox Input Methods
+**Inbox patterns:**
 
 ```typescript
-// followup: next-turn slot, wakes loop, starts new Turn
+// followup: next-turn slot, wakes loop, new Turn
 agent.followup({ role: 'user', content: 'Hello' })
 
-// steer: next-step slot, wakes loop, continues current Turn
+// steer: next-step slot, wakes loop, same Turn
 agent.steer({ role: 'user', content: 'Correction: use Celsius' })
 
 // inject: next-step slot, no wake, passive accumulation
 agent.inject({ role: 'user', content: 'Background info' })
 ```
 
-### Session Access
+### Architecture
 
-```typescript
-// Access agent's session
-const session = handle.agent.session
-
-// Append custom events
-session.append('custom/event', { data: 'value' })
-
-// Get snapshot
-const snapshot = session.snapshot()
-
-// Access Surface (model-visible view)
-const surface = session.surface
-const messages = surface.deriveMessages(projectorMap)
-```
-
-### Persistence
-
-```typescript
-// Sessions are automatically persisted when persistJsonl is loaded
-// Each session → {dir}/{id}.jsonl
-
-// Restore from JSONL
-const prepared = await ctx.sessions.persistence.prepare(sessionId)
-const session = ctx.sessions.restore(prepared.header, prepared.events)
-await prepared.close()
-
-// Resume agent from persisted session
-const handle = await ctx.agents.resume({
-  id: sessionId,
-  model: myLanguageModel,
-  maxSteps: 10
-})
-```
-
-## Architecture
-
-### Strict Dependency Graph (Downward Only)
+**Strict downward dependencies:**
 
 ```
 persist-jsonl  →  session
@@ -172,43 +126,29 @@ session        →  cordis, ai (types only)
 
 No circular dependencies. No imports from `athena-runtime`, `koishi`, or product layers.
 
-### Key Concepts
+### Testing
 
-- **Session**: Append-only event log, single source of truth for agent execution
-- **Surface**: Model-visible projection of session events (subset derived via surfaceOp)
-- **Turn**: One complete agent activation (turn/start → turn/end)
-- **Step**: One model request within a Turn (step/start → step/end)
-- **AgentLoop**: Replaceable execution strategy via AgentFactory seam
-- **AgentKey**: Symbol identifying an agent for scoped tools/prompt
-- **Inbox**: Two-slot buffer (next-turn, next-step) for input accumulation
+All packages have comprehensive test coverage:
+- Invariants and contract tests
+- Scoped visibility and tool gate tests
+- Inbox slot semantics
+- AgentFactory seam verification
+- Turn lifecycle, tool call order, maxSteps
+- Teardown and disposal cleanup
 
-See [glossary.md](../glossary.md) for full terminology.
+Run tests: `yarn test`
 
-## Testing
+### Documentation
 
-All packages have comprehensive test coverage (30 test files):
-
-```bash
-# Run all tests
-yarn test
-
-# Test specific package
-yarn workspace @athena/session test
-yarn workspace @athena/tools test
-yarn workspace @athena/agent-loop test
-```
-
-## Documentation
-
-- **Implementation status**: [STATUS.md](../STATUS.md)
 - **Canonical spec**: [spark/2026-08-15-harness-core-design.md](../spark/2026-08-15-harness-core-design.md)
 - **Architecture baseline**: [architecture-foundation.md](../architecture-foundation.md)
 - **Glossary**: [glossary.md](../glossary.md)
 - **ADRs**: [adr/](../adr/)
+- **Implementation status**: [STATUS.md](../STATUS.md)
 
-## Archived Prototype Guides
+### Archived Prototype Guides
 
-The original 13 feature guides describing `@yesimbot/harness-core` are preserved at:
-- **[../archive/prototype-guides/](../archive/prototype-guides/)**
+The original 13 feature guides describing `@yesimbot/harness-core` are archived at:
+- **[../archive/prototype-guides/features/](../archive/prototype-guides/features/)**
 
 These show the evolution from prototype to canonical implementation.
