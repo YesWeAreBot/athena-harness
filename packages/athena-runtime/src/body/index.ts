@@ -1,8 +1,7 @@
+import { createId, deepFreeze } from "@yesimbot/harness-core";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
-import { deepFreeze } from "../freeze.js";
-import { createId } from "../id.js";
 import type { Body, PerceptEvent } from "./types.js";
 
 export class BodyRegistry extends Service {

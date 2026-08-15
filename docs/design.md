@@ -2,7 +2,7 @@
 
 ## Status
 
-This document is the source of truth for confirmed architecture decisions in `@yesimbot/athena-harness`.
+This document is the source of truth for confirmed architecture decisions in the Athena Harness monorepo.
 
 Update it as decisions are confirmed. Sections marked **Pending** are unresolved and must not be filled by inference during implementation.
 
@@ -51,7 +51,7 @@ Athena Harness is the kernel prototype for a later Cordis-based digital life fra
 - Model provider and model are swappable runtime capabilities. A life may switch at any time without losing identity, memory, or current mode; the first version's one-`LanguageModel`-per-Agent is a simplification, not the target.
 - Auxiliary models and perception pipelines are Mode/Body plugin concerns, not prototype kernel responsibilities. The kernel only needs Percept, Attention, and Actuator contracts.
 - World is redesigned as a Mode plugin using framework sense, actuator, model, store, and scheduler services. It does not own the framework or a separate WebUI.
-- The repository remains a single package while only one real package exists. When the first independent `mode-chat`, `mode-world`, `adapter-*`, or `plugin-*` package is introduced, the repository will migrate to Yarn workspaces.
+- The repository is a Yarn workspaces monorepo with `@yesimbot/harness-core` and `@yesimbot/athena-runtime`. Future `mode-chat`, `mode-world`, `adapter-*`, or `plugin-*` packages will be added under `packages/*`.
 
 The conceptual Mode contract is:
 
@@ -84,14 +84,14 @@ The minimal `Body` and `PerceptEvent` contracts used by `BodyRegistry` are confi
 ## Repository
 
 - Repository: `/home/workspace/athena-harness`
-- Package: `@yesimbot/athena-harness`
-- Topology: single package now; Yarn workspaces monorepo after the first independent package exists
+- Packages: `@yesimbot/harness-core`, `@yesimbot/athena-runtime`
+- Topology: Yarn workspaces monorepo
 - Package manager: Yarn 4 with the `node-modules` linker
 - Publication remains disabled while the package is an architecture prototype.
 
-Providers and validation plugins remain internal modules until a second real package or independent consumer proves that a package split is necessary.
+Providers and validation plugins remain internal modules until independent consumers prove that further package splits are necessary.
 
-The single package still keeps `agent` and `agent-loop` as separate internal modules: the former owns stable contracts and `ctx.agents`, while the latter provides the concrete Agent factory and loop.
+`@yesimbot/harness-core` keeps `agent` and `agent-loop` as separate internal modules: the former owns stable contracts and `ctx.agents`, while the latter provides the concrete Agent factory and loop.
 
 ## Design Basis
 
@@ -530,8 +530,8 @@ The package root exports stable contracts, public Service classes, Session/Event
 
 Concrete replaceable Providers use explicit subpaths:
 
-- `@yesimbot/athena-harness/agent-loop` for the default Agent factory and loop;
-- `@yesimbot/athena-harness/persist/jsonl` for `JsonlPersistence`.
+- `@yesimbot/harness-core/agent-loop` for the default Agent factory and loop;
+- `@yesimbot/harness-core/persist/jsonl` for `JsonlPersistence`.
 
 The package does not expose every internal directory as a public subpath.
 
@@ -624,8 +624,8 @@ The prototype is accepted only when one deterministic executable scenario proves
 
 ### Public Package Contract
 
-- Type-check a consumer that imports stable Services and types only from `@yesimbot/athena-harness`.
-- Type-check Provider installation from `@yesimbot/athena-harness/agent-loop` and `@yesimbot/athena-harness/persist/jsonl`.
+- Type-check a consumer that imports stable Services and types only from `@yesimbot/harness-core`.
+- Type-check Provider installation from `@yesimbot/harness-core/agent-loop` and `@yesimbot/harness-core/persist/jsonl`.
 - Prove an extension plugin imports no concrete Provider.
 - Keep production runtime dependencies limited to Cordis and AI SDK unless a new dependency is separately justified.
 - Keep the implementation free of YesImBot, Koishi, `@yesimbot/agent-runtime`, `pi-ai`, and deepseek-harness imports.
@@ -667,7 +667,7 @@ Implementation may choose exact helper names and local data structures, but it m
 - 2026-08-14: let each Agent directly own its AI SDK `LanguageModel`; do not add a Model Registry or LLM Service in the first version.
 - 2026-08-14: use public concrete Cordis Service classes for core registries; extensions depend on those stable classes, not Agent Loop or backend implementation classes.
 - 2026-08-14: make Session persistence optional; publish it as `ctx.persist` with public Service class `Persistence`. New in-memory Agents do not require it, while restoration does.
-- 2026-08-14: use a single-package repository named `athena-harness`.
+- 2026-08-14: name the repository `athena-harness`; the original single-package topology was superseded by the 2026-08-15 monorepo decision.
 - 2026-08-14: persist the minimum DSH lifecycle event set and omit token-level assistant chunks from Session format v0.
 - 2026-08-14: implement complete DSH `SurfaceOp` append/replace semantics and `sourceEventSeqs` in the first format.
 - 2026-08-14: let each Session own structural Surface topology while root-global `ctx.modelSurface` owns event-to-message projection.
@@ -686,7 +686,7 @@ Implementation may choose exact helper names and local data structures, but it m
 - 2026-08-14: use Cordis `agentEvents(ctx, agent)` observation, with public output limited to text deltas and final Assistant Messages.
 - 2026-08-15: after prototype acceptance, evolve the harness into a mode-oriented Cordis framework; Chat, World, and community modes are plugins and Koishi is an optional transport adapter.
 - 2026-08-15: the first prototype remains kernel-only and does not implement the Mode registry, transport adapters, mode packages, or a separate WebUI.
-- 2026-08-15: keep the repository single-package while only one real package exists; migrate to Yarn workspaces when the first independent mode, adapter, or plugin package is introduced.
+- 2026-08-15: use a Yarn workspaces monorepo with `@yesimbot/harness-core` and `@yesimbot/athena-runtime`; future mode, adapter, and plugin packages will be added under `packages/*`.
 - 2026-08-15: confirm the minimal `Body` and `PerceptEvent` contracts plus `BodyRegistry`; the Mode contract remains pending.
 - 2026-08-15: `BodyRegistry` first version registers Bodies and dispatches percepts only; it does not route Modes, ingest memory, or execute actuators.
 - 2026-08-15: model provider and model hot-switching is a target capability; the current one-`LanguageModel`-per-Agent design is a temporary simplification, not the long-term architecture.

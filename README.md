@@ -8,9 +8,9 @@ Athena Harness is a small, platform-agnostic digital life runtime prototype buil
 
 | Item                   | Value                                                                                                                                                   |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package                | `@yesimbot/athena-harness`                                                                                                                              |
+| Package                | `@yesimbot/harness-core`, `@yesimbot/athena-runtime`                                                                                                    |
 | Visibility             | Private prototype                                                                                                                                       |
-| Topology               | Single package now; future Yarn workspaces migration                                                                                                    |
+| Topology               | Yarn workspaces monorepo                                                                                                                                |
 | Package manager        | Yarn 4, `node-modules` linker                                                                                                                           |
 | Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                                                                                                               |
 | Source of truth        | `docs/design.md`                                                                                                                                        |
@@ -45,7 +45,7 @@ Athena Harness is the kernel prototype for a later mode-oriented Cordis framewor
 - Platform access is planned to go through transport interfaces such as Satori or a Koishi bridge.
 - World is planned to be redesigned as a Mode plugin that uses framework transport, model, store, and scheduler services.
 
-This README and the design document keep the first version intentionally kernel-only. Mode registries, transport adapters, mode packages, and a separate WebUI are target architecture, not current implementation. The repository stays single-package until the first independent mode, adapter, or plugin package exists; only then will it migrate to Yarn workspaces.
+This README and the design document keep the first version intentionally kernel-only. The repository is now a Yarn workspaces monorepo with `@yesimbot/harness-core` and `@yesimbot/athena-runtime`. Mode registries, transport adapters, mode packages, and a separate WebUI are target architecture, not current implementation.
 
 ### Core Services
 
@@ -134,8 +134,8 @@ The package root is planned to export stable contracts, public Service classes, 
 
 Concrete replaceable Providers use explicit subpaths:
 
-- `@yesimbot/athena-harness/agent-loop` for the default Agent factory and loop;
-- `@yesimbot/athena-harness/persist/jsonl` for `JsonlPersistence`.
+- `@yesimbot/harness-core/agent-loop` for the default Agent factory and loop;
+- `@yesimbot/harness-core/persist/jsonl` for `JsonlPersistence`.
 
 The planned internal layout is:
 

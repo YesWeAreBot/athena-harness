@@ -443,6 +443,48 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@turbo/darwin-64@npm:2.10.8":
+  version: 2.10.8
+  resolution: "@turbo/darwin-64@npm:2.10.8"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@turbo/darwin-arm64@npm:2.10.8":
+  version: 2.10.8
+  resolution: "@turbo/darwin-arm64@npm:2.10.8"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@turbo/linux-64@npm:2.10.8":
+  version: 2.10.8
+  resolution: "@turbo/linux-64@npm:2.10.8"
+  conditions: (os=android | os=linux) & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@turbo/linux-arm64@npm:2.10.8":
+  version: 2.10.8
+  resolution: "@turbo/linux-arm64@npm:2.10.8"
+  conditions: (os=android | os=linux) & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@turbo/windows-64@npm:2.10.8":
+  version: 2.10.8
+  resolution: "@turbo/windows-64@npm:2.10.8"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@turbo/windows-arm64@npm:2.10.8":
+  version: 2.10.8
+  resolution: "@turbo/windows-arm64@npm:2.10.8"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
 "@types/chai@npm:^5.2.2":
   version: 5.2.3
   resolution: "@types/chai@npm:5.2.3"
@@ -572,20 +614,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@yesimbot/athena-harness@workspace:.":
+"@yesimbot/athena-runtime@workspace:packages/athena-runtime":
   version: 0.0.0-use.local
-  resolution: "@yesimbot/athena-harness@workspace:."
+  resolution: "@yesimbot/athena-runtime@workspace:packages/athena-runtime"
   dependencies:
-    "@types/node": "npm:^22.16.2"
+    "@yesimbot/harness-core": "workspace:^"
+    cordis: "npm:^4.0.0-rc.8"
+  languageName: unknown
+  linkType: soft
+
+"@yesimbot/harness-core@workspace:^, @yesimbot/harness-core@workspace:packages/harness-core":
+  version: 0.0.0-use.local
+  resolution: "@yesimbot/harness-core@workspace:packages/harness-core"
+  dependencies:
     ai: "npm:^7.0.0"
     cordis: "npm:^4.0.0-rc.8"
     cosmokit: "npm:^1.8.1"
-    oxfmt: "npm:^0.62.0"
-    oxlint: "npm:^1.77.0"
-    rimraf: "npm:^6.1.2"
     schemastery: "npm:^3.18.0"
-    typescript: "npm:^5.9.3"
-    vitest: "npm:^4.0.18"
     zod: "npm:^3.25.76"
   languageName: unknown
   linkType: soft
@@ -616,6 +661,20 @@ __metadata:
   checksum: 10c0/bbbcb117ac6480138f8c93cf7f535614282dea9dc828f540cdece85e3c665e8f78958b96afac52f29ff883c72638e6a87d469ecc9fe5bc902df03ed24a55dba8
   languageName: node
   linkType: hard
+
+"athena-harness@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "athena-harness@workspace:."
+  dependencies:
+    "@types/node": "npm:^22.16.2"
+    oxfmt: "npm:^0.62.0"
+    oxlint: "npm:^1.77.0"
+    rimraf: "npm:^6.1.2"
+    turbo: "npm:2.10.8"
+    typescript: "npm:^5.9.3"
+    vitest: "npm:^4.0.18"
+  languageName: unknown
+  linkType: soft
 
 "balanced-match@npm:^4.0.2":
   version: 4.0.4
@@ -1374,6 +1433,35 @@ __metadata:
   version: 3.1.1
   resolution: "tinyrainbow@npm:3.1.1"
   checksum: 10c0/f9d2743832c6191f753408f36224fe817620b8abcef572b2e570204c673a901d753ff84ca8e7b88f9c79e934295b3ffc6fcbc56a06f126e24e1ec6186dcad40d
+  languageName: node
+  linkType: hard
+
+"turbo@npm:2.10.8":
+  version: 2.10.8
+  resolution: "turbo@npm:2.10.8"
+  dependencies:
+    "@turbo/darwin-64": "npm:2.10.8"
+    "@turbo/darwin-arm64": "npm:2.10.8"
+    "@turbo/linux-64": "npm:2.10.8"
+    "@turbo/linux-arm64": "npm:2.10.8"
+    "@turbo/windows-64": "npm:2.10.8"
+    "@turbo/windows-arm64": "npm:2.10.8"
+  dependenciesMeta:
+    "@turbo/darwin-64":
+      optional: true
+    "@turbo/darwin-arm64":
+      optional: true
+    "@turbo/linux-64":
+      optional: true
+    "@turbo/linux-arm64":
+      optional: true
+    "@turbo/windows-64":
+      optional: true
+    "@turbo/windows-arm64":
+      optional: true
+  bin:
+    turbo: bin/turbo
+  checksum: 10c0/892459ca52bdcc0ecd50d0bd5e092bc97052ff726fd727af7df997e6b8ff20b1aea6040caac14c2ceb661f18b08e7abd2027d188f8a67bc74dcab0c043060026
   languageName: node
   linkType: hard
 

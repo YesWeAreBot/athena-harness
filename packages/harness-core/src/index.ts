@@ -1,13 +1,12 @@
-export const version = "0.0.0";
 export * from "./agent-loop/index.js";
 export * from "./agent/index.js";
 export * from "./agent/types.js";
 export * from "./awaitable.js";
-export * from "./body/index.js";
-export * from "./body/types.js";
+export * from "./freeze.js";
 export * from "./id.js";
 export * from "./model-surface.js";
 export * from "./persist/index.js";
+export * from "./scope.js";
 export * from "./session/events.js";
 export * from "./session/index.js";
 export * from "./session/surface.js";
