@@ -40,6 +40,9 @@ export interface ModeBodyAccess {
   act(bodyId: string, actuatorId: string, action: unknown): Promise<unknown>;
 }
 
+/**
+ * @experimental Mode infrastructure contract. Shape may change until contract freeze.
+ */
 export interface ModeContext {
   readonly lifeId?: string;
   readonly life?: Life;
@@ -57,6 +60,9 @@ export interface Mode<C = any> {
   setup(ctx: ModeContext, config: C): Awaitable<ModeSetupHandle>;
 }
 
+/**
+ * @experimental Runtime Mode handle owned by ModeRegistry and LifeRegistry.
+ */
 export interface ModeHandle {
   readonly id: string;
   readonly name: string;

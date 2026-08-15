@@ -12,19 +12,38 @@ interface ScheduledTask {
   timer?: ReturnType<typeof setTimeout>;
 }
 
-export class SchedulerRegistry extends Service {
+/**
+ * @experimental Replaceable Scheduler service.
+ */
+export abstract class Scheduler extends Service {
   static provide = "scheduler";
-
-  private readonly tasks = new Map<string, ScheduledTask>();
 
   constructor(ctx: Context) {
     super(ctx, "scheduler");
+  }
+
+  abstract schedule(options: ScheduledTaskOptions): ScheduledTaskHandle;
+
+  abstract cancel(id: string): boolean;
+
+  abstract cancelByLife(lifeId: string): void;
+
+  abstract cancelByOwner(owner: string): void;
+
+  abstract stopAll(): void;
+}
+
+export class SchedulerRegistry extends Scheduler {
+  private readonly tasks = new Map<string, ScheduledTask>();
+
+  constructor(ctx: Context) {
+    super(ctx);
     this.ctx.effect(() => async () => {
       this.stopAll();
     });
   }
 
-  schedule(options: ScheduledTaskOptions): ScheduledTaskHandle {
+  override schedule(options: ScheduledTaskOptions): ScheduledTaskHandle {
     const id = createId("task");
     const at = options.at ?? (options.after === undefined ? Date.now() : Date.now() + options.after);
     const task: ScheduledTask = {
@@ -51,7 +70,7 @@ export class SchedulerRegistry extends Service {
     };
   }
 
-  cancel(id: string): boolean {
+  override cancel(id: string): boolean {
     const task = this.tasks.get(id);
     if (!task || task.cancelled) return false;
     task.cancelled = true;
@@ -60,19 +79,19 @@ export class SchedulerRegistry extends Service {
     return true;
   }
 
-  cancelByLife(lifeId: string): void {
+  override cancelByLife(lifeId: string): void {
     for (const [id, task] of this.tasks) {
       if (task.options.lifeId === lifeId) this.cancel(id);
     }
   }
 
-  cancelByOwner(owner: string): void {
+  override cancelByOwner(owner: string): void {
     for (const [id, task] of this.tasks) {
       if (task.options.owner === owner) this.cancel(id);
     }
   }
 
-  stopAll(): void {
+  override stopAll(): void {
     for (const task of this.tasks.values()) {
       task.cancelled = true;
       if (task.timer) clearTimeout(task.timer);
@@ -116,7 +135,7 @@ export const schedulerRegistry = {
 
 declare module "cordis" {
   interface Context {
-    scheduler: SchedulerRegistry;
+    scheduler: Scheduler;
   }
 }
 

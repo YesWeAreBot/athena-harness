@@ -272,4 +272,60 @@ describe("life and mode registries", () => {
     await ctx.lives.dispose("life-context");
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
+
+  it("rejects Life resume when the session is missing", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(sessionStore), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    await expect(ctx.lives.resume({ id: "missing-life" })).rejects.toThrow(/not found/);
+
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("cancels mode scheduler tasks when the mode is disposed", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(sessionStore), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry), ctx.plugin(schedulerRegistry)];
+    await Promise.all(fibers);
+
+    const events: string[] = [];
+    ctx.modes.register({
+      name: "chat",
+      setup: async (modeCtx) => {
+        modeCtx.scheduler?.schedule({
+          kind: "timer",
+          after: 10,
+          run: async () => {
+            events.push("run");
+          },
+        });
+        return {
+          start: async () => {},
+          handle: async () => true,
+        };
+      },
+    });
+
+    const handle = ctx.lives.create({ id: "life-sched" });
+    const mode = await handle.createMode("chat", {});
+    await ctx.modes.dispose(mode.id);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(events).toEqual([]);
+
+    await ctx.lives.dispose("life-sched");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("disposes a Life idempotently", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(sessionStore), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    const handle = ctx.lives.create({ id: "life-idempotent" });
+    await handle.dispose();
+    await handle.dispose();
+    expect(ctx.lives.get("life-idempotent")).toBeUndefined();
+
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
 });

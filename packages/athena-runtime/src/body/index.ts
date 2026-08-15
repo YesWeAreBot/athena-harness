@@ -2,7 +2,7 @@ import { createId, deepFreeze } from "@yesimbot/harness-core";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
-import type { Body, PerceptEvent } from "./types.js";
+import type { Body, BodyAdapter, PerceptEvent } from "./types.js";
 
 export class BodyRegistry extends Service {
   static provide = "bodies";
@@ -25,6 +25,22 @@ export class BodyRegistry extends Service {
       this.bodies.delete(body.id);
       this.ctx.emit("body/disposed", { id: body.id });
     });
+  }
+
+  async registerAdapter(adapter: BodyAdapter): Promise<() => Promise<void>> {
+    const body: Body = {
+      id: adapter.id,
+      ...(adapter.name === undefined ? {} : { name: adapter.name }),
+      state: {},
+      ...(adapter.senses === undefined ? {} : { senses: adapter.senses }),
+      ...(adapter.actuators === undefined ? {} : { actuators: adapter.actuators }),
+    };
+    const dispose = this.register(body);
+    await adapter.start?.({ body });
+    return async () => {
+      await adapter.stop?.();
+      dispose();
+    };
   }
 
   get(id: string): Body | undefined {

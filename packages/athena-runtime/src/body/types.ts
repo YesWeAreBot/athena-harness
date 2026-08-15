@@ -19,6 +19,23 @@ export interface Actuator {
   act?(action: unknown): Awaitable<unknown>;
 }
 
+export interface BodyAdapterContext {
+  readonly body: Body;
+}
+
+/**
+ * @experimental A BodyAdapter is the bridge between an existing platform adapter (OneBot,
+ * Satori, etc.) and a Life Body. It must not implement Mode behavior.
+ */
+export interface BodyAdapter {
+  readonly id: string;
+  readonly name?: string;
+  readonly senses?: readonly Sense[];
+  readonly actuators?: readonly Actuator[];
+  start?(context: BodyAdapterContext): Awaitable<void>;
+  stop?(): Awaitable<void>;
+}
+
 export interface PerceptEvent<T = unknown> {
   readonly id: string;
   readonly time: number;

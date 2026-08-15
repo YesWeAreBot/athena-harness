@@ -8,7 +8,7 @@ import type { PerceptEvent } from "../body/types.js";
 import type { LifeMemory } from "../memory/index.js";
 import type { ModeRegistry } from "../mode/index.js";
 import type { ModeContext, ModeHandle } from "../mode/types.js";
-import type { SchedulerRegistry } from "../scheduler/index.js";
+import type { Scheduler } from "../scheduler/index.js";
 import type { ModeSchedulerAccess, ScheduledTaskOptions } from "../scheduler/types.js";
 import type { CreateLifeInput, Life, LifeHandle, ResumeLifeInput } from "./types.js";
 
@@ -176,7 +176,7 @@ async function stopMode(mode: ModeHandle | undefined): Promise<void> {
 }
 
 function createModeScheduler(ctx: Context, lifeId: string): ModeSchedulerAccess | undefined {
-  const scheduler = ctx.get("scheduler") as SchedulerRegistry | undefined;
+  const scheduler = ctx.get("scheduler") as Scheduler | undefined;
   if (!scheduler) return undefined;
   return {
     schedule: (options: Omit<ScheduledTaskOptions, "lifeId" | "owner">) => scheduler.schedule({ ...options, lifeId }),

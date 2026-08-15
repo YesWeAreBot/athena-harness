@@ -1,5 +1,8 @@
 import type { AgentFactory, AgentHandle, CreateAgentInput, ResumeAgentInput } from "@yesimbot/harness-core";
 
+/**
+ * @experimental AgentLoop provider slot.
+ */
 export interface AgentLoopProvider {
   readonly id: string;
   readonly factory: AgentFactory;

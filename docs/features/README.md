@@ -22,6 +22,7 @@ See [Positioning](../positioning.md) for the project's target layer and ecosyste
 | [10 - Memory Infrastructure](./10-memory-infrastructure.md)             | Early Life-scoped memory contract, in-memory and JSONL providers.                       |
 | [11 - Scheduler Infrastructure](./11-scheduler-infrastructure.md)       | Generic timer/tingle/due-intent/sweep/auto-advance primitives.                          |
 | [12 - AgentLoop Provider](./12-agent-loop-provider.md)                  | Mode-selectable AgentLoop provider slot.                                                |
+| [13 - Body Adapter](./13-body-adapter.md)                              | Bridge existing Koishi platform adapters into Life Bodies.                              |
 
 ## Current Status
 

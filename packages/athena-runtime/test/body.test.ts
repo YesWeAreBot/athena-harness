@@ -74,4 +74,39 @@ describe("body registry", () => {
 
     await fiber.dispose();
   });
+
+  it("registers a BodyAdapter and manages its start/stop lifecycle", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    const events: string[] = [];
+    const dispose = await ctx.bodies.registerAdapter({
+      id: "onebot",
+      name: "OneBot",
+      senses: [{ id: "message", kind: "chat" }],
+      actuators: [
+        {
+          id: "send",
+          kind: "chat",
+          act: async () => ({ ok: true }),
+        },
+      ],
+      start: async () => {
+        events.push("start");
+      },
+      stop: async () => {
+        events.push("stop");
+      },
+    });
+
+    expect(ctx.bodies.get("onebot")?.name).toBe("OneBot");
+    expect(events).toEqual(["start"]);
+
+    await dispose();
+    expect(events).toEqual(["start", "stop"]);
+    expect(ctx.bodies.get("onebot")).toBeUndefined();
+
+    await fiber.dispose();
+  });
 });
