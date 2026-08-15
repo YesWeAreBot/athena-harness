@@ -47,21 +47,21 @@ Athena Harness is the kernel prototype for a later Cordis-based YesImBot framewo
 - Koishi is an optional transport adapter, not a dependency of the framework.
 - Platform access is transport-oriented, for example Satori or a Koishi bridge, rather than hard-coded into Agent execution.
 - World is redesigned as a Mode plugin using framework transport, model, store, and scheduler services. It does not own the framework or a separate WebUI.
-- The prototype remains one package. A future framework repo may split into `@yesimbot/framework`, `mode-chat`, `mode-world`, `adapter-*`, and `plugin-*` packages after real consumers prove those boundaries.
+- The repository remains a single package while only one real package exists. When the first independent `mode-chat`, `mode-world`, `adapter-*`, or `plugin-*` package is introduced, the repository will migrate to Yarn workspaces.
 
 The conceptual Mode contract is:
 
 ```ts
 export interface Mode<C = any> {
-  name: string
-  schema?: Schema<C>
-  setup(ctx: FrameworkContext, config: C): Awaitable<ModeHandle>
+  name: string;
+  schema?: Schema<C>;
+  setup(ctx: FrameworkContext, config: C): Awaitable<ModeHandle>;
 }
 
 export interface ModeHandle {
-  start?(): Awaitable<void>
-  stop?(): Awaitable<void>
-  handle?(event: ChatEvent): Awaitable<boolean>
+  start?(): Awaitable<void>;
+  stop?(): Awaitable<void>;
+  handle?(event: ChatEvent): Awaitable<boolean>;
 }
 ```
 
@@ -71,7 +71,7 @@ The exact `Mode`, `ChatEvent`, and `FrameworkContext` shapes are not committed y
 
 - Repository: `/home/workspace/athena-harness`
 - Package: `@yesimbot/athena-harness`
-- Topology: one package, not a workspace monorepo
+- Topology: single package now; Yarn workspaces monorepo after the first independent package exists
 - Package manager: Yarn 4 with the `node-modules` linker
 - Publication remains disabled while the package is an architecture prototype.
 
@@ -110,15 +110,15 @@ DSH Cordis fork                                    replaced by upstream Cordis d
 
 The closest source-package mapping is:
 
-| Athena Harness area | Closest DSH area | Relationship |
-| --- | --- | --- |
-| package-root Agent contracts and `ctx.agents` | `dsh-agent` | Same Registry/Factory/owner-handle role, reduced API. |
-| `ctx.sessions` and Session Event log | `dsh-session` | Same durable event-log and unpublished Session transaction direction. |
-| `ctx.tools` | `dsh-tools` | Same registration/layer role, without policy, scheduler, approval, or subcall systems. |
-| `ctx.systemPrompt` | `dsh-system-prompt` plus Agent Loop runtime-context projection | Reduced named sections and dynamic Context snapshots. |
-| `./agent-loop` | `dsh-agent-loop` | Same concrete `AgentFactory` Provider role, but invokes AI SDK directly. |
-| `ctx.persist` and `./persist/jsonl` | `dsh-session-persistence`, persistence sync/checkpoint policy, and `dsh-session-persistence-jsonl` | Collapsed minimum durable subset. |
-| `ctx.modelSurface` | no direct DSH Service equivalent | New extension seam; DSH keeps fixed model-Surface projection inside Session Core. |
+| Athena Harness area                           | Closest DSH area                                                                                   | Relationship                                                                           |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| package-root Agent contracts and `ctx.agents` | `dsh-agent`                                                                                        | Same Registry/Factory/owner-handle role, reduced API.                                  |
+| `ctx.sessions` and Session Event log          | `dsh-session`                                                                                      | Same durable event-log and unpublished Session transaction direction.                  |
+| `ctx.tools`                                   | `dsh-tools`                                                                                        | Same registration/layer role, without policy, scheduler, approval, or subcall systems. |
+| `ctx.systemPrompt`                            | `dsh-system-prompt` plus Agent Loop runtime-context projection                                     | Reduced named sections and dynamic Context snapshots.                                  |
+| `./agent-loop`                                | `dsh-agent-loop`                                                                                   | Same concrete `AgentFactory` Provider role, but invokes AI SDK directly.               |
+| `ctx.persist` and `./persist/jsonl`           | `dsh-session-persistence`, persistence sync/checkpoint policy, and `dsh-session-persistence-jsonl` | Collapsed minimum durable subset.                                                      |
+| `ctx.modelSurface`                            | no direct DSH Service equivalent                                                                   | New extension seam; DSH keeps fixed model-Surface projection inside Session Core.      |
 
 Architecturally, the package is therefore a **minimal harness SDK/kernel**. The embedding application still owns the Cordis root and composition; an application layer could later install Athena Services, Providers, and feature plugins, but that layer is outside this package's first version.
 
@@ -128,14 +128,14 @@ Core registry-style Services are public concrete Cordis `Service` classes, match
 
 The first-version root services are:
 
-| Context key | Public service | Responsibility |
-| --- | --- | --- |
-| `ctx.agents` | `AgentRegistry` | Multi-Agent creation, restoration, lookup, ownership, and the registered `AgentFactory` slot. |
-| `ctx.sessions` | `SessionStore` | Live Session preparation, publication, lookup, and removal. It does not own model projection. |
-| `ctx.modelSurface` | `ModelSurface` | Root-global Event-to-model projection and deterministic AI SDK `ModelMessage[]` derivation. |
-| `ctx.tools` | `ToolRuntime` | Root and Agent-scoped AI SDK Tool registration, shadowing, and immutable per-Step composition. |
-| `ctx.systemPrompt` | `SystemPrompt` | Root and Agent-scoped static prompt sections and dynamic runtime-context contributions. |
-| `ctx.persist` | `Persistence` | Optional durable Session preparation, append, flush, and restoration. The JSONL backend is the first Provider. |
+| Context key        | Public service  | Responsibility                                                                                                 |
+| ------------------ | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `ctx.agents`       | `AgentRegistry` | Multi-Agent creation, restoration, lookup, ownership, and the registered `AgentFactory` slot.                  |
+| `ctx.sessions`     | `SessionStore`  | Live Session preparation, publication, lookup, and removal. It does not own model projection.                  |
+| `ctx.modelSurface` | `ModelSurface`  | Root-global Event-to-model projection and deterministic AI SDK `ModelMessage[]` derivation.                    |
+| `ctx.tools`        | `ToolRuntime`   | Root and Agent-scoped AI SDK Tool registration, shadowing, and immutable per-Step composition.                 |
+| `ctx.systemPrompt` | `SystemPrompt`  | Root and Agent-scoped static prompt sections and dynamic runtime-context contributions.                        |
+| `ctx.persist`      | `Persistence`   | Optional durable Session preparation, append, flush, and restoration. The JSONL backend is the first Provider. |
 
 `agent-loop` is not a public Service. It is a concrete Agent-factory plugin that injects `agents`, `sessions`, `modelSurface`, `tools`, and `systemPrompt`, then registers its factory through `ctx.agents.setFactory()`. Restoring a Session additionally requires `persist`.
 
@@ -438,7 +438,7 @@ The Agent factory owns the live binding between a Session and `Persistence`. Ses
 Each materialized Session uses one `<session-id>.jsonl` file under the configured persistence root. The first line is a tagged header:
 
 ```json
-{"type":"session","version":0,"id":"...","createdAt":0}
+{ "type": "session", "version": 0, "id": "...", "createdAt": 0 }
 ```
 
 Every following line is the exact lossless-JSON Session Event envelope, including `seq`, `time`, `data`, and any `ignorable`, `surfaceOp`, or `sourceEventSeqs` fields. Files end on newline boundaries. Creation uses an exclusive atomic create so an existing identity is never overwritten.
@@ -672,3 +672,4 @@ Implementation may choose exact helper names and local data structures, but it m
 - 2026-08-14: use Cordis `agentEvents(ctx, agent)` observation, with public output limited to text deltas and final Assistant Messages.
 - 2026-08-15: after prototype acceptance, evolve the harness into a mode-oriented Cordis framework; Chat, World, and community modes are plugins and Koishi is an optional transport adapter.
 - 2026-08-15: the first prototype remains kernel-only and does not implement the Mode registry, transport adapters, mode packages, or a separate WebUI.
+- 2026-08-15: keep the repository single-package while only one real package exists; migrate to Yarn workspaces when the first independent mode, adapter, or plugin package is introduced.

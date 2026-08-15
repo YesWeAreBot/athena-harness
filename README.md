@@ -2,18 +2,19 @@
 
 Athena Harness is a small, platform-agnostic agent runtime prototype built directly on **Cordis v4** and **AI SDK v7**. It is an independent architecture experiment for the next YesImBot framework layer, not a wrapper around Koishi and not a compatibility layer around the existing `@yesimbot/agent-runtime`.
 
-> Status: design prototype. This repository currently contains the architecture and acceptance criteria; production implementation has not landed yet. See [docs/design.md](./docs/design.md) for the authoritative design.
+> Status: early prototype. This repository contains the architecture and the first core slice (`SessionStore`, `AgentRegistry`, default `agentLoop` factory); the full runtime has not landed yet. See [docs/design.md](./docs/design.md) for the authoritative design.
 
 ## Repository Status
 
-| Item | Value |
-| --- | --- |
-| Package | `@yesimbot/athena-harness` |
-| Visibility | Private prototype |
-| Package manager | Yarn 4, `node-modules` linker |
-| Dependencies | `cordis`, `ai`, `cosmokit`, `schemastery` |
-| Source of truth | `docs/design.md` |
-| Current implementation | Not yet present |
+| Item                   | Value                                                            |
+| ---------------------- | ---------------------------------------------------------------- |
+| Package                | `@yesimbot/athena-harness`                                       |
+| Visibility             | Private prototype                                                |
+| Topology               | Single package now; future Yarn workspaces migration             |
+| Package manager        | Yarn 4, `node-modules` linker                                    |
+| Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                        |
+| Source of truth        | `docs/design.md`                                                 |
+| Current implementation | Initial core slice: `SessionStore`, `AgentRegistry`, `agentLoop` |
 
 The repository deliberately does not contain a Koishi integration, a YesImBot-compatible runtime, or a copy of deepseek-harness's application framework. The first version is intended to prove the smallest viable Cordis-based kernel before it becomes a shared foundation for YesImBot modes and community modes.
 
@@ -44,18 +45,18 @@ Athena Harness is the kernel prototype for a later mode-oriented Cordis framewor
 - Platform access is planned to go through transport interfaces such as Satori or a Koishi bridge.
 - World is planned to be redesigned as a Mode plugin that uses framework transport, model, store, and scheduler services.
 
-This README and the design document keep the first version intentionally kernel-only. Mode registries, transport adapters, mode packages, and a separate WebUI are target architecture, not current implementation.
+This README and the design document keep the first version intentionally kernel-only. Mode registries, transport adapters, mode packages, and a separate WebUI are target architecture, not current implementation. The repository stays single-package until the first independent mode, adapter, or plugin package exists; only then will it migrate to Yarn workspaces.
 
 ### Core Services
 
-| Context key | Public service | Responsibility |
-| --- | --- | --- |
-| `ctx.agents` | `AgentRegistry` | Multi-Agent creation, restoration, lookup, ownership, and the registered `AgentFactory` slot. |
-| `ctx.sessions` | `SessionStore` | Live Session preparation, publication, lookup, and removal. It does not own model projection. |
-| `ctx.modelSurface` | `ModelSurface` | Root-global Event-to-model projection and deterministic AI SDK `ModelMessage[]` derivation. |
-| `ctx.tools` | `ToolRuntime` | Root and Agent-scoped AI SDK Tool registration, shadowing, and immutable per-Step composition. |
-| `ctx.systemPrompt` | `SystemPrompt` | Root and Agent-scoped static prompt sections and dynamic runtime-context contributions. |
-| `ctx.persist` | `Persistence` | Optional durable Session preparation, append, flush, and restoration. The JSONL backend is the first Provider. |
+| Context key        | Public service  | Responsibility                                                                                                 |
+| ------------------ | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `ctx.agents`       | `AgentRegistry` | Multi-Agent creation, restoration, lookup, ownership, and the registered `AgentFactory` slot.                  |
+| `ctx.sessions`     | `SessionStore`  | Live Session preparation, publication, lookup, and removal. It does not own model projection.                  |
+| `ctx.modelSurface` | `ModelSurface`  | Root-global Event-to-model projection and deterministic AI SDK `ModelMessage[]` derivation.                    |
+| `ctx.tools`        | `ToolRuntime`   | Root and Agent-scoped AI SDK Tool registration, shadowing, and immutable per-Step composition.                 |
+| `ctx.systemPrompt` | `SystemPrompt`  | Root and Agent-scoped static prompt sections and dynamic runtime-context contributions.                        |
+| `ctx.persist`      | `Persistence`   | Optional durable Session preparation, append, flush, and restoration. The JSONL backend is the first Provider. |
 
 `agent-loop` is not a public Service. It is a concrete Agent-factory plugin that injects the stable Services and registers its factory through `ctx.agents.setFactory()`. Consumers depend on `agent`, not on `agent-loop`.
 
@@ -165,10 +166,15 @@ src/
 
 ## Development
 
-The repository is initialized with Yarn 4 and the `node-modules` linker. The current `package.json` only declares the prototype dependencies; build, test, and type-check scripts will be added with the first implementation.
+The repository is initialized with Yarn 4 and the `node-modules` linker.
 
 ```bash
-yarn install
+corepack yarn install
+corepack yarn typecheck
+corepack yarn lint
+corepack yarn test
+corepack yarn build
+corepack yarn format
 ```
 
 The design and acceptance criteria are defined in [docs/design.md](./docs/design.md). Implementation should not move ahead of that document's confirmed decisions.

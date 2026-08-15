@@ -1,6 +1,9 @@
 node_modules/
+lib/
 dist/
 coverage/
+.turbo/
+*.tsbuildinfo
 .yarn/*
 !.yarn/patches
 !.yarn/plugins

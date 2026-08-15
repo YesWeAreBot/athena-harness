@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": ["lib", "dist", "node_modules"],
+  "sortImports": {
+    "sortImports": {
+      "groups": [
+        "type-import",
+        ["value-builtin", "value-external"],
+        "type-internal",
+        "value-internal",
+        ["type-parent", "type-sibling", "type-index"],
+        ["value-parent", "value-sibling", "value-index"],
+        "unknown"
+      ]
+    }
+  },
+  "sortPackageJson": {
+    "sortDependencies": true,
+    "sortDevDependencies": true,
+    "sortPeerDependencies": true,
+    "sortScripts": true
+  },
+  "endOfLine": "lf",
+  "semi": true,
+  "printWidth": 160,
+  "objectWrap": "preserve",
+  "singleQuote": false,
+  "insertFinalNewline": true,
+  "trailingComma": "all"
+}
