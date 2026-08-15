@@ -6,15 +6,44 @@ import { agentLoop } from "../src/agent-loop/index.js";
 import { agentRegistry } from "../src/agent/index.js";
 import { modelSurface } from "../src/model-surface.js";
 import { sessionStore } from "../src/session/index.js";
+import { systemPrompt } from "../src/system-prompt.js";
+import { toolRuntime } from "../src/tools.js";
 
 describe("athena harness core slice", () => {
   it("composes services and creates an agent", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(agentRegistry), ctx.plugin(modelSurface), ctx.plugin(agentLoop)];
+    const fibers = [
+      ctx.plugin(sessionStore),
+      ctx.plugin(agentRegistry),
+      ctx.plugin(modelSurface),
+      ctx.plugin(systemPrompt),
+      ctx.plugin(toolRuntime),
+      ctx.plugin(agentLoop),
+    ];
     await Promise.all(fibers);
 
+    const model = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({ type: "text-start", id: "1" });
+            controller.enqueue({ type: "text-delta", id: "1", delta: "hello" });
+            controller.enqueue({ type: "text-end", id: "1" });
+            controller.enqueue({
+              type: "finish",
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
+              finishReason: { unified: "stop", raw: "stop" },
+            });
+            controller.close();
+          },
+        }),
+      }),
+    });
     const handle = await ctx.agents.create({
-      model: new MockLanguageModelV4(),
+      model,
       maxSteps: 3,
     });
 
@@ -30,8 +59,10 @@ describe("athena harness core slice", () => {
 
     handle.agent.send("user/message", { content: "hello" });
     await handle.agent.whenIdle();
-    expect(handle.agent.session.snapshotEvents).toHaveLength(1);
-    expect(handle.agent.session.snapshotEvents[0]?.type).toBe("user/message");
+    expect(handle.agent.session.snapshotEvents.length).toBeGreaterThan(1);
+    expect(handle.agent.session.snapshotEvents.some((event) => event.type === "user/message")).toBe(true);
+    expect(handle.agent.session.snapshotEvents.some((event) => event.type === "assistant/message")).toBe(true);
+    expect(handle.agent.status).toBe("idle");
 
     await ctx.agents.dispose(handle.agent.id);
     expect(ctx.agents.get(handle.agent.id)).toBeUndefined();

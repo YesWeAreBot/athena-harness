@@ -15,6 +15,8 @@ See [Positioning](../positioning.md) for the project's target layer and ecosyste
 | [03 - Agent Registry and Agent Loop](./03-agent-registry-agent-loop.md) | Cordis composition, agent creation, ownership, disposal, and the current loop boundary. |
 | [04 - Development Workflow](./04-development-workflow.md)               | Local commands, module layout, verification, and contribution loop.                     |
 | [05 - Body and Percept](./05-body-and-percept.md)                       | Body registration and non-IM percept events.                                            |
+| [06 - Persistence](./06-persistence.md)                                 | JSONL lifetime memory, restore, and crash-orphaned Turn repair.                         |
+| [07 - Tools and System Prompt](./07-tools-and-system-prompt.md)         | Scoped tool and prompt composition for the future Agent Loop.                           |
 
 ## Current Status
 
@@ -24,7 +26,9 @@ The repository is an early prototype. The following are implemented and tested:
 - `SessionEventMap` and built-in event vocabulary
 - `SurfaceManager` with append and replace semantics
 - `ModelSurface` and custom user projectors
-- `AgentRegistry`, owner-scoped handles, and a placeholder `agentLoop` factory
+- `AgentRegistry`, owner-scoped handles, and a real `agentLoop` with text/tool Steps
 - `BodyRegistry` and `PerceptEvent`
+- `Persistence` and `JsonlPersistence`
+- `ToolRuntime` and `SystemPrompt`
 
-The real AI SDK `streamText()` loop, durable persistence, tools, prompt composition, Mode architecture, and actuator execution are not implemented yet.
+The real AI SDK `streamText()` loop now runs with model Surface, system prompt, tools, and event recording. Durable checkpoints, full restore wiring, Mode architecture, and actuator execution are not implemented yet.

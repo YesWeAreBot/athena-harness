@@ -41,7 +41,7 @@ Tool calls are not the center. A digital life can choose to perceive, rest, act,
 
 ### 5. Identity over Instances
 
-A digital life should be able to cross model providers, modes, transports, and restarts while remaining the same entity.
+A digital life should be able to switch model providers and models at runtime without losing identity, memory, or current state. Restart migration is only one case; hot switching is the norm.
 
 ### 6. Modes over Products
 
@@ -65,6 +65,14 @@ Examples of Body plugins:
 - a physical robot shell.
 
 The core defines the Body contract. It does not implement any specific Body.
+
+### 8. Brain Is a Swappable Service
+
+The model is not a fixed body part. A future Mind/Brain plugin should expose one or more `LanguageModel`s, allow runtime switching, and keep the life unchanged. The first version's one-`LanguageModel`-per-Agent is a simplification, not the target.
+
+### 9. Perception Pipelines Belong to Modes and Bodies
+
+Raw sensory preprocessing, auxiliary models, and compact attention assembly are Mode/Body concerns, not prototype kernel concerns. The core defines Percept, Attention, and Actuator contracts, but does not implement sensory pipelines. A Chat Mode and a World Mode can each decide how much perception processing to install.
 
 ## IM Is a Door, Not a Home
 

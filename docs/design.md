@@ -48,6 +48,8 @@ Athena Harness is the kernel prototype for a later Cordis-based digital life fra
 - Platform access is sense/actuator-oriented, for example Satori or a Koishi bridge, rather than hard-coded into life execution.
 - IM is a door, not a home. Chat and World are two life modes, not the definition of the framework.
 - Body is a composable plugin surface: Senses + Actuators + Body State. A Body may be an IM account, a web account, a Minecraft avatar, a device, or a physical shell; the core does not implement any specific Body.
+- Model provider and model are swappable runtime capabilities. A life may switch at any time without losing identity, memory, or current mode; the first version's one-`LanguageModel`-per-Agent is a simplification, not the target.
+- Auxiliary models and perception pipelines are Mode/Body plugin concerns, not prototype kernel responsibilities. The kernel only needs Percept, Attention, and Actuator contracts.
 - World is redesigned as a Mode plugin using framework sense, actuator, model, store, and scheduler services. It does not own the framework or a separate WebUI.
 - The repository remains a single package while only one real package exists. When the first independent `mode-chat`, `mode-world`, `adapter-*`, or `plugin-*` package is introduced, the repository will migrate to Yarn workspaces.
 
@@ -687,3 +689,5 @@ Implementation may choose exact helper names and local data structures, but it m
 - 2026-08-15: keep the repository single-package while only one real package exists; migrate to Yarn workspaces when the first independent mode, adapter, or plugin package is introduced.
 - 2026-08-15: confirm the minimal `Body` and `PerceptEvent` contracts plus `BodyRegistry`; the Mode contract remains pending.
 - 2026-08-15: `BodyRegistry` first version registers Bodies and dispatches percepts only; it does not route Modes, ingest memory, or execute actuators.
+- 2026-08-15: model provider and model hot-switching is a target capability; the current one-`LanguageModel`-per-Agent design is a temporary simplification, not the long-term architecture.
+- 2026-08-15: auxiliary models and perception pipelines belong to Mode/Body plugins; the prototype kernel does not implement them.

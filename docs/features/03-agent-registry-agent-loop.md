@@ -19,6 +19,8 @@ const ctx = new Context();
 ctx.plugin(sessionStore);
 ctx.plugin(agentRegistry);
 ctx.plugin(modelSurface);
+ctx.plugin(systemPrompt);
+ctx.plugin(toolRuntime);
 ctx.plugin(agentLoop);
 ```
 
@@ -40,21 +42,23 @@ await ctx.agents.dispose(handle.agent.id);
 
 ## Current Agent Loop
 
-The default `agentLoop` is intentionally a lifecycle placeholder:
+The default `agentLoop` now calls AI SDK `streamText()` directly:
 
 - it validates that `user/message` or a registered custom projector is used;
 - it appends the event to the Session with `surfaceOp: 'append'`;
-- it exposes idle/running status and `whenIdle()`;
-- it does not yet call AI SDK `streamText()`.
-
-This boundary keeps the registry and factory contract stable while the real loop is implemented next.
+- it derives model messages through `ctx.modelSurface`;
+- it assembles the system prompt through `ctx.systemPrompt`;
+- it snapshots schema-only tools through `ctx.tools`;
+- it runs manual Steps and records `step/start`, `assistant/message`, `tool/call`, `tool/result`, and `step/end`;
+- it executes tool calls and appends durable event records;
+- it exposes idle/running status and `whenIdle()`.
 
 ## Developer Value
 
 - Plugins can depend on `AgentRegistry` without depending on a concrete loop implementation.
 - Agent ownership is explicit and disposal is idempotent.
-- A real Agent Loop provider can later replace the placeholder without changing Agent consumers.
+- A real Agent Loop provider can later replace this implementation without changing Agent consumers.
 
 ## Current Boundary
 
-There is no durable persistence or crash recovery yet. The registry now rejects duplicate live Agent ids before invoking the factory and drains registered Agents when the registry is disposed. A stronger factory-level transaction should be revisited when the real loop introduces external side effects.
+The registry rejects duplicate live Agent ids before invoking the factory and drains registered Agents when the registry is disposed. The real loop is not yet wired to `ctx.persist`, so durable checkpoints before model calls and tool side effects are not implemented yet. `resume()` still only restores in-memory Sessions.

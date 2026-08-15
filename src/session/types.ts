@@ -2,6 +2,7 @@ import type { SurfaceOp, SurfaceSnapshot } from "./surface.js";
 
 export interface SessionOptions {
   id?: string;
+  header?: SessionHeader;
 }
 
 export interface SessionHeader {

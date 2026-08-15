@@ -15,10 +15,20 @@ export class Session {
   private events: SessionEvent[] = [];
 
   constructor(options: SessionOptions = {}) {
-    this.header = {
-      id: options.id ?? createId("session"),
-      createdAt: Date.now(),
-    };
+    this.header = Object.freeze(
+      options.header ?? {
+        id: options.id ?? createId("session"),
+        createdAt: Date.now(),
+      },
+    );
+  }
+
+  static restore(header: SessionHeader, events: readonly SessionEvent[]): Session {
+    const session = new Session({ header });
+    for (const event of events) {
+      session.restoreEvent(event);
+    }
+    return session;
   }
 
   get id(): string {
@@ -69,6 +79,20 @@ export class Session {
 
   getEvent(seq: number): SessionEvent | undefined {
     return this.events.find((event) => event.seq === seq);
+  }
+
+  private restoreEvent(event: SessionEvent): void {
+    if (event.seq !== this.events.length + 1) {
+      throw new Error(`Session ${this.id} has a sequence gap at event ${event.seq}`);
+    }
+    const restored = deepFreeze(event);
+    if (restored.surfaceOp === "append") {
+      this.surface.append(restored.seq);
+    } else if (restored.surfaceOp) {
+      const { start, end } = restored.surfaceOp;
+      this.surface.replace(restored.seq, start, end, restored.sourceEventSeqs ?? []);
+    }
+    this.events.push(restored);
   }
 
   snapshot(): SessionSnapshot {
