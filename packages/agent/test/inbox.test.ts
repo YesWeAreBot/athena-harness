@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { Inbox } from "../src/inbox.js";
 
 describe("Inbox slot semantics", () => {

@@ -1,5 +1,6 @@
-import type { Context } from "cordis";
 import type { AgentFactory, AgentHandle, CreateAgentOptions, ResumeAgentOptions } from "@athena/agent";
+import type { Context } from "cordis";
+
 import { ConcreteAgent } from "./agent-impl.js";
 
 export class ReactLoopAgentFactory implements AgentFactory {
@@ -9,16 +10,14 @@ export class ReactLoopAgentFactory implements AgentFactory {
     const session = this.ctx.sessions.create(options.id ? { id: options.id } : undefined);
 
     // Acquire persistence binding before setup, so crash during setup doesn't orphan a file
-    const binding = this.ctx.sessions.persistence
-      ? await this.ctx.sessions.persistence.create(session.header)
-      : undefined;
+    const binding = this.ctx.sessions.persistence ? await this.ctx.sessions.persistence.create(session.header) : undefined;
 
     const agent = new ConcreteAgent({
-      id:       session.id,
+      id: session.id,
       session,
-      model:    options.model,
+      model: options.model,
       maxSteps: options.maxSteps ?? 10,
-      ctx:      this.ctx,
+      ctx: this.ctx,
       binding,
     });
 
@@ -45,16 +44,16 @@ export class ReactLoopAgentFactory implements AgentFactory {
     if (!persistence) throw new Error("Cannot resume: no persistence handler registered");
 
     const prepared = await persistence.prepare(options.id);
-    const session  = this.ctx.sessions.restore(prepared.header, prepared.events);
+    const session = this.ctx.sessions.restore(prepared.header, prepared.events);
     await prepared.close();
 
     const binding = await persistence.open(options.id);
     const agent = new ConcreteAgent({
-      id:       session.id,
+      id: session.id,
       session,
-      model:    options.model,
+      model: options.model,
       maxSteps: options.maxSteps ?? 10,
-      ctx:      this.ctx,
+      ctx: this.ctx,
       binding,
     });
 

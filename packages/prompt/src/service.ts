@@ -1,13 +1,21 @@
 import { createHash } from "node:crypto";
+
 import { Service } from "cordis";
 import type { Context } from "cordis";
+
 import type { AssembleResult, PromptSection } from "./types.js";
+
+declare module "cordis" {
+  interface Context {
+    systemPrompt: SystemPrompt;
+  }
+}
 
 export class SystemPrompt extends Service {
   static provide = "systemPrompt";
 
   private _globals = new Map<string, PromptSection>();
-  private _scoped  = new Map<symbol, Map<string, PromptSection>>();
+  private _scoped = new Map<symbol, Map<string, PromptSection>>();
 
   constructor(ctx: Context) {
     super(ctx, "systemPrompt");
@@ -27,13 +35,17 @@ export class SystemPrompt extends Service {
       }
       layer.set(section.name, section);
       this._scoped.set(key, layer);
-      return this.ctx.effect(() => () => { layer.delete(section.name); });
+      return this.ctx.effect(() => () => {
+        layer.delete(section.name);
+      });
     }
     if (this._globals.has(section.name)) {
       throw new Error(`Prompt section already registered: ${section.name}`);
     }
     this._globals.set(section.name, section);
-    return this.ctx.effect(() => () => { this._globals.delete(section.name); });
+    return this.ctx.effect(() => () => {
+      this._globals.delete(section.name);
+    });
   }
 
   async assemble(key?: symbol, signal?: AbortSignal): Promise<AssembleResult> {
@@ -46,9 +58,7 @@ export class SystemPrompt extends Service {
     }
 
     // Sort by order (ascending, stable)
-    const sorted = [...merged.values()].sort(
-      (a, b) => (a.order ?? 0) - (b.order ?? 0),
-    );
+    const sorted = [...merged.values()].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     // Render each section
     const sections: Array<{ name: string; content: string }> = [];
@@ -61,17 +71,5 @@ export class SystemPrompt extends Service {
     const rendered = createHash("sha256").update(system).digest("hex");
 
     return { system, rendered, sections };
-  }
-}
-
-export const systemPrompt = {
-  apply(ctx: Context) {
-    new SystemPrompt(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    systemPrompt: SystemPrompt;
   }
 }

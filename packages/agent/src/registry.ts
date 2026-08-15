@@ -1,12 +1,13 @@
 import { Service } from "cordis";
 import type { Context } from "cordis";
-import type {
-  Agent,
-  AgentFactory,
-  AgentHandle,
-  CreateAgentOptions,
-  ResumeAgentOptions,
-} from "./types.js";
+
+import type { Agent, AgentFactory, AgentHandle, CreateAgentOptions, ResumeAgentOptions } from "./types.js";
+
+declare module "cordis" {
+  interface Context {
+    agents: AgentRegistry;
+  }
+}
 
 export class AgentRegistry extends Service {
   static provide = "agents";
@@ -77,17 +78,5 @@ export class AgentRegistry extends Service {
         await handle.dispose();
       },
     };
-  }
-}
-
-export const agentRegistry = {
-  apply(ctx: Context) {
-    new AgentRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    agents: AgentRegistry;
   }
 }

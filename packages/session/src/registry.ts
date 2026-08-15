@@ -1,12 +1,13 @@
 import { Service } from "cordis";
 import type { Context } from "cordis";
-import type { SessionEvent, SessionHeader } from "./types.js";
+
 import { Session, restoreSession } from "./session.js";
+import type { SessionEvent, SessionHeader } from "./types.js";
 
 // ── Persistence interfaces ─────────────────────────────────────────────────
 export interface SessionBinding {
-  append(events: readonly SessionEvent[]): void;  // sync, buffered
-  flush(): Promise<void>;                         // drain buffer to disk
+  append(events: readonly SessionEvent[]): void; // sync, buffered
+  flush(): Promise<void>; // drain buffer to disk
   close(): Promise<void>;
 }
 
@@ -20,6 +21,12 @@ export interface SessionPersistenceHandler {
   prepare(id: string): Promise<PreparedSession>;
   create(header: SessionHeader): Promise<SessionBinding>;
   open(id: string): Promise<SessionBinding>;
+}
+
+declare module "cordis" {
+  interface Context {
+    sessions: SessionRegistry;
+  }
 }
 
 // ── Registry ───────────────────────────────────────────────────────────────
@@ -76,17 +83,5 @@ export class SessionRegistry extends Service {
 
   get persistence(): SessionPersistenceHandler | undefined {
     return this._persistence;
-  }
-}
-
-export const sessionRegistry = {
-  apply(ctx: Context) {
-    new SessionRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    sessions: SessionRegistry;
   }
 }

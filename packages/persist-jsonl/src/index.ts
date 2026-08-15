@@ -1,4 +1,5 @@
 import type { Context } from "cordis";
+
 import { JsonlHandler } from "./handler.js";
 
 export interface PersistJsonlConfig {
@@ -6,12 +7,12 @@ export interface PersistJsonlConfig {
   dir: string;
 }
 
-export const persistJsonl = (config: PersistJsonlConfig) => ({
+export const PersistJsonl = (config: PersistJsonlConfig) => ({
   inject: ["sessions"] as const,
   apply(ctx: Context) {
     ctx.sessions.setPersistence(new JsonlHandler(config));
   },
 });
 
-export { JsonlHandler }     from "./handler.js";
+export { JsonlHandler } from "./handler.js";
 export { JsonlSessionBinding } from "./binding.js";

@@ -1,5 +1,6 @@
 import { open } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
+
 import type { SessionBinding, SessionEvent } from "@athena/session";
 
 /**

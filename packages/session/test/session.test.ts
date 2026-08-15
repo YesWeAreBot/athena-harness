@@ -1,22 +1,13 @@
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
-import {
-  InvalidReplaceRangeError,
-  Session,
-  ToolCallMissingError,
-  TurnClosedError,
-  TurnNotOpenError,
-  restoreSession,
-  sessionRegistry,
-} from "../src/index.js";
+
+import { InvalidReplaceRangeError, Session, ToolCallMissingError, TurnClosedError, TurnNotOpenError, restoreSession, sessionRegistry } from "../src/index.js";
 
 // ── Invariant: TurnNotOpenError ────────────────────────────────────────────
 describe("Session write-time invariants", () => {
   it("throws TurnNotOpenError when step event references a turn that has no turn/start", () => {
     const s = new Session();
-    expect(() =>
-      s.append("step/start", { turn: 1, step: 1 }),
-    ).toThrowError(TurnNotOpenError);
+    expect(() => s.append("step/start", { turn: 1, step: 1 })).toThrowError(TurnNotOpenError);
   });
 
   it("throws ToolCallMissingError when tool/result has no matching tool/call", () => {
@@ -36,9 +27,7 @@ describe("Session write-time invariants", () => {
     const s = new Session();
     s.append("turn/start", { turn: 1 });
     s.append("turn/end", { turn: 1, reason: { kind: "completed" } });
-    expect(() =>
-      s.append("step/start", { turn: 1, step: 1 }),
-    ).toThrowError(TurnClosedError);
+    expect(() => s.append("step/start", { turn: 1, step: 1 })).toThrowError(TurnClosedError);
   });
 
   it("throws InvalidReplaceRangeError when replace range is out of bounds", () => {
@@ -46,9 +35,13 @@ describe("Session write-time invariants", () => {
     s.append("turn/start", { turn: 1 });
     // surface is empty — any replace should throw
     expect(() =>
-      s.append("turn/end", { turn: 1, reason: { kind: "completed" } }, {
-        surfaceOp: { replace: { start: 0, end: 5 } },
-      }),
+      s.append(
+        "turn/end",
+        { turn: 1, reason: { kind: "completed" } },
+        {
+          surfaceOp: { replace: { start: 0, end: 5 } },
+        },
+      ),
     ).toThrowError(InvalidReplaceRangeError);
   });
 });
@@ -67,11 +60,15 @@ describe("Surface", () => {
     const s = new Session();
     s.append("turn/start", { turn: 1 });
     s.append("step/start", { turn: 1, step: 1 }, { surfaceOp: "append" }); // seq=2, node[0]
-    s.append("step/end",   { turn: 1, step: 1 }, { surfaceOp: "append" }); // seq=3, node[1]
+    s.append("step/end", { turn: 1, step: 1 }, { surfaceOp: "append" }); // seq=3, node[1]
     // Replace both surface nodes with one synthetic node
-    s.append("turn/end", { turn: 1, reason: { kind: "completed" } }, {
-      surfaceOp: { replace: { start: 0, end: 2 } },
-    });
+    s.append(
+      "turn/end",
+      { turn: 1, reason: { kind: "completed" } },
+      {
+        surfaceOp: { replace: { start: 0, end: 2 } },
+      },
+    );
     expect(s.surface.nodes).toHaveLength(1);
     expect(s.surface.nodes[0]!.seq).toBe(4);
   });
@@ -101,7 +98,7 @@ describe("snapshot / restore", () => {
     const s = new Session();
     s.append("turn/start", { turn: 1 });
     s.append("step/start", { turn: 1, step: 1 }, { surfaceOp: "append" });
-    s.append("turn/end",   { turn: 1, reason: { kind: "completed" } });
+    s.append("turn/end", { turn: 1, reason: { kind: "completed" } });
     const snap = s.snapshot();
     const r = restoreSession(snap.header, snap.events);
     expect(r.events).toEqual(s.events);
@@ -139,9 +136,15 @@ describe("SessionRegistry", () => {
     const ctx = new Context();
     await ctx.plugin(sessionRegistry);
     const handler = {
-      prepare: async () => { throw new Error(); },
-      create: async () => { throw new Error(); },
-      open: async () => { throw new Error(); },
+      prepare: async () => {
+        throw new Error();
+      },
+      create: async () => {
+        throw new Error();
+      },
+      open: async () => {
+        throw new Error();
+      },
     };
     ctx.sessions.setPersistence(handler);
     expect(() => ctx.sessions.setPersistence(handler)).toThrow(/already registered/);

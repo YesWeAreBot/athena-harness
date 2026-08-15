@@ -1,12 +1,8 @@
 import { open, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type {
-  PreparedSession,
-  SessionBinding,
-  SessionEvent,
-  SessionHeader,
-  SessionPersistenceHandler,
-} from "@athena/session";
+
+import type { PreparedSession, SessionBinding, SessionEvent, SessionHeader, SessionPersistenceHandler } from "@athena/session";
+
 import { JsonlSessionBinding } from "./binding.js";
 
 export class JsonlHandler implements SessionPersistenceHandler {
@@ -43,7 +39,7 @@ export class JsonlHandler implements SessionPersistenceHandler {
     return {
       header,
       events,
-      close: async () => {},  // nothing to close — file was read synchronously
+      close: async () => {}, // nothing to close — file was read synchronously
     };
   }
 

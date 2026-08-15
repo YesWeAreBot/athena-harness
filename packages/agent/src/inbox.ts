@@ -41,6 +41,10 @@ export class Inbox {
     return items;
   }
 
-  get hasTurn(): boolean { return this._turn.length > 0; }
-  get hasStep(): boolean { return this._step.length > 0; }
+  get hasTurn(): boolean {
+    return this._turn.length > 0;
+  }
+  get hasStep(): boolean {
+    return this._step.length > 0;
+  }
 }

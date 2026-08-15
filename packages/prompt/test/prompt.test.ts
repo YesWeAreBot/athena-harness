@@ -1,5 +1,6 @@
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
+
 import { systemPrompt } from "../src/index.js";
 import type { PromptSection } from "../src/index.js";
 
@@ -71,7 +72,10 @@ describe("SystemPrompt", () => {
     let received: AbortSignal | undefined;
     ctx.systemPrompt.add({
       name: "spy",
-      render: (sig) => { received = sig; return "ok"; },
+      render: (sig) => {
+        received = sig;
+        return "ok";
+      },
     });
     const ctrl = new AbortController();
     await ctx.systemPrompt.assemble(undefined, ctrl.signal);

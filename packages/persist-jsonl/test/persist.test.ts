@@ -1,9 +1,11 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { sessionRegistry, type SessionEvent, type SessionHeader } from "@athena/session";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
-import { sessionRegistry, type SessionEvent, type SessionHeader } from "@athena/session";
+
 import { persistJsonl } from "../src/index.js";
 
 async function makeDir() {
@@ -23,7 +25,7 @@ describe("JsonlHandler", () => {
 
       const event: SessionEvent = {
         type: "turn/start",
-        seq:  1,
+        seq: 1,
         time: Date.now(),
         data: { turn: 1 },
       };
@@ -81,7 +83,7 @@ describe("JsonlHandler", () => {
 
       binding.append([{ type: "turn/start", seq: 1, time: 1, data: { turn: 1 } }]);
       binding.append([{ type: "step/start", seq: 2, time: 2, data: { turn: 1, step: 1 } }]);
-      binding.append([{ type: "step/end",   seq: 3, time: 3, data: { turn: 1, step: 1 } }]);
+      binding.append([{ type: "step/end", seq: 3, time: 3, data: { turn: 1, step: 1 } }]);
       // One flush — all three events must land
       await binding.flush();
       await binding.close();

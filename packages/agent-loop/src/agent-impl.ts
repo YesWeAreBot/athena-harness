@@ -1,44 +1,40 @@
-import type { UserContent } from "ai";
-import type { Context } from "cordis";
-import type { Session, SessionBinding } from "@athena/session";
 import type { Agent, AgentStatus } from "@athena/agent";
 import { Inbox } from "@athena/agent";
+import type { Session, SessionBinding } from "@athena/session";
+import type { UserContent } from "ai";
+import type { Context } from "cordis";
+
 import { runTurn } from "./turn-runner.js";
 
 export class ConcreteAgent implements Agent {
-  readonly id:       string;
-  readonly session:  Session;
-  readonly model:    import("ai").LanguageModel;
+  readonly id: string;
+  readonly session: Session;
+  readonly model: import("ai").LanguageModel;
   readonly maxSteps: number;
   readonly agentKey: symbol;
 
   private _status: AgentStatus = "idle";
-  private _inbox  = new Inbox();
-  private _ctrl:  AbortController | undefined;
-  private _idle:  Promise<void>  = Promise.resolve();
+  private _inbox = new Inbox();
+  private _ctrl: AbortController | undefined;
+  private _idle: Promise<void> = Promise.resolve();
   private _resolveIdle: (() => void) | undefined;
-  private _ctx:   Context;
+  private _ctx: Context;
   private _binding: SessionBinding | undefined;
   private _lastRendered = "";
 
-  constructor(opts: {
-    id:       string;
-    session:  Session;
-    model:    import("ai").LanguageModel;
-    maxSteps: number;
-    ctx:      Context;
-    binding?: SessionBinding;
-  }) {
-    this.id       = opts.id;
-    this.session  = opts.session;
-    this.model    = opts.model;
+  constructor(opts: { id: string; session: Session; model: import("ai").LanguageModel; maxSteps: number; ctx: Context; binding?: SessionBinding }) {
+    this.id = opts.id;
+    this.session = opts.session;
+    this.model = opts.model;
     this.maxSteps = opts.maxSteps;
     this.agentKey = Symbol(opts.id);
-    this._ctx     = opts.ctx;
+    this._ctx = opts.ctx;
     this._binding = opts.binding;
   }
 
-  get status(): AgentStatus { return this._status; }
+  get status(): AgentStatus {
+    return this._status;
+  }
 
   followup(content: UserContent): void {
     this._assertNotDisposed();
@@ -100,7 +96,9 @@ export class ConcreteAgent implements Agent {
 
     this._status = "running";
     let resolve!: () => void;
-    this._idle = new Promise<void>((res) => { resolve = res; });
+    this._idle = new Promise<void>((res) => {
+      resolve = res;
+    });
     this._resolveIdle = resolve;
 
     this._ctrl = new AbortController();
@@ -111,11 +109,11 @@ export class ConcreteAgent implements Agent {
         while (this._inbox.hasTurn || this._inbox.hasStep) {
           if (this._status === "stopping") break;
           this._lastRendered = await runTurn({
-            ctx:          this._ctx,
-            agent:        this,
-            inbox:        this._inbox,
-            session:      this.session,
-            binding:      this._binding,
+            ctx: this._ctx,
+            agent: this,
+            inbox: this._inbox,
+            session: this.session,
+            binding: this._binding,
             signal,
             lastRendered: this._lastRendered,
           });

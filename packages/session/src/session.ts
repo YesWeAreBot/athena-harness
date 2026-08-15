@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { AppendOptions, SessionEvent, SessionEventMap, SessionHeader, SessionSnapshot } from "./types.js";
+
+import { ToolCallMissingError, TurnClosedError, TurnNotOpenError } from "./errors.js";
 import { Surface } from "./surface.js";
-import {
-  ToolCallMissingError,
-  TurnClosedError,
-  TurnNotOpenError,
-} from "./errors.js";
+import type { AppendOptions, SessionEvent, SessionEventMap, SessionHeader, SessionSnapshot } from "./types.js";
 
 export class Session {
   readonly header: SessionHeader;
@@ -23,14 +20,14 @@ export class Session {
     this.surface = new Surface();
   }
 
-  get id(): string { return this.header.id; }
-  get events(): readonly SessionEvent[] { return this._events; }
+  get id(): string {
+    return this.header.id;
+  }
+  get events(): readonly SessionEvent[] {
+    return this._events;
+  }
 
-  append<K extends keyof SessionEventMap>(
-    type: K,
-    data: SessionEventMap[K],
-    opts?: AppendOptions,
-  ): SessionEvent<SessionEventMap[K]>;
+  append<K extends keyof SessionEventMap>(type: K, data: SessionEventMap[K], opts?: AppendOptions): SessionEvent<SessionEventMap[K]>;
   append<T>(type: string, data: T, opts?: AppendOptions): SessionEvent<T>;
   append(type: string, data: unknown, opts: AppendOptions = {}): SessionEvent {
     this._checkInvariants(type, data, opts);
@@ -42,9 +39,7 @@ export class Session {
       time: Date.now(),
       data: Object.freeze(data as object) as unknown,
       ...(opts.surfaceOp !== undefined ? { surfaceOp: opts.surfaceOp } : {}),
-      ...(opts.sourceEventSeqs !== undefined
-        ? { sourceEventSeqs: Object.freeze([...opts.sourceEventSeqs]) }
-        : {}),
+      ...(opts.sourceEventSeqs !== undefined ? { sourceEventSeqs: Object.freeze([...opts.sourceEventSeqs]) } : {}),
     });
 
     this._events.push(event);
@@ -84,8 +79,8 @@ export class Session {
     }
 
     if (type === "tool/result") {
-      const turn  = d["turn"]  as number;
-      const step  = d["step"]  as number;
+      const turn = d["turn"] as number;
+      const step = d["step"] as number;
       const callId = (d["result"] as Record<string, unknown> | undefined)?.["toolCallId"] as string | undefined;
       if (callId && !this._hasToolCall(turn, step, callId)) {
         throw new ToolCallMissingError(turn, step, callId);
@@ -105,12 +100,11 @@ export class Session {
   }
 
   private _isTurnOpen(turn: number): boolean {
-    return this._events.some((e) => e.type === "turn/start" && (e.data as Record<string,unknown>)["turn"] === turn) &&
-           !this._isTurnClosed(turn);
+    return this._events.some((e) => e.type === "turn/start" && (e.data as Record<string, unknown>)["turn"] === turn) && !this._isTurnClosed(turn);
   }
 
   private _isTurnClosed(turn: number): boolean {
-    return this._events.some((e) => e.type === "turn/end" && (e.data as Record<string,unknown>)["turn"] === turn);
+    return this._events.some((e) => e.type === "turn/end" && (e.data as Record<string, unknown>)["turn"] === turn);
   }
 
   private _hasToolCall(turn: number, step: number, toolCallId: string): boolean {

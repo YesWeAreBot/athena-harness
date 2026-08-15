@@ -5,10 +5,10 @@ import type { UserContent } from "ai";
 declare module "@athena/session" {
   interface SessionEventMap {
     /** Content claimed from next-turn slot at the start of a Turn. */
-    "user/message":    { content: UserContent };
+    "user/message": { content: UserContent };
     /** Content claimed from next-step slot at the start of a Step. */
     "env/observation": { content: UserContent };
   }
 }
 
-export {};  // make this a module
+export {}; // make this a module

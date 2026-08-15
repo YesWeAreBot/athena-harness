@@ -1,38 +1,37 @@
-import { streamText } from "ai";
-import type {
-  AssistantModelMessage,
-  ToolCallPart,
-  ToolResultPart,
-  UserContent,
-} from "ai";
-import type { Context } from "cordis";
-import type { Projector, Session, SessionBinding, ProjectorMap } from "@athena/session";
-import type { ConcreteAgent } from "./agent-impl.js";
 import type { Inbox } from "@athena/agent";
+import type { Projector, Session, SessionBinding, ProjectorMap } from "@athena/session";
+import { streamText } from "ai";
+import type { AssistantModelMessage, ToolCallPart, ToolResultPart, UserContent } from "ai";
+import type { Context } from "cordis";
+
+import type { ConcreteAgent } from "./agent-impl.js";
 
 // Default projectors wired once — project the model-visible event types to
 // ModelMessage so surface.deriveMessages() knows how to render them.
 const DEFAULT_PROJECTORS: ProjectorMap = {
   global: new Map<string, Projector>([
-    ["user/message",    (ev) => ({ role: "user",      content: (ev.data as { content: UserContent }).content })],
-    ["env/observation", (ev) => ({ role: "user",      content: (ev.data as { content: UserContent }).content })],
+    ["user/message", (ev) => ({ role: "user", content: (ev.data as { content: UserContent }).content })],
+    ["env/observation", (ev) => ({ role: "user", content: (ev.data as { content: UserContent }).content })],
     ["assistant/message", (ev) => (ev.data as { message: AssistantModelMessage }).message],
-    ["context/snapshot",  (ev) => ({ role: "user",    content: (ev.data as { rendered: string }).rendered })],
-    ["tool/result",       (ev) => {
-      const d = ev.data as { result: ToolResultPart };
-      return { role: "tool", content: [d.result] } as import("ai").ToolModelMessage;
-    }],
+    ["context/snapshot", (ev) => ({ role: "user", content: (ev.data as { rendered: string }).rendered })],
+    [
+      "tool/result",
+      (ev) => {
+        const d = ev.data as { result: ToolResultPart };
+        return { role: "tool", content: [d.result] } as import("ai").ToolModelMessage;
+      },
+    ],
   ]),
   scoped: new Map(),
 };
 
 export interface RunTurnOptions {
-  ctx:          Context;
-  agent:        ConcreteAgent;
-  inbox:        Inbox;
-  session:      Session;
-  binding:      SessionBinding | undefined;
-  signal:       AbortSignal;
+  ctx: Context;
+  agent: ConcreteAgent;
+  inbox: Inbox;
+  session: Session;
+  binding: SessionBinding | undefined;
+  signal: AbortSignal;
   lastRendered: string;
 }
 
@@ -73,9 +72,10 @@ export async function runTurn(opts: RunTurnOptions): Promise<string> {
 
       // d. Append request/header
       session.append("request/header", {
-        turn, step,
+        turn,
+        step,
         header: {
-          modelId:  (model as { modelId?: string }).modelId,
+          modelId: (model as { modelId?: string }).modelId,
           provider: (model as { provider?: string }).provider,
           tools: ctx.tools.names(agentKey),
         },
@@ -87,13 +87,9 @@ export async function runTurn(opts: RunTurnOptions): Promise<string> {
       // f. streamText with descriptor-only tools (no execute — spec A2)
       const result = await streamText({
         model,
-        system:   prompt.system || undefined,
-        messages: session.surface.deriveMessages(
-          new Map(session.events.map((e) => [e.seq, e])),
-          DEFAULT_PROJECTORS,
-          agentKey,
-        ),
-        tools:       ctx.tools.descriptors(agentKey),
+        system: prompt.system || undefined,
+        messages: session.surface.deriveMessages(new Map(session.events.map((e) => [e.seq, e])), DEFAULT_PROJECTORS, agentKey),
+        tools: ctx.tools.descriptors(agentKey),
         abortSignal: signal,
       });
 
@@ -101,7 +97,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<string> {
 
       // g. Append assistant message
       const assistantMsg: AssistantModelMessage = {
-        role:    "assistant",
+        role: "assistant",
         content: finalStep.text,
       };
       session.append("assistant/message", { turn, step, message: assistantMsg }, { surfaceOp: "append" });
@@ -109,10 +105,10 @@ export async function runTurn(opts: RunTurnOptions): Promise<string> {
       // h. Execute each tool call (intent before side-effect)
       for (const call of finalStep.toolCalls) {
         const callPart: ToolCallPart = {
-          type:        "tool-call",
-          toolCallId:  call.toolCallId,
-          toolName:    call.toolName,
-          input:       call.input as Record<string, unknown>,
+          type: "tool-call",
+          toolCallId: call.toolCallId,
+          toolName: call.toolName,
+          input: call.input as Record<string, unknown>,
         };
         session.append("tool/call", { turn, step, call: callPart });
         await binding?.flush(); // intent to disk before execute
@@ -123,7 +119,10 @@ export async function runTurn(opts: RunTurnOptions): Promise<string> {
         let status: import("@athena/session").ToolResultStatus = "ok";
         try {
           if (toolDef?.execute) {
-            output = await toolDef.execute(call.input as never, { toolCallId: call.toolCallId, messages: [], abortSignal: signal, context: undefined } as never);
+            output = await toolDef.execute(
+              call.input as never,
+              { toolCallId: call.toolCallId, messages: [], abortSignal: signal, context: undefined } as never,
+            );
           } else {
             throw new Error(`No executor for tool: ${call.toolName}`);
           }
@@ -133,10 +132,10 @@ export async function runTurn(opts: RunTurnOptions): Promise<string> {
         }
 
         const resultPart: ToolResultPart = {
-          type:        "tool-result",
-          toolCallId:  call.toolCallId,
-          toolName:    call.toolName,
-          output:      { type: "text", value: output === null ? "null" : typeof output === "string" ? output : JSON.stringify(output) },
+          type: "tool-result",
+          toolCallId: call.toolCallId,
+          toolName: call.toolName,
+          output: { type: "text", value: output === null ? "null" : typeof output === "string" ? output : JSON.stringify(output) },
         };
         session.append("tool/result", { turn, step, result: resultPart, status }, { surfaceOp: "append" });
       }

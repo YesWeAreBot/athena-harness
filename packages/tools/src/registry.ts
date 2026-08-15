@@ -2,11 +2,17 @@ import type { Tool, ToolSet } from "ai";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
+declare module "cordis" {
+  interface Context {
+    tools: ToolRegistry;
+  }
+}
+
 export class ToolRegistry extends Service {
   static provide = "tools";
 
   private _globals = new Map<string, Tool>();
-  private _scoped  = new Map<symbol, Map<string, Tool>>();
+  private _scoped = new Map<symbol, Map<string, Tool>>();
 
   constructor(ctx: Context) {
     super(ctx, "tools");
@@ -23,11 +29,15 @@ export class ToolRegistry extends Service {
       if (layer.has(name)) throw new Error(`Tool already registered in scope: ${name}`);
       layer.set(name, tool);
       this._scoped.set(key, layer);
-      return this.ctx.effect(() => () => { layer.delete(name); });
+      return this.ctx.effect(() => () => {
+        layer.delete(name);
+      });
     }
     if (this._globals.has(name)) throw new Error(`Tool already registered: ${name}`);
     this._globals.set(name, tool);
-    return this.ctx.effect(() => () => { this._globals.delete(name); });
+    return this.ctx.effect(() => () => {
+      this._globals.delete(name);
+    });
   }
 
   /**
@@ -61,11 +71,7 @@ export class ToolRegistry extends Service {
     return result;
   }
 
-  private _build(
-    key: symbol | undefined,
-    activeTools: ReadonlySet<string> | undefined,
-    keepExecute: boolean,
-  ): ToolSet {
+  private _build(key: symbol | undefined, activeTools: ReadonlySet<string> | undefined, keepExecute: boolean): ToolSet {
     const merged = this._merge(key);
     const result: Record<string, Tool> = {};
     for (const [name, tool] of merged) {
@@ -79,17 +85,5 @@ export class ToolRegistry extends Service {
       }
     }
     return result as ToolSet;
-  }
-}
-
-export const toolRegistry = {
-  apply(ctx: Context) {
-    new ToolRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    tools: ToolRegistry;
   }
 }

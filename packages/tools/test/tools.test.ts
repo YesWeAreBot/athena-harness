@@ -1,7 +1,8 @@
 import { tool } from "ai";
 import { Context } from "cordis";
-import { z } from "zod";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+
 import { toolRegistry } from "../src/index.js";
 
 function makeTool(name: string) {

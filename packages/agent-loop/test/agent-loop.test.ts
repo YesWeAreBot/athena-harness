@@ -1,12 +1,13 @@
+import { agentRegistry } from "@athena/agent";
+import { systemPrompt } from "@athena/prompt";
+import { sessionRegistry } from "@athena/session";
+import { toolRegistry } from "@athena/tools";
 import type { FinishReason } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
-import { sessionRegistry }  from "@athena/session";
-import { agentRegistry }    from "@athena/agent";
-import { toolRegistry }     from "@athena/tools";
-import { systemPrompt }     from "@athena/prompt";
-import { agentLoop }        from "../src/index.js";
+
+import { agentLoop } from "../src/index.js";
 
 function makeStreamModel(text = "hello", finishReason: FinishReason = "stop") {
   return new MockLanguageModelV4({
@@ -15,7 +16,7 @@ function makeStreamModel(text = "hello", finishReason: FinishReason = "stop") {
         start(controller) {
           controller.enqueue({ type: "text-start", id: "1" });
           controller.enqueue({ type: "text-delta", id: "1", delta: text });
-          controller.enqueue({ type: "text-end",   id: "1" });
+          controller.enqueue({ type: "text-end", id: "1" });
           controller.enqueue({
             type: "finish",
             usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
@@ -30,13 +31,7 @@ function makeStreamModel(text = "hello", finishReason: FinishReason = "stop") {
 
 async function setup() {
   const ctx = new Context();
-  await Promise.all([
-    ctx.plugin(sessionRegistry),
-    ctx.plugin(agentRegistry),
-    ctx.plugin(toolRegistry),
-    ctx.plugin(systemPrompt),
-    ctx.plugin(agentLoop),
-  ]);
+  await Promise.all([ctx.plugin(sessionRegistry), ctx.plugin(agentRegistry), ctx.plugin(toolRegistry), ctx.plugin(systemPrompt), ctx.plugin(agentLoop)]);
   return ctx;
 }
 
@@ -177,7 +172,7 @@ describe("agent-loop turn lifecycle", () => {
     await handle.agent.whenIdle();
 
     const events = handle.agent.session.events.map((e) => e.type);
-    const callIdx   = events.indexOf("tool/call");
+    const callIdx = events.indexOf("tool/call");
     const resultIdx = events.indexOf("tool/result");
     expect(callIdx).toBeGreaterThanOrEqual(0);
     expect(resultIdx).toBeGreaterThan(callIdx);

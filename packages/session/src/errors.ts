@@ -7,9 +7,7 @@ export class TurnNotOpenError extends Error {
 
 export class ToolCallMissingError extends Error {
   constructor(turn: number, step: number, toolCallId: string) {
-    super(
-      `Cannot append tool/result for turn ${turn} step ${step}: no matching tool/call with id '${toolCallId}'`,
-    );
+    super(`Cannot append tool/result for turn ${turn} step ${step}: no matching tool/call with id '${toolCallId}'`);
     this.name = "ToolCallMissingError";
   }
 }
@@ -23,9 +21,7 @@ export class TurnClosedError extends Error {
 
 export class InvalidReplaceRangeError extends Error {
   constructor(start: number, end: number, nodesLength: number) {
-    super(
-      `Invalid surfaceOp.replace range [${start}, ${end}) — surface has ${nodesLength} nodes`,
-    );
+    super(`Invalid surfaceOp.replace range [${start}, ${end}) — surface has ${nodesLength} nodes`);
     this.name = "InvalidReplaceRangeError";
   }
 }

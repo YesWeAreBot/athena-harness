@@ -1,14 +1,14 @@
-import type { LanguageModel, UserContent } from "ai";
 import type { Session } from "@athena/session";
+import type { LanguageModel, UserContent } from "ai";
 
 export type AgentStatus = "idle" | "running" | "stopping" | "disposed";
 
 export interface Agent {
-  readonly id:       string;
-  readonly session:  Session;
-  readonly model:    LanguageModel;
+  readonly id: string;
+  readonly session: Session;
+  readonly model: LanguageModel;
   readonly maxSteps: number;
-  readonly status:   AgentStatus;
+  readonly status: AgentStatus;
   /** agentKey is the symbol used to scope tools/prompt registrations to this agent. */
   readonly agentKey: symbol;
 
@@ -31,16 +31,16 @@ export interface AgentHandle {
 }
 
 export interface CreateAgentOptions {
-  id?:       string;
-  model:     LanguageModel;
+  id?: string;
+  model: LanguageModel;
   maxSteps?: number;
   /** Called before the agent is published. Register scoped tools/prompt here. */
   setup?(agentCtx: import("cordis").Context): void | Promise<void>;
 }
 
 export interface ResumeAgentOptions {
-  id:        string;
-  model:     LanguageModel;
+  id: string;
+  model: LanguageModel;
   maxSteps?: number;
   setup?(agentCtx: import("cordis").Context): void | Promise<void>;
 }

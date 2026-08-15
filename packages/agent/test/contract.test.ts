@@ -1,8 +1,9 @@
+import { sessionRegistry } from "@athena/session";
 import type { LanguageModel } from "ai";
 import { Context } from "cordis";
 import { describe, expect, it, vi } from "vitest";
+
 import { agentRegistry } from "../src/registry.js";
-import { sessionRegistry } from "@athena/session";
 import type { Agent, AgentFactory, AgentHandle } from "../src/types.js";
 
 function stubAgent(id: string): Agent {
@@ -35,7 +36,9 @@ describe("AgentRegistry factory seam", () => {
     const createAgent = vi.fn(async () => stubHandle("a1"));
     const factory: AgentFactory = {
       createAgent,
-      resumeAgent: async () => { throw new Error("not used"); },
+      resumeAgent: async () => {
+        throw new Error("not used");
+      },
     };
     ctx.agents.setFactory(factory);
 
@@ -49,7 +52,9 @@ describe("AgentRegistry factory seam", () => {
     await ctx.plugin(agentRegistry);
     ctx.agents.setFactory({
       createAgent: async () => stubHandle("b1"),
-      resumeAgent: async () => { throw new Error(); },
+      resumeAgent: async () => {
+        throw new Error();
+      },
     });
     const handle = await ctx.agents.create({ model: {} as LanguageModel });
     expect(ctx.agents.get("b1")).toBe(handle.agent);
@@ -60,7 +65,9 @@ describe("AgentRegistry factory seam", () => {
     await ctx.plugin(agentRegistry);
     ctx.agents.setFactory({
       createAgent: async (opts) => stubHandle(opts.id ?? "c1"),
-      resumeAgent: async () => { throw new Error(); },
+      resumeAgent: async () => {
+        throw new Error();
+      },
     });
     await ctx.agents.create({ id: "c1", model: {} as LanguageModel });
     await ctx.agents.create({ id: "c2", model: {} as LanguageModel });
@@ -74,7 +81,9 @@ describe("AgentRegistry factory seam", () => {
     await ctx.plugin(agentRegistry);
     ctx.agents.setFactory({
       createAgent: async () => stubHandle("d1"),
-      resumeAgent: async () => { throw new Error(); },
+      resumeAgent: async () => {
+        throw new Error();
+      },
     });
     const handle = await ctx.agents.create({ model: {} as LanguageModel });
     await handle.dispose();
@@ -87,7 +96,9 @@ describe("AgentRegistry factory seam", () => {
     await ctx.plugin(agentRegistry);
     const f: AgentFactory = {
       createAgent: async () => stubHandle("x"),
-      resumeAgent: async () => { throw new Error(); },
+      resumeAgent: async () => {
+        throw new Error();
+      },
     };
     ctx.agents.setFactory(f);
     expect(() => ctx.agents.setFactory(f)).toThrow(/already registered/);
