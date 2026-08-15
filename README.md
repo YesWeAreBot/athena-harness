@@ -130,11 +130,9 @@ Durable checkpoints are required:
 
 Valid JSONL that ends in an open Turn is recoverable. Recovery synthesizes missing Tool failures and Step/Turn closers, then flushes the repair Events. It never reruns a Tool, and malformed or truncated records are rejected rather than repaired.
 
-## Planned Package Contract
+## Package Contract
 
-The package root is planned to export stable contracts, public Service classes, Session/Event/Surface types, Agent types, Cordis module augmentations, and small creation/id helpers.
-
-Concrete replaceable Providers use explicit subpaths:
+The package root exports stable contracts, public Service classes, Session/Event/Surface types, Agent types, Cordis module augmentations, and small creation/id helpers. Concrete replaceable Providers are not re-exported from the root and use explicit subpaths:
 
 - `@yesimbot/harness-core/agent-loop` for the default Agent factory and loop;
 - `@yesimbot/harness-core/persist/jsonl` for `JsonlPersistence`.
