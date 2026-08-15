@@ -37,3 +37,5 @@ await life.dispatchPercept(event);
 ## Current Boundary
 
 Life can now hold a `ModeHandle` and route `PerceptEvent`s to it. It is not yet wired to AgentLoop, automatic BodyRegistry subscription, or Actuator execution. Mode-specific behavior remains a future consumer concern.
+
+These contracts are experimental prototype records. The canonical baseline is `docs/architecture-foundation.md`, which leaves exact Life/Mode contracts pending.

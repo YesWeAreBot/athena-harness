@@ -2,11 +2,11 @@
 
 ## Status
 
-This document is the source of truth for confirmed architecture decisions in `@yesimbot/harness-core`.
+The canonical architecture baseline is [architecture-foundation.md](./architecture-foundation.md). This document records the current Harness core prototype implementation and should not override that baseline.
 
 Athena Runtime decisions live in [athena-runtime-design.md](./athena-runtime-design.md).
 
-Update it as decisions are confirmed. Sections marked **Pending** are unresolved and must not be filled by inference during implementation.
+This is not an interface specification. Specific APIs and package boundaries remain subject to the canonical baseline.
 
 ## Purpose
 

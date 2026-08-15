@@ -13,7 +13,7 @@ Athena Harness is a Yarn workspaces monorepo. `@yesimbot/harness-core` is a smal
 | Topology               | Yarn workspaces monorepo                                                                                                                                                                              |
 | Package manager        | Yarn 4, `node-modules` linker                                                                                                                                                                         |
 | Dependencies           | `cordis`, `ai`, `cosmokit`, `schemastery`                                                                                                                                                             |
-| Source of truth        | Harness core: `docs/design.md`; Athena Runtime: `docs/athena-runtime-design.md`                                                                                                                       |
+| Source of truth        | Canonical: `docs/architecture-foundation.md`; prototype records: `docs/design.md`, `docs/athena-runtime-design.md`                                                                                    |
 | Current implementation | Core slices: `SessionStore`, `AgentRegistry`, `Surface`, `ModelSurface`, `BodyRegistry`, `Persistence`, `ToolRuntime`, `SystemPrompt`, Agent Events, `LifeRegistry`, `ModeRegistry`, real `agentLoop` |
 
 The repository deliberately does not contain a Koishi integration, a YesImBot-compatible runtime, or a copy of deepseek-harness's application framework. The first version is intended to prove the smallest viable Cordis-based kernel before it becomes a shared foundation for YesImBot modes and community modes.
@@ -177,7 +177,7 @@ corepack yarn build
 corepack yarn format
 ```
 
-The Harness core design and acceptance criteria are defined in [docs/design.md](./docs/design.md). Athena Runtime contracts are defined in [docs/athena-runtime-design.md](./docs/athena-runtime-design.md). Implementation should not move ahead of their confirmed decisions.
+The canonical architecture baseline is [docs/architecture-foundation.md](./docs/architecture-foundation.md). Harness core and Athena Runtime prototype records are [docs/design.md](./docs/design.md) and [docs/athena-runtime-design.md](./docs/athena-runtime-design.md). Implementation should not override the canonical baseline.
 
 Developer-facing feature guides are available in [docs/features](./docs/features/README.md). The project's vision and ecosystem boundaries are described in [docs/vision.md](./docs/vision.md) and [docs/positioning.md](./docs/positioning.md).
 

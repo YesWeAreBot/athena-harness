@@ -427,15 +427,15 @@ Mode 是 Athena Runtime 的组合单元，用来表达不同拟人化运行机�
 
 三种历史产品可以形成以下设计参照：
 
-| 维度 | Chat / YesImBot Mode | World Mode | Interlude Mode |
-|---|---|---|---|
-| Agent Loop | 消息触发的有限 Tool Loop | mailbox 驱动的长期 Loop | 单次 Narrative 决策 Loop |
-| 输入 | 消息和系统事件 | 通知、世界事件、tingle | 消息、due intent、sweep |
-| Session 投影 | 对话历史 | 当前观察、设备和世界信息 | Story、Facts、Intents |
-| Tool/结果 | 回复、搜索、记忆 | open_app、act、wait、send | 台词、事实和状态变更 |
-| 调度 | 消息或事件触发 | mailbox、timer、tingle | debounce、interval、due intent |
-| 产品状态 | Channel Conversation | World State | Story Database |
-| 输出 | 平台消息 | 世界行为或平台消息 | 剧本台词和 State Patch |
+| 维度         | Chat / YesImBot Mode     | World Mode                | Interlude Mode                 |
+| ------------ | ------------------------ | ------------------------- | ------------------------------ |
+| Agent Loop   | 消息触发的有限 Tool Loop | mailbox 驱动的长期 Loop   | 单次 Narrative 决策 Loop       |
+| 输入         | 消息和系统事件           | 通知、世界事件、tingle    | 消息、due intent、sweep        |
+| Session 投影 | 对话历史                 | 当前观察、设备和世界信息  | Story、Facts、Intents          |
+| Tool/结果    | 回复、搜索、记忆         | open_app、act、wait、send | 台词、事实和状态变更           |
+| 调度         | 消息或事件触发           | mailbox、timer、tingle    | debounce、interval、due intent |
+| 产品状态     | Channel Conversation     | World State               | Story Database                 |
+| 输出         | 平台消息                 | 世界行为或平台消息        | 剧本台词和 State Patch         |
 
 这张表描述的是可组合差异，不要求未来实现逐项复制历史项目。
 

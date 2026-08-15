@@ -2,9 +2,11 @@
 
 ## Status
 
-This document is the source of truth for confirmed architecture decisions in `@yesimbot/athena-runtime`.
+The canonical architecture baseline is [architecture-foundation.md](./architecture-foundation.md). This document records the current Athena Runtime prototype direction and should not override that baseline.
 
 It is separate from [docs/design.md](./design.md), which describes `@yesimbot/harness-core`.
+
+This is not an interface specification. Life, Mode, Body, and Memory contracts here are experimental prototypes until the canonical baseline confirms them.
 
 ## Purpose
 
