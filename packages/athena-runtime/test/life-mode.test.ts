@@ -100,4 +100,122 @@ describe("life and mode registries", () => {
     await ctx.lives.dispose("life-3");
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
+
+  it("starts the new mode and stops/disposes the previous mode", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(sessionStore), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    const events: string[] = [];
+    ctx.modes.register({
+      name: "chat",
+      setup: async () => ({
+        start: async () => {
+          events.push("chat.start");
+        },
+        stop: async () => {
+          events.push("chat.stop");
+        },
+        handle: async () => true,
+      }),
+    });
+    ctx.modes.register({
+      name: "world",
+      setup: async () => ({
+        start: async () => {
+          events.push("world.start");
+        },
+        stop: async () => {
+          events.push("world.stop");
+        },
+        handle: async () => true,
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-switch" });
+    await handle.setMode(await ctx.modes.create("chat", {}));
+    await handle.setMode(await ctx.modes.create("world", {}));
+    expect(events).toEqual(["chat.start", "chat.stop", "world.start"]);
+
+    await ctx.lives.dispose("life-switch");
+    expect(events).toEqual(["chat.start", "chat.stop", "world.start", "world.stop"]);
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("clears the active mode when mode start fails", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(sessionStore), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    ctx.modes.register({
+      name: "broken",
+      setup: async () => ({
+        start: async () => {
+          throw new Error("start failed");
+        },
+        stop: async () => {},
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-fail" });
+    await expect(handle.setMode(await ctx.modes.create("broken", {}))).rejects.toThrow("start failed");
+    expect(handle.activeModeId).toBeUndefined();
+
+    await ctx.lives.dispose("life-fail");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("clears active mode and detached body after plugin-style disposal", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(bodyRegistry), ctx.plugin(sessionStore), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    const disposeMode = ctx.modes.register({
+      name: "chat",
+      setup: async () => ({
+        handle: async () => true,
+      }),
+    });
+    const disposeBody = ctx.bodies.register({
+      id: "im",
+      state: {},
+    });
+
+    const handle = ctx.lives.create({ id: "life-hot" });
+    await handle.attachBody("im");
+    const mode = await ctx.modes.create("chat", {});
+    await handle.setMode(mode);
+    expect(handle.activeModeId).toBe(mode.id);
+    expect(handle.life.bodyIds).toEqual(["im"]);
+
+    await disposeMode();
+    await disposeBody();
+
+    expect(handle.activeModeId).toBeUndefined();
+    expect(handle.life.bodyIds).toEqual([]);
+    await expect(handle.dispatchPercept({ id: "p", time: Date.now(), bodyId: "im", kind: "x", data: {} })).resolves.toBe(false);
+
+    await ctx.lives.dispose("life-hot");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("disposes created mode instances when the registry stops", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(modeRegistry);
+    await fiber;
+
+    const stops: string[] = [];
+    ctx.modes.register({
+      name: "chat",
+      setup: async () => ({
+        stop: async () => {
+          stops.push("chat");
+        },
+      }),
+    });
+    await ctx.modes.create("chat", {});
+
+    await fiber.dispose();
+    expect(stops).toEqual(["chat"]);
+  });
 });

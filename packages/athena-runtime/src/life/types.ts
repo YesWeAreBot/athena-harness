@@ -6,11 +6,14 @@ import type { ModeHandle } from "../mode/types.js";
 export interface Life {
   readonly id: string;
   readonly session: Session;
+  readonly activeModeId?: string;
+  readonly bodyIds: readonly string[];
 }
 
 export interface LifeHandle {
   readonly life: Life;
-  setMode(mode: ModeHandle): Awaitable<void>;
+  readonly activeModeId?: string;
+  setMode(mode: ModeHandle | undefined): Awaitable<void>;
   dispatchPercept(event: PerceptEvent): Awaitable<boolean>;
   attachBody(bodyId: string): Awaitable<void>;
   detachBody(bodyId: string): Awaitable<void>;

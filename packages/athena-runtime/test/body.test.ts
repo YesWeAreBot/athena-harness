@@ -45,4 +45,33 @@ describe("body registry", () => {
 
     await fiber.dispose();
   });
+
+  it("executes registered actuator actions", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    const actions: string[] = [];
+    ctx.bodies.register({
+      id: "im",
+      state: {},
+      actuators: [
+        {
+          id: "send",
+          kind: "chat",
+          act: async (action) => {
+            actions.push(String(action));
+            return { ok: true };
+          },
+        },
+      ],
+    });
+
+    const result = await ctx.bodies.act("im", "send", "hello");
+    expect(actions).toEqual(["hello"]);
+    expect(result).toEqual({ ok: true });
+    await expect(ctx.bodies.act("im", "missing", {})).rejects.toThrow(/Actuator not found/);
+
+    await fiber.dispose();
+  });
 });

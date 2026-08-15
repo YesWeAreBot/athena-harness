@@ -23,6 +23,7 @@ export class BodyRegistry extends Service {
     this.bodies.set(body.id, body);
     return this.ctx.effect(() => () => {
       this.bodies.delete(body.id);
+      this.ctx.emit("body/disposed", { id: body.id });
     });
   }
 
@@ -32,6 +33,21 @@ export class BodyRegistry extends Service {
 
   list(): Body[] {
     return [...this.bodies.values()];
+  }
+
+  async act(bodyId: string, actuatorId: string, action: unknown): Promise<unknown> {
+    const body = this.bodies.get(bodyId);
+    if (!body) {
+      throw new Error(`Body not registered: ${bodyId}`);
+    }
+    const actuator = body.actuators?.find((item) => item.id === actuatorId);
+    if (!actuator) {
+      throw new Error(`Actuator not found: ${bodyId}/${actuatorId}`);
+    }
+    if (!actuator.act) {
+      throw new Error(`Actuator has no act implementation: ${bodyId}/${actuatorId}`);
+    }
+    return await actuator.act(action);
   }
 
   dispatch<T>(bodyId: string, kind: string, data: T): PerceptEvent<T> {
@@ -63,5 +79,6 @@ declare module "cordis" {
 
   interface Events {
     "body/percept"(event: PerceptEvent): void;
+    "body/disposed"(event: { id: string }): void;
   }
 }

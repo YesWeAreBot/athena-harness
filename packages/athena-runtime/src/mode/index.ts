@@ -1,41 +1,85 @@
+import { createId } from "@yesimbot/harness-core";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
-import type { Mode, ModeHandle } from "./types.js";
+import type { Mode, ModeContext, ModeHandle, ModeSetupHandle } from "./types.js";
 
 export class ModeRegistry extends Service {
   static provide = "modes";
 
-  private modes = new Map<string, Mode>();
+  private readonly definitions = new Map<string, Mode>();
+
+  private readonly instances = new Map<string, { definitionName: string; handle: ModeHandle }>();
 
   constructor(ctx: Context) {
     super(ctx, "modes");
+    this.ctx.effect(() => async () => {
+      await this.stopAll();
+    });
   }
 
   register(mode: Mode): () => Promise<void> {
-    if (this.modes.has(mode.name)) {
+    if (this.definitions.has(mode.name)) {
       throw new Error(`Mode already registered: ${mode.name}`);
     }
-    this.modes.set(mode.name, mode);
-    return this.ctx.effect(() => () => {
-      this.modes.delete(mode.name);
+    this.definitions.set(mode.name, mode);
+    return this.ctx.effect(() => async () => {
+      await this.disposeDefinition(mode.name);
     });
   }
 
   get(name: string): Mode | undefined {
-    return this.modes.get(name);
+    return this.definitions.get(name);
   }
 
   list(): Mode[] {
-    return [...this.modes.values()];
+    return [...this.definitions.values()];
   }
 
-  async create<C = any>(name: string, config: C): Promise<ModeHandle> {
-    const mode = this.modes.get(name);
+  async create<C = any>(name: string, config: C, context: ModeContext = {}): Promise<ModeHandle> {
+    const mode = this.definitions.get(name);
     if (!mode) {
       throw new Error(`Mode not registered: ${name}`);
     }
-    return mode.setup({}, config);
+    const created: ModeSetupHandle = await mode.setup(context, config);
+    const id = createId("mode");
+    let disposed = false;
+    const handle: ModeHandle = {
+      ...created,
+      id,
+      name: mode.name,
+      get disposed() {
+        return disposed;
+      },
+      dispose: async () => {
+        if (disposed) return;
+        disposed = true;
+        this.instances.delete(id);
+        try {
+          await created.stop?.();
+        } finally {
+          await created.dispose?.();
+        }
+        this.ctx.emit("mode/disposed", { id, name: handle.name });
+      },
+    };
+    this.instances.set(id, { definitionName: name, handle });
+    return handle;
+  }
+
+  async dispose(id: string): Promise<void> {
+    await this.instances.get(id)?.handle.dispose?.();
+  }
+
+  async stopAll(): Promise<void> {
+    const handles = [...this.instances.values()].map((entry) => entry.handle);
+    await Promise.allSettled(handles.map((handle) => handle.dispose?.()));
+  }
+
+  private async disposeDefinition(name: string): Promise<void> {
+    const entries = [...this.instances.values()].filter((entry) => entry.definitionName === name);
+    await Promise.allSettled(entries.map((entry) => entry.handle.dispose?.()));
+    this.definitions.delete(name);
   }
 }
 
@@ -48,5 +92,9 @@ export const modeRegistry = {
 declare module "cordis" {
   interface Context {
     modes: ModeRegistry;
+  }
+
+  interface Events {
+    "mode/disposed"(event: { id: string; name: string }): void;
   }
 }

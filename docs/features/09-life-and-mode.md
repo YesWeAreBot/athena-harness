@@ -36,6 +36,12 @@ await life.dispatchPercept(event);
 
 ## Current Boundary
 
-Life can now hold a `ModeHandle` and route `PerceptEvent`s to it. It is not yet wired to AgentLoop, automatic BodyRegistry subscription, or Actuator execution. Mode-specific behavior remains a future consumer concern.
+Life can now hold a `ModeHandle`, attach and detach Bodies, route `PerceptEvent`s to the active Mode, and
+switch Modes with a stop-old/start-new lifecycle. Mode instances expose an idempotent `dispose()` and emit
+`mode/disposed`; LifeRegistry listens for both `mode/disposed` and `body/disposed`, so Cordis plugin hot
+unload clears active Mode and attached Body state safely.
+
+It is not yet wired to AgentLoop or Actuator execution as part of Mode behavior. Mode-specific behavior
+remains a future consumer concern.
 
 These contracts are experimental prototype records. The canonical baseline is `docs/architecture-foundation.md`, which leaves exact Life/Mode contracts pending.

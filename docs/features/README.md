@@ -31,10 +31,11 @@ The repository is an early prototype. The following are implemented and tested:
 - `AgentRegistry`, owner-scoped handles, `AgentContext` setup, and a real `agentLoop` with text/tool Steps
 - durable `context/snapshot` events, `request/header` records, and `max-tokens` / `max-steps` end reasons
 - Tool Call intent/results with explicit `ok`, `error`, and `interrupted` status
-- `BodyRegistry` and `PerceptEvent`
+- `BodyRegistry`, `PerceptEvent`, and Actuator execution through `ctx.bodies.act()`
+- `LifeRegistry` / `ModeRegistry` lifecycle with hot-unload-safe disposal
 - `Persistence` and `JsonlPersistence`
 - `ToolRuntime` and `SystemPrompt`
 - Agent Events with `agentEvents(ctx, agent)`
 - `LifeRegistry` and `ModeRegistry`
 
-The real AI SDK `streamText()` loop now runs with model Surface, system prompt, tools, event recording, durable checkpoints, and JSONL resume. Mode architecture and actuator execution are not implemented yet.
+The real AI SDK `streamText()` loop now runs with model Surface, system prompt, tools, event recording, durable checkpoints, and JSONL resume. Mode implementations, Life-to-AgentLoop wiring, and Athena Runtime Memory remain future work.

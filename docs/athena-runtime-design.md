@@ -82,11 +82,12 @@ Athena Runtime Memory is not yet implemented. It will sit above the Session Log 
 - 2026-08-15: LifeRegistry and ModeRegistry are core contracts.
 - 2026-08-15: ModeRegistry.create() and LifeHandle Mode routing are confirmed.
 - 2026-08-15: LifeHandle Body attachment and automatic `body/percept` routing are confirmed.
+- 2026-08-15: ModeRegistry creates tracked ModeHandles with id, name, and idempotent dispose(); LifeHandle stops the old Mode before starting a new one and clears activeMode if start fails.
+- 2026-08-15: BodyRegistry executes registered Actuators through act(); Body and Mode disposal emit body/disposed / mode/disposed so LifeRegistry reacts to Cordis plugin hot unload.
 
 ## Pending
 
 - Memory ingestion and derived Memory;
-- actuator execution;
 - automatic Life to AgentLoop wiring;
 - WebUI;
 - model provider and model hot-switching;

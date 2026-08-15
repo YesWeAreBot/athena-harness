@@ -20,7 +20,21 @@ export class LifeRegistry extends Service {
           if (handle.hasBody(event.bodyId)) void handle.dispatchPercept(event);
         }
       });
-      return () => dispose();
+      const modeDispose = this.ctx.on("mode/disposed", (event: { id: string }) => {
+        for (const handle of this.lives.values()) {
+          if (handle.activeModeId === event.id) void handle.setMode(undefined);
+        }
+      });
+      const bodyDispose = this.ctx.on("body/disposed", (event: { id: string }) => {
+        for (const handle of this.lives.values()) {
+          if (handle.hasBody(event.id)) void handle.detachBody(event.id);
+        }
+      });
+      return () => {
+        dispose();
+        modeDispose();
+        bodyDispose();
+      };
     });
     this.ctx.effect(() => async () => {
       await Promise.allSettled([...this.lives.values()].map((handle) => handle.dispose()));
@@ -57,24 +71,46 @@ export class LifeRegistry extends Service {
     if (this.lives.has(session.id)) {
       throw new Error(`Life already exists: ${session.id}`);
     }
+    let disposed = false;
+    let activeMode: ModeHandle | undefined;
+    const bodies = new Set<string>();
+
     const life: Life = {
       id: session.id,
       session,
+      get activeModeId() {
+        return activeMode?.id;
+      },
+      get bodyIds() {
+        return [...bodies];
+      },
     };
-    let disposed = false;
-    let mode: ModeHandle | undefined;
-    const bodies = new Set<string>();
+
     const handle: LifeHandle = {
       life,
+      get activeModeId() {
+        return life.activeModeId;
+      },
       setMode: async (next) => {
-        await mode?.stop?.();
-        mode = next;
-        await mode?.start?.();
+        if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+        if (next === activeMode) return;
+        if (next?.disposed) throw new Error(`Mode is disposed: ${next.id}`);
+        await stopMode(activeMode);
+        activeMode = next;
+        try {
+          await activeMode?.start?.();
+        } catch (error) {
+          await stopMode(activeMode);
+          activeMode = undefined;
+          throw error;
+        }
       },
       dispatchPercept: async (event: PerceptEvent) => {
-        return mode?.handle ? await mode.handle(event) : false;
+        if (activeMode?.disposed) activeMode = undefined;
+        return activeMode?.handle ? await activeMode.handle(event) : false;
       },
       attachBody: async (bodyId: string) => {
+        if (disposed) throw new Error(`Life is disposed: ${life.id}`);
         bodies.add(bodyId);
       },
       detachBody: async (bodyId: string) => {
@@ -84,14 +120,21 @@ export class LifeRegistry extends Service {
       dispose: async () => {
         if (disposed) return;
         disposed = true;
-        await mode?.stop?.();
         this.lives.delete(life.id);
+        await stopMode(activeMode);
+        activeMode = undefined;
         this.ctx.sessions.remove(life.id);
       },
     };
     this.lives.set(life.id, handle);
     return handle;
   }
+}
+
+async function stopMode(mode: ModeHandle | undefined): Promise<void> {
+  if (!mode) return;
+  if (mode.dispose) await mode.dispose();
+  else await mode.stop?.();
 }
 
 export const lifeRegistry = {

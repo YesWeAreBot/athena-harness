@@ -9,21 +9,16 @@
 
 </div>
 
----
-
 > [!WARNING]
 > **Project Status / 项目状态**  
 > This project is an early-stage experimental prototype under active development. It is **NOT** a finished product, stable framework, or standard chatbot/AI Agent framework.  
 > 本项目处于早期实验性原型阶段。它**不是**成品，也**不是**稳定框架或通用 AI 聊天/ Agent 助手框架。
 
----
 
 ## Packages / 仓库结构
 
 * **`@yesimbot/harness-core`**: Generic execution kernel / 通用执行内核
 * **`@yesimbot/athena-runtime`**: Digital life framework prototype / 数字生命框架原型
-
----
 
 ## Current State / 当前进展
 

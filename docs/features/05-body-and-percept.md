@@ -56,9 +56,12 @@ The event is frozen and includes a stable id, timestamp, body id, kind, and stru
 
 ## Current Boundary
 
-This first slice registers Bodies and dispatches percepts. It does not yet implement:
+The current slice registers Bodies, dispatches percepts, and executes registered Actuators through
+`ctx.bodies.act()`. It does not yet implement:
 
 - autonomous life tick or scheduler;
-- Mode selection and routing;
 - memory ingestion from percepts;
-- actuator execution through `BodyRegistry`.
+- attention/compact-perception pipelines.
+
+Body unregistration is a Cordis effect and emits `body/disposed`, so attached Lives can detach the Body
+without keeping a stale reference after plugin hot unload.
