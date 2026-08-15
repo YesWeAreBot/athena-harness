@@ -52,4 +52,4 @@ const snapshot = await ctx.systemPrompt.snapshot();
 
 ## Current Boundary
 
-This slice provides registration, shadowing, and snapshot assembly, and is wired into the real `agentLoop`. `AgentContext` creates and owns the Agent scope symbol, so setup callers do not need to manage symbols manually. Durable checkpoints are now flushed before tool side effects.
+This slice provides registration, shadowing, and snapshot assembly, and is wired into the real `agentLoop`. `AgentContext` creates and owns the Agent scope symbol, so setup callers do not need to manage symbols manually. Durable checkpoints are flushed before tool side effects, and every persisted Tool Result carries an explicit `ok`, `error`, or `interrupted` status.

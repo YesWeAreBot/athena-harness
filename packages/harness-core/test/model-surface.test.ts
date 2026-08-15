@@ -46,6 +46,7 @@ describe("model surface", () => {
         turn: 1,
         step: 1,
         message: toolMessage,
+        status: "ok",
       },
       { surfaceOp: "append" },
     );

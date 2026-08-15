@@ -164,6 +164,7 @@ function repairOpenTurn(events: readonly SessionEvent[]): SessionEvent[] {
       data: {
         turn,
         step,
+        status: "interrupted",
         message: {
           role: "tool",
           content: [

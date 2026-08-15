@@ -16,7 +16,7 @@ See [Positioning](../positioning.md) for the project's target layer and ecosyste
 | [04 - Development Workflow](./04-development-workflow.md)               | Local commands, module layout, verification, and contribution loop.                     |
 | [05 - Body and Percept](./05-body-and-percept.md)                       | Body registration and non-IM percept events.                                            |
 | [06 - Persistence](./06-persistence.md)                                 | JSONL lifetime memory, restore, and crash-orphaned Turn repair.                         |
-| [07 - Tools and System Prompt](./07-tools-and-system-prompt.md)         | Scoped tool and prompt composition for the future Agent Loop.                           |
+| [07 - Tools and System Prompt](./07-tools-and-system-prompt.md)         | Scoped tool and prompt composition for the real Agent Loop.                             |
 | [08 - Agent Events](./08-agent-events.md)                               | Agent status/output/stream-part observation and abort behavior.                         |
 | [09 - Life and Mode](./09-life-and-mode.md)                             | Life identity, Mode definition registry, and Percept routing.                           |
 
@@ -30,6 +30,7 @@ The repository is an early prototype. The following are implemented and tested:
 - `ModelSurface` and custom user projectors
 - `AgentRegistry`, owner-scoped handles, `AgentContext` setup, and a real `agentLoop` with text/tool Steps
 - durable `context/snapshot` events, `request/header` records, and `max-tokens` / `max-steps` end reasons
+- Tool Call intent/results with explicit `ok`, `error`, and `interrupted` status
 - `BodyRegistry` and `PerceptEvent`
 - `Persistence` and `JsonlPersistence`
 - `ToolRuntime` and `SystemPrompt`

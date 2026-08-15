@@ -33,6 +33,7 @@ export interface SessionEventMap {
     turn: number;
     step: number;
     message: ToolModelMessage;
+    status: ToolResultStatus;
   };
   "request/header": {
     turn: number;
@@ -49,6 +50,8 @@ export interface SessionEventMap {
     }>;
   };
 }
+
+export type ToolResultStatus = "ok" | "error" | "interrupted";
 
 export interface TurnEndReasonMap {
   completed: {

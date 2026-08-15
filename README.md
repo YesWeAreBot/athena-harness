@@ -109,7 +109,7 @@ The Agent Loop, not AI SDK's multi-Step loop, owns Step progression. For every S
 7. forwards native AI SDK stream parts internally;
 8. persists the semantic Assistant Message and Tool Call intent;
 9. waits for a durable checkpoint before Tool side effects;
-10. executes Tool Calls sequentially and persists every result or normalized failure;
+10. executes Tool Calls sequentially and persists every result or normalized failure with an explicit status;
 11. appends `step/end` in a finally boundary;
 12. starts another Step only when completed Tool results require a continuation and the Turn limit permits it.
 
@@ -182,6 +182,8 @@ corepack yarn format
 The canonical architecture baseline is [docs/architecture-foundation.md](./docs/architecture-foundation.md). Harness core and Athena Runtime prototype records are [docs/design.md](./docs/design.md) and [docs/athena-runtime-design.md](./docs/athena-runtime-design.md). Implementation should not override the canonical baseline.
 
 Developer-facing feature guides are available in [docs/features](./docs/features/README.md). The project's vision and ecosystem boundaries are described in [docs/vision.md](./docs/vision.md) and [docs/positioning.md](./docs/positioning.md).
+
+The first contract-freeze policy and CI gate are documented in [docs/contract-stability.md](./docs/contract-stability.md).
 
 ## Roadmap
 

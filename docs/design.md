@@ -319,7 +319,7 @@ For every Step, the Agent Loop:
 7. forwards native AI SDK stream parts on the internal event stream;
 8. persists the semantic Assistant Message and every Tool Call intent;
 9. waits for `ctx.persist` when the Agent is durable, establishing a checkpoint before Tool side effects;
-10. executes Tool Calls sequentially through `ToolRuntime` and persists every Tool Result or normalized failure;
+10. executes Tool Calls sequentially through `ToolRuntime` and persists every Tool Result or normalized failure with an explicit `ok` / `error` status;
 11. appends `step/end` in a finally boundary;
 12. starts another Step only when completed Tool results require a model continuation and the Turn limit permits it.
 
@@ -336,7 +336,7 @@ Every Agent requires a positive integer `maxSteps`. The loop refuses to open ano
 - `max-steps` with the configured limit;
 - `interrupted`, synthesized only when persistence restores a crash-orphaned open Turn.
 
-`assistant/message` stores the AI SDK Assistant Model Message plus Turn, Step, and usage metadata. `tool/call` stores the corresponding AI SDK `ToolCallPart` plus Turn and Step. Each `tool/result` stores one AI SDK Tool Model Message containing the result or normalized error for one call. Every persisted payload must pass lossless-JSON validation; provider metadata that cannot pass is rejected rather than silently removed.
+`assistant/message` stores the AI SDK Assistant Model Message plus Turn, Step, and usage metadata. `tool/call` stores the corresponding AI SDK `ToolCallPart` plus Turn and Step. Each `tool/result` stores one AI SDK Tool Model Message containing the result or normalized error for one call plus an explicit `ok`, `error`, or `interrupted` status. Every persisted payload must pass lossless-JSON validation; provider metadata that cannot pass is rejected rather than silently removed.
 
 ## Session Events and Model Surface
 

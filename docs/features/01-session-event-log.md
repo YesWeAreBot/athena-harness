@@ -21,6 +21,7 @@ The current built-in vocabulary is defined in `src/session/events.ts`:
 - `assistant/message`
 - `tool/call`, `tool/result`
 - `request/header`
+- `context/snapshot`
 
 Model-visible events currently require a `surfaceOp`; lifecycle and trace events forbid one.
 
@@ -58,4 +59,4 @@ session.append(
 
 ## Current Boundary
 
-Persistence and restoration are not implemented yet. Event data and event envelopes are deeply frozen, and `snapshotEvents` returns a frozen copy rather than the internal array.
+Event data and event envelopes are deeply frozen, and `snapshotEvents` returns a frozen copy rather than the internal array. JSONL persistence is implemented; Tool Results carry an explicit `ok`, `error`, or `interrupted` status, and recovery never reruns a durable Tool Call.

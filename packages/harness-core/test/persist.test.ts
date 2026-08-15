@@ -97,6 +97,7 @@ describe("jsonl persistence", () => {
       const events = prepared.events;
       expect(events.length).toBe(session.snapshotEvents.length + 3);
       expect(events.some((event) => event.type === "tool/result")).toBe(true);
+      expect(events.some((event) => event.type === "tool/result" && (event.data as { status?: string }).status === "interrupted")).toBe(true);
       expect(events.at(-1)?.data).toMatchObject({
         reason: { kind: "interrupted" },
       });

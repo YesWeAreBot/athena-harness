@@ -6,7 +6,7 @@ import "../agent/events.js";
 import { createAgentContext, type AgentContext } from "../agent/context.js";
 import type { Agent, AgentFactory, AgentHandle, AgentStatus } from "../agent/types.js";
 import type { Persistence, PersistenceSessionBinding } from "../persist/index.js";
-import type { TurnEndReason } from "../session/events.js";
+import type { ToolResultStatus, TurnEndReason } from "../session/events.js";
 import type { Session } from "../session/index.js";
 
 export const agentLoop = {
@@ -298,11 +298,15 @@ async function executeTool(
 
   const definition = tools[call.toolName as keyof ToolSet];
   let output: unknown;
+  let status: ToolResultStatus = "ok";
   try {
     if (definition?.execute) {
       output = await definition.execute(call.input as never, { toolCallId: call.toolCallId } as never);
+    } else {
+      throw new Error(`Tool has no executable definition: ${call.toolName}`);
     }
   } catch (error) {
+    status = "error";
     output = { error };
   }
 
@@ -320,7 +324,7 @@ async function executeTool(
       },
     ],
   } as ToolModelMessage;
-  appendEvent(ctx, session, binding, "tool/result", { turn, step, message: toolMessage }, { surfaceOp: "append" });
+  appendEvent(ctx, session, binding, "tool/result", { turn, step, message: toolMessage, status }, { surfaceOp: "append" });
   await binding?.flush();
 }
 
