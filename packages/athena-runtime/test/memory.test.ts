@@ -145,4 +145,30 @@ describe("memory infrastructure", () => {
     await fiber.dispose();
     await rm(root, { recursive: true, force: true });
   });
+
+  it("isolates memory records by life", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(memoryRegistry);
+    await fiber;
+
+    await ctx.memory.remember({
+      lifeId: "life-a",
+      scope: "preference",
+      category: "food",
+      content: "tea",
+    });
+    await ctx.memory.remember({
+      lifeId: "life-b",
+      scope: "preference",
+      category: "food",
+      content: "coffee",
+    });
+
+    const a = await ctx.memory.recall("life-a");
+    const b = await ctx.memory.recall("life-b");
+    expect(a.map((record) => record.content)).toEqual(["tea"]);
+    expect(b.map((record) => record.content)).toEqual(["coffee"]);
+
+    await fiber.dispose();
+  });
 });

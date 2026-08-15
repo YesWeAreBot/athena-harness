@@ -4,6 +4,20 @@
 
 Athena Harness Core is entering its first contract-freeze phase. The public surface below is treated as stable for the remaining prototype work; changes to it require an explicit compatibility review and migration note.
 
+## Athena Runtime Status
+
+Athena Runtime is still before contract freeze. The following APIs are experimental and may change:
+
+- `Life`, `LifeHandle`, `LifeRegistry`
+- `Mode`, `ModeHandle`, `ModeContext`, `ModeRegistry`
+- `Body`, `BodyAdapter`, `BodyRegistry`, `PerceptEvent`, `Actuator`
+- `LifeMemory`, `InMemoryMemory`, `JsonlMemory`
+- `Scheduler`, `SchedulerRegistry`
+- `AgentLoopProvider`, `AgentLoopRegistry`
+
+These contracts have implementation and tests, but they are not stable yet. Breaking changes do not
+require a major version bump until the Athena Runtime freeze is announced.
+
 ## Stable Public Surface
 
 - Package root exports from `@yesimbot/harness-core`.

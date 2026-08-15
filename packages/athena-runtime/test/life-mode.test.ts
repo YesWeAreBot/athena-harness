@@ -328,4 +328,25 @@ describe("life and mode registries", () => {
 
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
+
+  it("survives concurrent Life dispose and Mode definition unload", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(sessionStore), ctx.plugin(bodyRegistry), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    const disposeMode = ctx.modes.register({
+      name: "chat",
+      setup: async () => ({
+        start: async () => {},
+        handle: async () => true,
+      }),
+    });
+    const handle = ctx.lives.create({ id: "life-race" });
+    await handle.setMode(await ctx.modes.create("chat", {}));
+
+    await Promise.all([ctx.lives.dispose("life-race"), disposeMode()]);
+    expect(ctx.lives.get("life-race")).toBeUndefined();
+
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
 });

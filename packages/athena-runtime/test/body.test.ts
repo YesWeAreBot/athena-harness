@@ -109,4 +109,22 @@ describe("body registry", () => {
 
     await fiber.dispose();
   });
+
+  it("rolls back a BodyAdapter when start fails", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    await expect(
+      ctx.bodies.registerAdapter({
+        id: "broken",
+        start: async () => {
+          throw new Error("start failed");
+        },
+      }),
+    ).rejects.toThrow("start failed");
+    expect(ctx.bodies.get("broken")).toBeUndefined();
+
+    await fiber.dispose();
+  });
 });

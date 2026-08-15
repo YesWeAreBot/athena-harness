@@ -36,7 +36,12 @@ export class BodyRegistry extends Service {
       ...(adapter.actuators === undefined ? {} : { actuators: adapter.actuators }),
     };
     const dispose = this.register(body);
-    await adapter.start?.({ body });
+    try {
+      await adapter.start?.({ body });
+    } catch (error) {
+      dispose();
+      throw error;
+    }
     return async () => {
       await adapter.stop?.();
       dispose();
