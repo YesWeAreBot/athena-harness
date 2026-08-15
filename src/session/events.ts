@@ -67,6 +67,6 @@ export interface TurnEndReasonMap {
 
 export type TurnEndReason = TurnEndReasonMap[keyof TurnEndReasonMap];
 
-export const MODEL_VISIBLE_EVENT_TYPES = new Set(["user/message", "assistant/message", "tool/result"]);
+export const MODEL_VISIBLE_EVENT_TYPES: ReadonlySet<string> = new Set(["user/message", "assistant/message", "tool/result"]);
 
-export const LIFECYCLE_EVENT_TYPES = new Set(["turn/start", "turn/end", "step/start", "step/end", "tool/call", "request/header"]);
+export const NON_SURFACE_EVENT_TYPES: ReadonlySet<string> = new Set(["turn/start", "turn/end", "step/start", "step/end", "tool/call", "request/header"]);

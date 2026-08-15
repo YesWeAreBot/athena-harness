@@ -5,28 +5,28 @@ export interface SessionOptions {
 }
 
 export interface SessionHeader {
-  id: string;
-  createdAt: number;
+  readonly id: string;
+  readonly createdAt: number;
 }
 
 export interface SessionEvent<T = unknown> {
-  type: string;
-  seq: number;
-  time: number;
-  data: T;
-  ignorable?: boolean;
-  surfaceOp?: SurfaceOp;
-  sourceEventSeqs?: number[];
+  readonly type: string;
+  readonly seq: number;
+  readonly time: number;
+  readonly data: T;
+  readonly ignorable?: boolean;
+  readonly surfaceOp?: SurfaceOp;
+  readonly sourceEventSeqs?: readonly number[];
 }
 
 export interface SessionSnapshot {
-  header: SessionHeader;
-  events: readonly SessionEvent[];
-  surface: SurfaceSnapshot;
+  readonly header: SessionHeader;
+  readonly events: readonly SessionEvent[];
+  readonly surface: SurfaceSnapshot;
 }
 
 export interface AppendOptions {
   ignorable?: boolean;
   surfaceOp?: SurfaceOp;
-  sourceEventSeqs?: number[];
+  sourceEventSeqs?: readonly number[];
 }

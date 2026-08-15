@@ -53,4 +53,24 @@ describe("session surface", () => {
 
     expect(() => session.append("user/message", { content: "missing" })).toThrow(/requires a Surface op/);
   });
+
+  it("deep-freezes event data and surface snapshots", () => {
+    const session = new Session({ id: "surface-5" });
+    session.append(
+      "user/message",
+      {
+        content: "deep",
+        nested: { value: 1 },
+      },
+      { surfaceOp: "append" },
+    );
+
+    const event = session.snapshotEvents[0];
+    const data = event?.data as { nested: object };
+    expect(Object.isFrozen(data.nested)).toBe(true);
+
+    const snapshot = session.surface.snapshot;
+    expect(Object.isFrozen(snapshot.nodes[0])).toBe(true);
+    expect(Object.isFrozen(snapshot.nodes[0]?.sourceEventSeqs)).toBe(true);
+  });
 });

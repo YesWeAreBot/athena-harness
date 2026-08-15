@@ -7,16 +7,16 @@ export type SurfaceOp =
     };
 
 export interface SurfaceNode {
-  seq: number;
-  sourceEventSeqs: number[];
-  kind: "append" | "replace";
-  start?: number;
-  end?: number;
+  readonly seq: number;
+  readonly sourceEventSeqs: readonly number[];
+  readonly kind: "append" | "replace";
+  readonly start?: number;
+  readonly end?: number;
 }
 
 export interface SurfaceSnapshot {
-  nodes: readonly SurfaceNode[];
-  generation: number;
+  readonly nodes: readonly SurfaceNode[];
+  readonly generation: number;
 }
 
 export class SurfaceManager {
@@ -25,21 +25,30 @@ export class SurfaceManager {
   private generation = 0;
 
   get snapshot(): SurfaceSnapshot {
-    return {
-      nodes: [...this.nodes],
+    return Object.freeze({
+      nodes: Object.freeze(
+        this.nodes.map((node) =>
+          Object.freeze({
+            ...node,
+            sourceEventSeqs: Object.freeze([...node.sourceEventSeqs]),
+          }),
+        ),
+      ),
       generation: this.generation,
-    };
-  }
-
-  append(seq: number): void {
-    this.nodes.push({
-      kind: "append",
-      seq,
-      sourceEventSeqs: [seq],
     });
   }
 
-  replace(seq: number, start: number, end: number, sourceEventSeqs: number[]): void {
+  append(seq: number): void {
+    this.nodes.push(
+      Object.freeze({
+        kind: "append",
+        seq,
+        sourceEventSeqs: [seq],
+      }),
+    );
+  }
+
+  replace(seq: number, start: number, end: number, sourceEventSeqs: readonly number[]): SurfaceNode {
     if (start < 0 || end >= this.nodes.length || start > end) {
       throw new Error(`Invalid Surface replacement range: ${start}..${end}`);
     }
@@ -53,13 +62,15 @@ export class SurfaceManager {
       throw new Error(`Surface replacement must cite every shadowed source event plus its own seq: ${seq}`);
     }
 
-    this.nodes.splice(start, end - start + 1, {
+    const node = Object.freeze({
       kind: "replace",
       seq,
       sourceEventSeqs: [...provided].sort((a, b) => a - b),
       start,
       end,
     });
+    this.nodes.splice(start, end - start + 1, node);
     this.generation++;
+    return node;
   }
 }

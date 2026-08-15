@@ -179,6 +179,8 @@ corepack yarn format
 
 The design and acceptance criteria are defined in [docs/design.md](./docs/design.md). Implementation should not move ahead of that document's confirmed decisions.
 
+Developer-facing feature guides are available in [docs/features](./docs/features/README.md).
+
 ## Roadmap
 
 1. Land the first Cordis-based implementation and make the design's executable acceptance scenario pass.

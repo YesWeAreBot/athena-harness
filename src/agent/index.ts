@@ -12,6 +12,10 @@ export class AgentRegistry extends Service {
 
   constructor(ctx: Context) {
     super(ctx, "agents");
+    this.ctx.effect(() => async () => {
+      const handles = [...this.handles.values()];
+      await Promise.allSettled(handles.map((handle) => handle.dispose()));
+    });
   }
 
   setFactory(factory: AgentFactory): () => Promise<void> {
@@ -25,10 +29,16 @@ export class AgentRegistry extends Service {
   }
 
   async create(input: CreateAgentInput): Promise<AgentHandle> {
+    if (input.id && this.handles.has(input.id)) {
+      throw new Error(`Agent already exists: ${input.id}`);
+    }
     return this.register(await this.requireFactory().create(input));
   }
 
   async resume(input: ResumeAgentInput): Promise<AgentHandle> {
+    if (this.handles.has(input.id)) {
+      throw new Error(`Agent already exists: ${input.id}`);
+    }
     return this.register(await this.requireFactory().resume(input));
   }
 

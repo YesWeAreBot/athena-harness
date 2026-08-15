@@ -20,6 +20,13 @@ describe("athena harness core slice", () => {
 
     expect(ctx.agents.get(handle.agent.id)).toBe(handle.agent);
     expect(ctx.sessions.get(handle.agent.id)).toBe(handle.agent.session);
+    await expect(
+      ctx.agents.create({
+        id: handle.agent.id,
+        model: new MockLanguageModelV4(),
+        maxSteps: 3,
+      }),
+    ).rejects.toThrow(/Agent already exists/);
 
     handle.agent.send("user/message", { content: "hello" });
     await handle.agent.whenIdle();
