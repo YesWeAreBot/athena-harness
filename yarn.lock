@@ -42,6 +42,64 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@athena/agent-loop@workspace:packages/agent-loop":
+  version: 0.0.0-use.local
+  resolution: "@athena/agent-loop@workspace:packages/agent-loop"
+  dependencies:
+    "@athena/agent": "npm:0.0.0"
+    "@athena/prompt": "npm:0.0.0"
+    "@athena/session": "npm:0.0.0"
+    "@athena/tools": "npm:0.0.0"
+    ai: "npm:^7.0.0"
+    cordis: "npm:^4.0.0-rc.8"
+  languageName: unknown
+  linkType: soft
+
+"@athena/agent@npm:0.0.0, @athena/agent@workspace:packages/agent":
+  version: 0.0.0-use.local
+  resolution: "@athena/agent@workspace:packages/agent"
+  dependencies:
+    "@athena/session": "npm:0.0.0"
+    ai: "npm:^7.0.0"
+    cordis: "npm:^4.0.0-rc.8"
+  languageName: unknown
+  linkType: soft
+
+"@athena/persist-jsonl@workspace:packages/persist-jsonl":
+  version: 0.0.0-use.local
+  resolution: "@athena/persist-jsonl@workspace:packages/persist-jsonl"
+  dependencies:
+    "@athena/session": "npm:0.0.0"
+    cordis: "npm:^4.0.0-rc.8"
+  languageName: unknown
+  linkType: soft
+
+"@athena/prompt@npm:0.0.0, @athena/prompt@workspace:packages/prompt":
+  version: 0.0.0-use.local
+  resolution: "@athena/prompt@workspace:packages/prompt"
+  dependencies:
+    cordis: "npm:^4.0.0-rc.8"
+  languageName: unknown
+  linkType: soft
+
+"@athena/session@npm:0.0.0, @athena/session@workspace:packages/session":
+  version: 0.0.0-use.local
+  resolution: "@athena/session@workspace:packages/session"
+  dependencies:
+    ai: "npm:^7.0.0"
+    cordis: "npm:^4.0.0-rc.8"
+  languageName: unknown
+  linkType: soft
+
+"@athena/tools@npm:0.0.0, @athena/tools@workspace:packages/tools":
+  version: 0.0.0-use.local
+  resolution: "@athena/tools@workspace:packages/tools"
+  dependencies:
+    ai: "npm:^7.0.0"
+    cordis: "npm:^4.0.0-rc.8"
+  languageName: unknown
+  linkType: soft
+
 "@isaacs/fs-minipass@npm:^4.0.0":
   version: 4.0.1
   resolution: "@isaacs/fs-minipass@npm:4.0.1"
@@ -509,7 +567,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^22.16.2":
+"@types/node@npm:^22.20.1":
   version: 22.20.1
   resolution: "@types/node@npm:22.20.1"
   dependencies:
@@ -666,13 +724,13 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "athena-harness@workspace:."
   dependencies:
-    "@types/node": "npm:^22.16.2"
+    "@types/node": "npm:^22.20.1"
     oxfmt: "npm:^0.62.0"
     oxlint: "npm:^1.77.0"
-    rimraf: "npm:^6.1.2"
+    rimraf: "npm:^6.1.3"
     turbo: "npm:2.10.8"
     typescript: "npm:^5.9.3"
-    vitest: "npm:^4.0.18"
+    vitest: "npm:^4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1271,7 +1329,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rimraf@npm:^6.1.2":
+"rimraf@npm:^6.1.3":
   version: 6.1.3
   resolution: "rimraf@npm:6.1.3"
   dependencies:
@@ -1563,7 +1621,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vitest@npm:^4.0.18":
+"vitest@npm:^4.1.10":
   version: 4.1.10
   resolution: "vitest@npm:4.1.10"
   dependencies:
