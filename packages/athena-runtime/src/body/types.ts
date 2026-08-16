@@ -49,6 +49,8 @@ export interface Actuator {
 
 export interface BodyAdapterContext {
   readonly body: Body;
+  readonly dispatch: <T>(kind: string, data: T, options?: PerceptEventOptions) => PerceptEvent<T>;
+  readonly patchState: (patch: Readonly<Record<string, unknown>>) => void;
 }
 
 /**

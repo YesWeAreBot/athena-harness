@@ -114,5 +114,6 @@ session        ->  cordis, ai types
 - [Context map / 上下文地图](./CONTEXT-MAP.md)
 - [Usage guide / 使用指南](./docs/features/README.md)
 - [Mode developer docs / Mode 开发者文档](./docs/mode-dev/README.md)
+- [OneBot Body / OneBot Body](./packages/onebot-body/README.md)
 - [ADRs / 架构决策](./docs/adr/)
 - [Archive / 归档原型](./docs/archive/README.md)

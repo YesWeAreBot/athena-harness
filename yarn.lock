@@ -692,13 +692,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@yesimbot/athena-runtime@workspace:packages/athena-runtime":
+"@yesimbot/athena-runtime@workspace:^, @yesimbot/athena-runtime@workspace:packages/athena-runtime":
   version: 0.0.0-use.local
   resolution: "@yesimbot/athena-runtime@workspace:packages/athena-runtime"
   dependencies:
     "@athena/agent": "workspace:^"
     "@athena/agent-loop": "workspace:^"
     "@athena/session": "workspace:^"
+    cordis: "npm:^4.0.0-rc.8"
+  languageName: unknown
+  linkType: soft
+
+"@yesimbot/onebot-body@workspace:packages/onebot-body":
+  version: 0.0.0-use.local
+  resolution: "@yesimbot/onebot-body@workspace:packages/onebot-body"
+  dependencies:
+    "@yesimbot/athena-runtime": "workspace:^"
     cordis: "npm:^4.0.0-rc.8"
   languageName: unknown
   linkType: soft

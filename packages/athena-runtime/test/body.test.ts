@@ -269,4 +269,38 @@ describe("body registry", () => {
 
     await fiber.dispose();
   });
+
+  it("patches BodyAdapter state and emits state-changed", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    const changes: Array<{
+      id: string;
+      patch: Readonly<Record<string, unknown>>;
+      state: Readonly<Record<string, unknown>>;
+    }> = [];
+    ctx.on("body/state-changed", (event) => changes.push(event));
+
+    const dispose = await ctx.bodies.registerAdapter({
+      id: "stateful",
+      start: async ({ patchState }) => {
+        patchState({ connection: "connected", selfId: "1" });
+      },
+    });
+
+    expect(ctx.bodies.get("stateful")?.state).toEqual({
+      connection: "connected",
+      selfId: "1",
+    });
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({
+      id: "stateful",
+      patch: { connection: "connected", selfId: "1" },
+      state: { connection: "connected", selfId: "1" },
+    });
+
+    await dispose();
+    await fiber.dispose();
+  });
 });

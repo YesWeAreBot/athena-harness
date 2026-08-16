@@ -2,7 +2,7 @@ import { Service } from "cordis";
 import type { Context } from "cordis";
 
 import { createId, deepFreeze } from "../internal.js";
-import type { ActuatorOptions, ActuatorResult, Body, BodyAdapter, PerceptEvent, PerceptEventOptions } from "./types.js";
+import type { ActuatorOptions, ActuatorResult, Body, BodyAdapter, BodyAdapterContext, PerceptEvent, PerceptEventOptions } from "./types.js";
 
 export class BodyRegistry extends Service {
   static provide = "bodies";
@@ -37,7 +37,12 @@ export class BodyRegistry extends Service {
     };
     const dispose = this.register(body);
     try {
-      await adapter.start?.({ body });
+      const context: BodyAdapterContext = {
+        body,
+        dispatch: <T>(kind: string, data: T, options?: PerceptEventOptions) => this.dispatch(body.id, kind, data, options),
+        patchState: (patch) => this.patchState(body.id, patch),
+      };
+      await adapter.start?.(context);
     } catch (error) {
       dispose();
       throw error;
@@ -57,6 +62,16 @@ export class BodyRegistry extends Service {
 
   list(): Body[] {
     return [...this.bodies.values()];
+  }
+
+  patchState(bodyId: string, patch: Readonly<Record<string, unknown>>): void {
+    const body = this.bodies.get(bodyId);
+    if (!body) {
+      throw new Error(`Body not registered: ${bodyId}`);
+    }
+    const state = { ...(body.state as Readonly<Record<string, unknown>>), ...patch };
+    (body as { state: Record<string, unknown> }).state = state;
+    this.ctx.emit("body/state-changed", { id: bodyId, patch, state });
   }
 
   async act(bodyId: string, actuatorId: string, action: unknown, options: ActuatorOptions = {}): Promise<ActuatorResult> {
@@ -151,6 +166,7 @@ declare module "cordis" {
   interface Events {
     "body/percept"(event: PerceptEvent): void;
     "body/disposed"(event: { id: string }): void;
+    "body/state-changed"(event: { id: string; patch: Readonly<Record<string, unknown>>; state: Readonly<Record<string, unknown>> }): void;
     "actuator/executed"(event: { bodyId: string; actuatorId: string; kind?: string; result: ActuatorResult; attempt: number }): void;
   }
 }
