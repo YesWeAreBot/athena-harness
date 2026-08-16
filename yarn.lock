@@ -719,6 +719,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@yesimbot/athena-loader@npm:0.0.0, @yesimbot/athena-loader@workspace:packages/athena-loader":
+  version: 0.0.0-use.local
+  resolution: "@yesimbot/athena-loader@workspace:packages/athena-loader"
+  dependencies:
+    "@yesimbot/athena-runtime": "npm:0.0.0"
+  languageName: unknown
+  linkType: soft
+
 "@yesimbot/athena-runtime-api@npm:0.0.0, @yesimbot/athena-runtime-api@workspace:packages/athena-runtime-api":
   version: 0.0.0-use.local
   resolution: "@yesimbot/athena-runtime-api@workspace:packages/athena-runtime-api"
@@ -739,6 +747,7 @@ __metadata:
     "@athena/session": "npm:0.0.0"
     "@athena/tools": "npm:0.0.0"
     "@yesimbot/athena-config": "npm:0.0.0"
+    "@yesimbot/athena-loader": "npm:0.0.0"
     "@yesimbot/athena-runtime": "npm:0.0.0"
     ai: "npm:^7.0.0"
     cordis: "npm:^4.0.0-rc.8"

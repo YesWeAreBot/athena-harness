@@ -16,6 +16,7 @@
 - CLI and web console are clients of that API.
 - Local-first security model is the default.
 - A first implementation now exists under `packages/athena-*` and the new mode-pipeline module.
+- `@yesimbot/athena-loader` now loads local Mode/Body packages from manifests and validates config schemas.
 
 ## Fog
 

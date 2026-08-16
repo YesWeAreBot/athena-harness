@@ -1,0 +1,7 @@
+{
+  "name": "@fixture/body-onebot",
+  "version": "0.1.0",
+  "runtime": ">=0.0.0",
+  "entry": "./index.js",
+  "configSchema": "./config.schema.json"
+}

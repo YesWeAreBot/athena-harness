@@ -1,5 +1,5 @@
 {
-  "name": "@yesimbot/athena-runtime-manager",
+  "name": "@yesimbot/athena-loader",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -21,17 +21,6 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@athena/agent": "0.0.0",
-    "@athena/agent-loop": "0.0.0",
-    "@athena/persist-jsonl": "0.0.0",
-    "@athena/prompt": "0.0.0",
-    "@athena/session": "0.0.0",
-    "@athena/tools": "0.0.0",
-    "@yesimbot/athena-config": "0.0.0",
-    "@yesimbot/athena-loader": "0.0.0",
-    "@yesimbot/athena-runtime": "0.0.0",
-    "ai": "^7.0.0",
-    "cordis": "^4.0.0-rc.8",
-    "zod": "^3.25.76"
+    "@yesimbot/athena-runtime": "0.0.0"
   }
 }

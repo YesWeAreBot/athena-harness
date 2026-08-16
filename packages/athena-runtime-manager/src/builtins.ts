@@ -1,5 +1,12 @@
-import type { BodyAdapter } from "@yesimbot/athena-runtime";
+import type { BodyAdapter, Mode } from "@yesimbot/athena-runtime";
 import type { ModePipeline } from "@yesimbot/athena-runtime";
+
+export function createEchoMode(): Mode {
+  return {
+    name: "echo",
+    setup: async () => ({ handle: async () => true }),
+  };
+}
 
 export function createEchoPipeline(): ModePipeline {
   return {

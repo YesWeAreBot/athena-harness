@@ -8,6 +8,7 @@ import { SystemPrompt } from "@athena/prompt";
 import { SessionRegistry } from "@athena/session";
 import { ToolRegistry } from "@athena/tools";
 import type { RuntimeConfig } from "@yesimbot/athena-config";
+import { loadBodyPackage, loadModePackage } from "@yesimbot/athena-loader";
 import {
   agentLoopRegistry,
   bodyRegistry,
@@ -26,7 +27,7 @@ import {
 } from "@yesimbot/athena-runtime";
 import { Context, type Fiber, type Plugin } from "cordis";
 
-import { createEchoPipeline, createManualBodyAdapter } from "./builtins.js";
+import { createEchoMode, createEchoPipeline, createManualBodyAdapter } from "./builtins.js";
 
 export interface RuntimeManagerOptions {
   readonly modePackages?: Readonly<Record<string, Mode>>;
@@ -162,29 +163,28 @@ export class RuntimeManager {
   private async installModes(): Promise<void> {
     for (const modeConfig of this.config.modes) {
       if (!modeConfig.enabled) continue;
-      const pipeline = this.resolvePipeline(modeConfig.package);
-      if (pipeline) {
-        this.context.modePipelines.register(pipeline);
-        const mode: Mode = {
-          name: modeConfig.id,
-          setup: async () => ({ handle: async () => true }),
-        };
-        this.context.modes.register(mode);
+      const loaded =
+        modeConfig.package === "builtin:echo"
+          ? { mode: createEchoMode(), pipeline: createEchoPipeline() }
+          : this.options.modePackages?.[modeConfig.package]
+            ? { mode: this.options.modePackages[modeConfig.package] }
+            : await loadModePackage(modeConfig.package, modeConfig.config);
+      if (loaded.pipeline) this.context.modePipelines.register(loaded.pipeline);
+      if (loaded.mode) {
+        this.context.modes.register(loaded.mode);
         continue;
       }
-      const mode = this.options.modePackages?.[modeConfig.package] ?? (await this.loadModule<Mode>(modeConfig.package));
-      if (mode) this.context.modes.register(mode);
     }
   }
 
   private async installBodies(): Promise<void> {
     for (const bodyConfig of this.config.bodies) {
       if (!bodyConfig.enabled) continue;
-      const adapter =
+      const createAdapter =
         bodyConfig.package === "builtin:manual"
-          ? createManualBodyAdapter({ ...bodyConfig.config, id: bodyConfig.id })
-          : this.options.bodyPackages?.[bodyConfig.package]?.(bodyConfig.config);
-      if (adapter) await this.context.bodies.registerAdapter(adapter);
+          ? (config: Record<string, unknown>) => createManualBodyAdapter({ ...config, id: bodyConfig.id })
+          : this.options.bodyPackages?.[bodyConfig.package] ?? (await loadBodyPackage(bodyConfig.package, bodyConfig.config)).createAdapter;
+      if (createAdapter) await this.context.bodies.registerAdapter(createAdapter(bodyConfig.config));
     }
   }
 
@@ -195,14 +195,4 @@ export class RuntimeManager {
     }
   }
 
-  private resolvePipeline(packageName: string): ModePipeline | undefined {
-    if (packageName === "builtin:echo") return createEchoPipeline();
-    return this.options.pipelinePackages?.[packageName];
-  }
-
-  private async loadModule<T>(specifier: string): Promise<T | undefined> {
-    if (specifier.startsWith("builtin:")) return undefined;
-    const module = await import(specifier);
-    return ((module as { default?: T }).default ?? module) as T;
-  }
 }

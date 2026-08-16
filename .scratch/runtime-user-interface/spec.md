@@ -401,6 +401,7 @@ athena log follow
 Implemented in this pass:
 
 - `packages/athena-config`: zod schema, YAML/JSON loading, env substitution.
+- `packages/athena-loader`: local Mode/Body manifest discovery, runtime version check, JSON Schema config validation, dynamic entry loading.
 - `packages/athena-runtime-manager`: Cordis bootstrap, builtin pipeline/body registration, Life reconciliation.
 - `packages/athena-runtime-api`: management endpoints and static console serving.
 - `packages/athena-console`: lightweight browser dashboard.
@@ -409,7 +410,7 @@ Implemented in this pass:
 
 Still missing:
 
-- Mode/Body package manifest loader with dynamic package installation.
+- Package registry/installer flow (filesystem packages work; npm/workspace registry installation is not implemented).
 - Real product Mode migration.
 - Full Life/Body/model/delivery management API.
 - Console authentication and editing of configured resources.
