@@ -1,218 +1,265 @@
 # Athena Runtime Application Layer Design
 
-**Status:** Proposed
+**Status:** Design only
 **Date:** 2026-08-16
-**Scope:** User-facing runtime layer above `@yesimbot/athena-runtime` and the canonical `@athena/*` core.
+**Scope:** The user-facing runtime layer above `@yesimbot/athena-runtime` and the canonical `@athena/*` core.
 
 ## 1. Problem
 
-The repository currently contains framework packages but no user-facing application layer:
+The current repository is framework-first. Users cannot install, configure, or run real products without writing code.
 
-- Plugins are assembled in code with `ctx.plugin(...)`.
-- Bodies are instantiated in code, e.g. `onebotBody({ wsUrl, httpUrl, ... })`.
-- Modes are registered in code and cannot be installed, configured, or managed by users.
-- There is no runtime bootstrap, no CLI, no management API, and no web console.
+- Plugins and Modes are assembled in code.
+- Bodies are instantiated in code with platform-specific config objects.
+- Real Modes such as Chat, World, and Interlude cannot be migrated as installable packages.
+- There is no stable runtime control surface.
+- There is no clear boundary between what the Runtime owns and what a Mode owns.
 
-Real Modes cannot be migrated into the runtime until there is a package boundary, a declarative config model, and a management surface.
+The goal is not a demo CLI or a toy Mode. The goal is a runtime that can run real product Modes, manage real Bodies, and let users install and configure packages without writing code.
 
 ## 2. Goals
 
-- Provide a declarative `athena.yaml` config for starting a complete Athena runtime.
-- Define installable Mode and Body packages with manifests and config schemas.
-- Provide a CLI for local operation and scripts.
-- Provide a management API as the single control plane.
-- Provide a web console for non-technical users.
-- Support Life, Mode, Body, model, memory, state, delivery, media, session, and log management.
-- Keep canonical `@athena/*` and `@yesimbot/athena-runtime` library boundaries intact.
+- Define what the Runtime owns and what Mode, Body, and plugin authors own.
+- Define a generic plugin/package model for Modes, Bodies, and other runtime plugins.
+- Define a declarative runtime config that users can edit and that can be reconciled by the runtime.
+- Define a runtime controller that can install, remove, enable, disable, and reload packages.
+- Define a Mode Pipeline that is not limited to the canonical AgentLoop.
+- Use Schemastery for package config schemas so package authors do not hand-write JSON Schema.
+- Provide a CLI as the first user-facing control surface.
 
 ## 3. Non-Goals
 
-- This design does not implement product Modes such as Chat, World, or Interlude.
-- This design does not build a multi-tenant hosted platform.
-- This design does not replace the existing runtime internals.
-- Mobile apps are out of scope for the first pass.
+- No implementation is defined by this document.
+- No web console is required before the runtime contracts are stable.
+- No management API is required before the runtime contracts are stable.
+- No product Mode implementation is included.
+- No multi-tenant hosted platform is included.
+- No mobile app is included.
 
-## 4. Architecture
+## 4. Core Entities
+
+### 4.1 Life
+
+A Life is a persistent identity that exists across time and across execution modes.
+
+Life owns:
+
+- stable identity
+- long-term Life-level memory and persona
+- Session ownership
+- Body attachments
+- current Mode selection
+- Life-level lifecycle and observability
+
+Life does not own:
+
+- execution logic
+- platform connection details
+- model configuration
+- channel conversation state
+
+A Life can participate in multiple conversations. A channel is not a Life. Channel isolation is a Mode-owned strategy.
+
+### 4.2 Mode
+
+A Mode is the complete orchestration strategy for how a Life operates.
+
+Mode owns:
+
+- trigger strategy
+- context assembly
+- execution driver
+- result interpretation
+- effect handling
+- continuation and scheduling
+- Mode-owned memory, state, and conversation scopes
+
+A Mode is not a lightweight Koishi plugin. It is the full product logic. Chat, World, and Interlude are Modes.
+
+### 4.3 Body
+
+A Body is a real external connection between a Life and the outside world.
+
+Body owns:
+
+- platform connection
+- platform event translation to Percept
+- actuator execution
+- Body state and connection lifecycle
+
+Body does not own:
+
+- Mode logic
+- narrative interfaces
+- virtual devices
+
+Virtual interfaces such as the World Mode phone are Mode-internal abstractions over real Bodies.
+
+### 4.4 Plugin
+
+Plugin is the generic installable package concept. Mode and Body are specialized plugin kinds.
+
+A plugin package must declare:
+
+- identity
+- version
+- runtime compatibility
+- entry
+- config schema
+- capabilities
+
+The runtime treats Modes and Bodies as plugins with stronger contracts, not as separate bespoke systems.
+
+## 5. Ownership Summary
+
+| Entity | Owns | Does not own |
+| --- | --- | --- |
+| Life | identity, Life memory, Session, Body attachment, Mode selection | execution, platform, model |
+| Mode | trigger, context, execution, interpretation, effects, continuation | Life identity, real platform connections |
+| Body | real connection, Percept, actuator, state | Mode narrative, model execution |
+| Runtime | package loading, config, Life reconciliation, plugin lifecycle | product logic |
+
+## 6. Mode Pipeline
+
+The Mode contract is a fixed pipeline with six replaceable stages:
 
 ```text
-athena.yaml
-    |
-    v
-athena-bootstrap (CLI entry)
-    |
-    +-> Cordis Context
-    +-> canonical core plugins
-    +-> athena-runtime plugins
-    +-> Mode/Body package loader
-    +-> Life reconciliation
-    +-> Management API
-    +-> Web console
+Trigger
+  -> Context Assembly
+  -> Execution Driver
+  -> Result Interpreter
+  -> Effect Handler
+  -> Continuation Plan
 ```
 
-Layered package layout:
+### 6.1 Trigger
 
-```text
-apps/
-  athena-cli/       @yesimbot/athena-cli
-  athena-console/   @yesimbot/athena-console
-packages/
-  runtime-config/   @yesimbot/athena-config
-  runtime-manager/  @yesimbot/athena-runtime-manager
-  runtime-api/      @yesimbot/athena-runtime-api
-  athena-runtime/   existing digital-life runtime
-  onebot-body/      existing Body adapter
-```
+Describes what starts an activation.
 
-The root workspace must add `"apps/*"` to `workspaces`.
+Examples:
 
-## 5. Config Model
+- event response
+- continuous run
+- scheduled activation
+- Life wake
 
-There are two kinds of state:
+### 6.2 Context Assembly
 
-1. `athena.yaml`: declarative desired state owned by the user.
-2. `{dataDir}/runtime.json`: runtime-derived state, including created Life instances and status snapshots.
+Builds the model-visible context.
 
-### 5.1 Example Config
+Examples:
 
-```yaml
-runtime:
-  name: my-athena
-  dataDir: ./data
+- conversation replay
+- real-time state snapshot
+- domain projection
+- memory injection
 
-core:
-  persistence: jsonl
-  agentLoop: default
+### 6.3 Execution Driver
 
-modelProviders:
-  - id: openai
-    provider: "@yesimbot/provider-openai"
-    roles: [main]
-    config:
-      model: gpt-4.1
+Defines how the model is called and how output is produced.
 
-modes:
-  - id: chat
-    package: "@yesimbot/mode-chat"
-    version: 0.1.0
-    enabled: true
-    config:
-      systemPrompt: "You are a helpful companion."
+Examples:
 
-bodies:
-  - id: onebot
-    package: "@yesimbot/body-onebot"
-    version: 0.1.0
-    enabled: true
-    config:
-      wsUrl: ws://127.0.0.1:6700
-      httpUrl: http://127.0.0.1:3000
-      selfId: "123456"
+- canonical AgentLoop
+- single structured output
+- custom driver
 
-lives:
-  - id: athena-1
-    mode: chat
-    modelProvider: openai
-    bodies: [onebot]
+### 6.4 Result Interpreter
 
-api:
-  enabled: true
-  host: 127.0.0.1
-  port: 7788
-  token: ${ATHENA_TOKEN}
+Converts raw model output into typed effects.
 
-console:
-  enabled: true
-```
+Examples:
 
-### 5.2 Config Shape
+- tool calls
+- structured decisions
+- plain text
 
-```ts
-interface RuntimeConfig {
-  runtime: {
-    name: string;
-    dataDir: string;
-  };
-  core: {
-    persistence: "none" | "jsonl";
-    agentLoop: "default";
-  };
-  plugins?: Array<{
-    id: string;
-    package: string;
-    enabled?: boolean;
-    config?: unknown;
-  }>;
-  modelProviders?: ModelProviderConfig[];
-  modes?: ModeConfig[];
-  bodies?: BodyConfig[];
-  lives?: LifeConfig[];
-  api?: ApiConfig;
-  console?: { enabled: boolean };
-}
-```
+### 6.5 Effect Handler
 
-All config objects are validated with zod. Secrets support `${ENV_VAR}` substitution.
+Applies effects to the world and to persistent state.
 
-## 6. Mode Package Contract
+Examples:
 
-A real Mode becomes an installable package.
+- Session append
+- Body actuator
+- state mutation
+- delivery
+- media write
 
-### 6.1 Manifest
+### 6.6 Continuation Plan
+
+Describes what happens after effects are applied.
+
+Examples:
+
+- end
+- continue immediately
+- schedule next activation
+- wake Life later
+
+## 7. Package Model
+
+### 7.1 Manifest
+
+Every installable package has a manifest.
+
+Mode package manifest:
 
 ```json
 {
-  "name": "@yesimbot/mode-chat",
+  "name": "@yesimbot/mode-world",
   "version": "0.1.0",
-  "runtime": ">=0.1.0",
+  "runtime": ">=0.0.0",
   "entry": "./dist/index.js",
-  "configSchema": "./dist/config.schema.json",
-  "capabilities": {
-    "driver": "finite-tool-loop",
-    "percepts": [{ "body": "onebot", "kind": "message-created" }],
-    "actuators": [{ "body": "onebot", "kind": "chat" }],
-    "scheduling": ["event"],
-    "memory": ["conversation", "facts"],
-    "productState": ["channel"]
-  }
+  "configSchema": "./dist/config.js"
 }
 ```
 
-The manifest lives in `athena.mode.json` or is referenced from `package.json` as `"athena": { "mode": "./athena.mode.json" }`.
-
-### 6.2 Entry Contract
-
-```ts
-import type { Mode } from "@yesimbot/athena-runtime";
-
-const mode: Mode = {
-  name: "chat",
-  setup(ctx, config) {
-    // config is validated by the loader against configSchema
-  },
-};
-
-export default mode;
-```
-
-The loader maps the manifest `capabilities` onto the existing `ModeCapabilities` type.
-
-## 7. Body Package Contract
-
-A Body adapter becomes an installable package.
-
-### 7.1 Manifest
+Body package manifest:
 
 ```json
 {
   "name": "@yesimbot/body-onebot",
   "version": "0.1.0",
-  "runtime": ">=0.1.0",
+  "runtime": ">=0.0.0",
   "entry": "./dist/index.js",
-  "configSchema": "./dist/config.schema.json"
+  "configSchema": "./dist/config.js"
 }
 ```
 
-### 7.2 Entry Contract
+The package kind is detected from the manifest location or explicit metadata:
+
+- `athena.mode.json`
+- `athena.body.json`
+- `athena.plugin.json`
+- `package.json` under an `athena` field
+
+### 7.2 Entry
+
+A Mode entry exports a Mode or a Mode plus a Mode Pipeline.
+
+```ts
+import type { Mode, ModePipeline } from "@yesimbot/athena-runtime";
+
+export const mode: Mode = {
+  name: "world",
+  setup: async () => {
+    return {
+      handle: async (event) => true,
+    };
+  },
+};
+
+export const pipeline: ModePipeline = {
+  id: "world",
+  trigger: { kinds: ["event", "scheduled"] },
+  context: { id: "world-context", build: async () => ({ messages: [] }) },
+  execution: { id: "world-exec", kind: "custom", execute: async () => ({ kind: "output", output: {} }) },
+  interpret: { id: "world-interpret", interpret: async () => ({ effects: [] }) },
+  effects: [],
+};
+```
+
+A Body entry exports a factory that receives validated config and returns a BodyAdapter.
 
 ```ts
 import type { BodyAdapter } from "@yesimbot/athena-runtime";
@@ -220,178 +267,217 @@ import type { BodyAdapter } from "@yesimbot/athena-runtime";
 export function createBodyAdapter(config: unknown): BodyAdapter {
   return {
     id: config.id,
-    start: async (ctx) => { /* ... */ },
-    stop: async () => { /* ... */ },
+    name: config.name,
+    state: {},
+    start: async () => {},
+    stop: async () => {},
   };
 }
 ```
 
-The loader validates `config`, creates one Body instance per `bodies[]` entry, and registers it with `ctx.bodies`.
+### 7.3 Config Schema
 
-## 8. Bootstrap Sequence
+Package config is defined with Schemastery.
 
-1. Load `athena.yaml`.
-2. Validate config and resolve environment variables.
-3. Create the Cordis `Context`.
-4. Install canonical core plugins.
-5. Install athena-runtime plugins.
-6. Load and register Body packages.
-7. Load and register Mode packages.
-8. Reconcile Life instances from `lives[]`.
-9. Start the management API and optional web console.
+```ts
+import Schema from "schemastery";
 
-## 9. Life Reconciliation
-
-The runtime compares `lives[]` with `runtime.json`:
-
-- Missing Life -> create.
-- Mode, model provider, or attached bodies changed -> update.
-- Life removed from config -> dispose by default.
-- Session files are not deleted unless the user explicitly deletes the Life through the API or CLI.
-
-The reconciliation must be idempotent and safe to rerun on startup.
-
-## 10. Management API
-
-The API is the single control plane. The web console and CLI are clients of the same API.
-
-### 10.1 Core Endpoints
-
-```text
-GET    /api/lives
-POST   /api/lives
-GET    /api/lives/:id
-DELETE /api/lives/:id
-POST   /api/lives/:id/wake
-PUT    /api/lives/:id/mode
-PUT    /api/lives/:id/model
-PUT    /api/lives/:id/bodies
-
-GET    /api/bodies
-POST   /api/bodies
-GET    /api/bodies/:id
-DELETE /api/bodies/:id
-GET    /api/bodies/:id/state
-POST   /api/bodies/:id/act
-
-GET    /api/modes
-POST   /api/modes
-POST   /api/modes/:id/enable
-POST   /api/modes/:id/disable
-
-GET    /api/model-providers
-POST   /api/model-providers
-
-GET    /api/sessions/:id/events
-GET    /api/memory/:lifeId
-POST   /api/memory/:lifeId
-GET    /api/state/:lifeId/:providerId
-PUT    /api/state/:lifeId/:providerId
-GET    /api/media
-POST   /api/media
-GET    /api/deliveries
-POST   /api/deliveries/cancel
-
-GET    /api/events
-GET    /api/settings
-PUT    /api/settings
+export const config = Schema.object({
+  id: Schema.string(),
+  wsUrl: Schema.string().required(),
+  httpUrl: Schema.string().required(),
+  accessToken: Schema.string().role("secret"),
+});
 ```
 
-`GET /api/events` uses SSE for live status and log updates.
+The loader imports the module and calls the schema directly. Package authors do not hand-write JSON Schema.
 
-### 10.2 Security
+## 8. Config Model
 
-- Default bind is `127.0.0.1`.
-- API token is optional but recommended.
-- Secrets are never returned by list endpoints.
-- Mutating requests require the token when configured.
+The runtime config is declarative desired state.
 
-## 11. Web Console
+```yaml
+runtime:
+  name: my-athena
+  dataDir: ./data
 
-The console is a real user-facing app, not documentation or a landing page.
+plugins:
+  - id: onebot
+    package: "@yesimbot/body-onebot"
+    enabled: true
+    config:
+      wsUrl: ws://127.0.0.1:6700
+      httpUrl: http://127.0.0.1:3000
 
-Primary views:
+  - id: world
+    package: "@yesimbot/mode-world"
+    enabled: true
+    config: {}
 
-- Dashboard: Lives, Body status, active Mode, recent events.
-- Life detail: session events, active Mode, bodies, model, memory, state, deliveries.
-- Mode manager: install, enable/disable, configure, and switch Modes.
-- Body manager: create/edit/remove Body instances, view state, test actuators.
-- Model providers: configure providers and assign roles.
-- Data: memory records, state, media, delivery queue.
-- Logs: runtime, Life, Mode, Body, and percept events.
+lives:
+  - id: athena-1
+    mode: world
+    bodies: [onebot]
+```
 
-The console calls the management API only. It does not import runtime internals directly.
+The config contains:
 
-## 12. CLI
+- runtime identity and data directories
+- installed plugins
+- Life definitions
+- plugin configs
+
+Runtime-derived state such as created Life handles and status snapshots is stored separately from user config.
+
+## 9. Runtime Controller
+
+All user-facing operations go through a RuntimeController.
 
 ```text
-athena init
-athena validate
-athena start
-athena config show
-
-athena life list
-athena life create
-athena life remove
-athena life mode
-athena life body
-
-athena mode list
-athena mode install
-athena mode enable
-athena mode disable
-
-athena body list
-athena body add
-athena body remove
-athena body status
-
-athena log follow
+CLI
+ |
+ RuntimeController
+ |   |
+ |   +-> package loader
+ |   +-> Cordis registries
+ |   +-> Life reconciliation
+ |   +-> config persistence
+ v
+Runtime
 ```
+
+RuntimeController operations:
+
+- add package
+- remove package
+- enable package
+- disable package
+- reconfigure package
+- switch Life Mode
+- reload config
+- reconcile Lives
+
+`add` is generic. The user does not declare `mode` or `body`; the controller reads the manifest and detects the kind.
+
+```text
+athena add @yesimbot/body-onebot --config '{"wsUrl":"..."}'
+athena add @yesimbot/mode-world --config '{}'
+athena remove onebot
+athena enable world
+athena disable onebot
+athena reload
+```
+
+## 10. Loader Behavior
+
+The loader:
+
+1. reads the package manifest
+2. detects the package kind
+3. checks runtime version compatibility
+4. imports and applies the Schemastery config schema
+5. imports the entry
+6. returns a typed plugin handle
+
+Loader errors are explicit and include package identity and config path.
+
+## 11. Hot Reload
+
+Hot reload is required for a real plugin system, but it must be designed carefully.
+
+Requirements:
+
+- ESM import cache must be busted for re-entry.
+- Old Cordis effects must be disposed before new registration.
+- Mode providers, memory, state, scheduler, and Body connections must be cleaned up.
+- Config diff must be applied incrementally.
+- Life reconciliation must be idempotent.
+
+Recommended model:
+
+```text
+config change
+  -> diff old/new
+  -> unload removed or changed entries
+  -> load new or changed entries
+  -> reconcile Lives
+  -> emit observability event
+```
+
+## 12. Life and Conversation Scope
+
+YesImBot v4 currently treats each channel as a separate runtime. The new model should treat one Bot as one Life with multiple conversation scopes.
+
+- Life is the persistent identity.
+- Channel is a Mode-owned conversation scope.
+- Mode decides whether a channel shares Life memory or isolates it.
+- Products that genuinely need separate characters create separate Lives.
+
+This preserves YesImBot v4 per-channel behavior while enabling cross-channel continuity.
 
 ## 13. Migration Path
 
-### 13.1 Mode Migration
+### 13.1 Chat Mode
 
-1. Add a manifest and config schema.
-2. Wrap the existing `setup/handle/providers` in a package entry.
-3. Add a contract test that installs and runs the Mode through the loader.
-4. Add a migration test from prototype Mode shape to package shape.
-5. Move real Modes one at a time.
+Wrap the YesImBot v4 ChannelRuntime as a Mode:
 
-### 13.2 Body Migration
+- preserve channel-scoped conversations
+- expose existing Will and plugins as Mode capabilities
+- use Life as identity instead of channel key
 
-1. Move `onebotBody(config)` into a package manifest entry.
-2. Add config schema validation.
-3. Keep `ctx.bodies.registerAdapter()` as the low-level API.
-4. Let the loader create Body instances from config.
+### 13.2 World Mode
 
-### 13.3 Plugin Migration
+Wrap YesImBotWorld as a Mode:
 
-1. Keep code-level plugin API for developers.
-2. Add config-driven plugin declarations for runtime users.
-3. The bootstrap layer maps config entries to `ctx.plugin(...)`.
+- keep the two-LLM architecture inside the Mode
+- keep virtual phone and apps inside the Mode
+- connect to real platforms through Bodies
+
+### 13.3 Interlude Mode
+
+Wrap Interlude as a Mode:
+
+- use domain state and scheduling inside the Mode
+- use structured output execution driver
+- use Mode-owned continuation plans
+
+### 13.4 Body Migration
+
+Move real platform adapters into Body packages:
+
+- manifest
+- Schemastery config
+- BodyAdapter entry
 
 ## 14. Design Decisions
 
-- **D1:** `athena.yaml` is desired state; `runtime.json` is derived state.
-- **D2:** Mode and Body packages must declare a manifest and config schema.
-- **D3:** The management API is the single control plane.
-- **D4:** The runtime is local-first by default.
-- **D5:** New application packages use the `@yesimbot` scope and live under `apps/`.
+- D1: Life is the persistent identity; channel is not Life.
+- D2: Mode is the full product orchestration strategy.
+- D3: Body is only a real external connection.
+- D4: Mode Pipeline is the fixed execution contract.
+- D5: Modes and Bodies are specialized plugin packages.
+- D6: Config is declarative desired state.
+- D7: RuntimeController is the single mutation path.
+- D8: Package config is defined with Schemastery.
+- D9: API and web console are deferred until these contracts stabilize.
 
 ## 15. Open Questions
 
-- Package installation: filesystem paths, Yarn workspaces, or a registry.
-- Web console stack.
-- Secret storage beyond env substitution.
-- Mode upgrade/downgrade policy.
-- Multi-user and multi-instance requirements.
+- Package installation source: local paths, workspaces, or registry.
+- Plugin market and package update semantics.
+- Secret storage beyond environment substitution.
+- Life migration from existing YesImBot channel data.
+- Mode package version upgrade policy.
+- Which real Mode is migrated first.
 
-## 16. Suggested Milestones
+## 16. Milestones
 
-1. Config schema + bootstrap + CLI.
-2. Mode/Body manifest loader.
-3. Management API.
-4. Web console.
-5. Migrate one real Mode and one real Body.
+1. Design review and ADR freeze.
+2. Package manifest and Schemastery config contract.
+3. RuntimeController add/remove/enable/disable/reload.
+4. Config persistence and Life reconciliation.
+5. Mode Pipeline integration with real Modes.
+6. First real Mode migration.
+7. First real Body migration.
+8. CLI hardening and user documentation.
+9. Optional API and web console after runtime contracts stabilize.
