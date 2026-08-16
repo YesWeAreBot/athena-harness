@@ -16,10 +16,11 @@ If these files do not exist, proceed silently. `/domain-modeling` creates them o
 /
 ├── CONTEXT-MAP.md
 ├── docs/adr/                          ← system-wide decisions
+├── legacy/
+│   └── harness-core/
+│       ├── CONTEXT.md
+│       └── docs/adr/                  ← context-specific decisions
 └── packages/
-    ├── harness-core/
-    │   ├── CONTEXT.md
-    │   └── docs/adr/                  ← context-specific decisions
     └── athena-runtime/
         ├── CONTEXT.md
         └── docs/adr/

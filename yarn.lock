@@ -52,6 +52,7 @@ __metadata:
     "@athena/tools": "npm:0.0.0"
     ai: "npm:^7.0.0"
     cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
   languageName: unknown
   linkType: soft
 
@@ -62,6 +63,7 @@ __metadata:
     "@athena/session": "npm:0.0.0"
     ai: "npm:^7.0.0"
     cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
   languageName: unknown
   linkType: soft
 
@@ -88,6 +90,7 @@ __metadata:
   dependencies:
     ai: "npm:^7.0.0"
     cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
   languageName: unknown
   linkType: soft
 
@@ -97,6 +100,7 @@ __metadata:
   dependencies:
     ai: "npm:^7.0.0"
     cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
   languageName: unknown
   linkType: soft
 
@@ -696,18 +700,6 @@ __metadata:
     "@athena/agent-loop": "workspace:^"
     "@athena/session": "workspace:^"
     cordis: "npm:^4.0.0-rc.8"
-  languageName: unknown
-  linkType: soft
-
-"@yesimbot/harness-core@workspace:packages/harness-core":
-  version: 0.0.0-use.local
-  resolution: "@yesimbot/harness-core@workspace:packages/harness-core"
-  dependencies:
-    ai: "npm:^7.0.0"
-    cordis: "npm:^4.0.0-rc.8"
-    cosmokit: "npm:^1.8.1"
-    schemastery: "npm:^3.18.0"
-    zod: "npm:^3.25.76"
   languageName: unknown
   linkType: soft
 
@@ -1511,16 +1503,6 @@ __metadata:
   bin:
     rolldown: ./bin/cli.mjs
   checksum: 10c0/438c2222db940fab6e2db1f1cf84ab27c83310959e056fa389d7e2208bcbf58929f970f4dca5bd9c255f319bf657ef1a4a7ea6725213491d28764d867e5407a4
-  languageName: node
-  linkType: hard
-
-"schemastery@npm:^3.18.0":
-  version: 3.18.0
-  resolution: "schemastery@npm:3.18.0"
-  dependencies:
-    "@standard-schema/spec": "npm:^1.1.0"
-    cosmokit: "npm:^1.8.1"
-  checksum: 10c0/2f18f79adbc478e8f90914c3dbb9cf74f6e17a593b32565cbdf6e13cf152bdf0d03fa9f42aed35d27430fec54b0c2bf53b71b8b505ccc80f121cb694095a9513
   languageName: node
   linkType: hard
 

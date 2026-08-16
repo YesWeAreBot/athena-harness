@@ -77,6 +77,32 @@ export abstract class LifeMemory extends Service implements LifeMemoryContract {
     return [...local, ...providerResults.flat()].sort((left, right) => right.importance - left.importance || right.createdAt - left.createdAt);
   }
 
+  async derive(lifeId: string, options: MemoryRecallOptions = {}): Promise<readonly MemoryRecord[]> {
+    const results = await Promise.all(
+      [...this.providers.values()]
+        .filter((provider) => provider.derive !== undefined)
+        .map((provider) => provider.derive!(lifeId, options)),
+    );
+    return results.flat();
+  }
+
+  async compact(lifeId: string, options: MemoryRecallOptions = {}): Promise<readonly MemoryRecord[]> {
+    const results = await Promise.all(
+      [...this.providers.values()]
+        .filter((provider) => provider.compact !== undefined)
+        .map((provider) => provider.compact!(lifeId, options)),
+    );
+    return results.flat();
+  }
+
+  async restore(lifeId: string): Promise<void> {
+    await Promise.all(
+      [...this.providers.values()]
+        .filter((provider) => provider.restore !== undefined)
+        .map((provider) => provider.restore!(lifeId)),
+    );
+  }
+
   async forget(id: string): Promise<boolean> {
     let removed = await this.forgetLocal(id);
     for (const provider of this.providers.values()) {

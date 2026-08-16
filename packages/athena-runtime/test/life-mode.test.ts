@@ -264,6 +264,7 @@ describe("life and mode registries", () => {
     await Promise.all(fibers);
 
     let calls = 0;
+    let restoreCalls = 0;
     const provider = {
       id: "mode-story",
       scopes: ["story"],
@@ -281,6 +282,9 @@ describe("life and mode registries", () => {
         };
       },
       recall: async () => [],
+      restore: async () => {
+        restoreCalls++;
+      },
       forget: async () => true,
       clear: async () => {},
     };
@@ -293,6 +297,7 @@ describe("life and mode registries", () => {
 
     const handle = ctx.lives.create({ id: "life-memory-provider" });
     const mode = await handle.createMode("story", {});
+    expect(restoreCalls).toBe(1);
     expect(ctx.memory.listProviders().map((item) => item.id)).toEqual(["mode-story"]);
 
     await ctx.memory.remember({
@@ -317,10 +322,16 @@ describe("life and mode registries", () => {
 
     let captured: unknown;
     let stateUpdated: unknown;
+    const disposed: string[] = [];
+    let stateRestores = 0;
+    let statePersists = 0;
     const modelProvider = {
       id: "main-model",
       roles: ["main"] as const,
       get: async () => ({ id: "model-a" }),
+      dispose: async () => {
+        disposed.push("model");
+      },
     };
     const stateProvider = {
       id: "story-state",
@@ -329,11 +340,33 @@ describe("life and mode registries", () => {
       set: async (next: unknown) => {
         stateUpdated = next;
       },
+      restore: async () => {
+        stateRestores++;
+      },
+      persist: async () => {
+        statePersists++;
+      },
+      dispose: async () => {
+        disposed.push("state");
+      },
     };
     const deliveryProvider = {
       id: "chat-delivery",
       kinds: ["message"] as const,
-      deliver: async (target: unknown, payload: unknown) => ({ ok: true, target, payload }),
+      deliver: async () => ({ id: "delivery-1", status: "delivered" }),
+      schedule: async () => ({ id: "delivery-2", status: "delayed", scheduledAt: Date.now() + 1000 }),
+      cancel: async () => true,
+      dispose: async () => {
+        disposed.push("delivery");
+      },
+    };
+    const mediaProvider = {
+      id: "media-store",
+      list: async () => ["m1"],
+      save: async (ref: unknown) => ({ id: "saved", ref }),
+      dispose: async () => {
+        disposed.push("media");
+      },
     };
     ctx.modes.register({
       name: "providers",
@@ -344,6 +377,7 @@ describe("life and mode registries", () => {
             model: modelProvider,
             state: stateProvider,
             delivery: deliveryProvider,
+            media: mediaProvider,
           },
         };
       },
@@ -351,21 +385,101 @@ describe("life and mode registries", () => {
 
     const handle = ctx.lives.create({ id: "life-mode-providers" });
     await handle.createMode("providers", {});
+    expect(stateRestores).toBe(1);
 
     const modeCtx = captured as {
       model?: { resolve(role: string): { id?: string } | undefined };
       state?: { get<T>(id: string): Promise<T | undefined>; set(id: string, value: unknown): Promise<void> };
-      delivery?: { deliver(kind: string, target: unknown, payload: unknown): Promise<unknown> };
-      media?: { save(ref: unknown): Promise<unknown> };
+      delivery?: {
+        deliver(kind: string, target: unknown, payload: unknown): Promise<unknown>;
+        schedule(delivery: { kind: string; target: unknown; payload: unknown; at: number }): Promise<unknown>;
+        cancel(id: string): Promise<boolean>;
+      };
+      media?: { list(): Promise<unknown[]>; save(ref: unknown): Promise<unknown> };
     };
     expect(modeCtx.model?.resolve("main")?.id).toBe("main-model");
     await expect(modeCtx.state!.get("story-state")).resolves.toEqual({ arc: "arc-1" });
     await modeCtx.state!.set("story-state", { arc: "arc-2" });
     expect(stateUpdated).toEqual({ arc: "arc-2" });
-    await expect(modeCtx.delivery!.deliver("message", { channel: "1" }, { text: "hi" })).resolves.toMatchObject({ ok: true });
-    await expect(modeCtx.media!.save({})).rejects.toThrow(/Media provider is not installed/);
+    await expect(modeCtx.delivery!.deliver("message", { channel: "1" }, { text: "hi" })).resolves.toMatchObject({ status: "delivered" });
+    await expect(
+      modeCtx.delivery!.schedule({ kind: "message", target: {}, payload: {}, at: Date.now() + 1000 }),
+    ).resolves.toMatchObject({ status: "delayed" });
+    await expect(modeCtx.delivery!.cancel("delivery-2")).resolves.toBe(true);
+    await expect(modeCtx.media!.list()).resolves.toEqual(["m1"]);
+    await expect(modeCtx.media!.save({ type: "image" })).resolves.toMatchObject({ id: "saved" });
+    await expect(handle.getState("story-state")).resolves.toEqual({ arc: "arc-1" });
+    await handle.setState("story-state", { arc: "arc-3" });
+    expect(stateUpdated).toEqual({ arc: "arc-3" });
+    await expect(handle.deliver("message", { channel: "1" }, { text: "hi" })).resolves.toMatchObject({ status: "delivered" });
+    await expect(
+      handle.scheduleDelivery({ kind: "message", target: {}, payload: {}, at: Date.now() + 1000 }),
+    ).resolves.toMatchObject({ status: "delayed" });
+    await expect(handle.cancelDelivery("delivery-2")).resolves.toBe(true);
 
     await ctx.lives.dispose("life-mode-providers");
+    expect(statePersists).toBe(1);
+    expect(disposed.sort()).toEqual(["delivery", "media", "model", "state"]);
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("persists old state and restores new state on Mode switch", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    let chatPersist = 0;
+    let chatRestore = 0;
+    let worldPersist = 0;
+    let worldRestore = 0;
+    const chatState = {
+      id: "chat-state",
+      kinds: ["story"] as const,
+      get: async () => ({}),
+      set: async () => {},
+      persist: async () => {
+        chatPersist++;
+      },
+      restore: async () => {
+        chatRestore++;
+      },
+    };
+    const worldState = {
+      id: "world-state",
+      kinds: ["world"] as const,
+      get: async () => ({}),
+      set: async () => {},
+      persist: async () => {
+        worldPersist++;
+      },
+      restore: async () => {
+        worldRestore++;
+      },
+    };
+    ctx.modes.register({
+      name: "chat",
+      setup: async () => ({
+        providers: { state: chatState },
+      }),
+    });
+    ctx.modes.register({
+      name: "world",
+      setup: async () => ({
+        providers: { state: worldState },
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-switch-state" });
+    await handle.createMode("chat", {});
+    expect(chatRestore).toBe(1);
+
+    await handle.setMode(await ctx.modes.create("world", {}));
+    expect(chatPersist).toBeGreaterThanOrEqual(1);
+    expect(worldRestore).toBe(1);
+
+    await ctx.lives.dispose("life-switch-state");
+    expect(worldPersist).toBe(1);
+
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 

@@ -172,6 +172,30 @@ describe("memory infrastructure", () => {
         };
       },
       recall: async () => [],
+      derive: async () => [
+        {
+          id: "derived-1",
+          lifeId: "life-story",
+          scope: "story",
+          category: "summary",
+          content: "derived summary",
+          importance: 0.9,
+          confidence: 0.7,
+          createdAt: Date.now(),
+        },
+      ],
+      compact: async () => [
+        {
+          id: "compact-1",
+          lifeId: "life-story",
+          scope: "story",
+          category: "summary",
+          content: "compacted summary",
+          importance: 0.8,
+          confidence: 0.6,
+          createdAt: Date.now(),
+        },
+      ],
       forget: async () => true,
       clear: async () => {},
     };
@@ -193,6 +217,8 @@ describe("memory infrastructure", () => {
     });
     expect(calls).toHaveLength(1);
     expect(await ctx.memory.recall("life-local", { scope: "identity" })).toHaveLength(1);
+    expect(await ctx.memory.derive("life-story")).toHaveLength(1);
+    expect(await ctx.memory.compact("life-story")).toHaveLength(1);
 
     dispose();
     expect(ctx.memory.listProviders()).toEqual([]);

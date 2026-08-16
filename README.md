@@ -26,8 +26,8 @@ The canonical Harness Core is the six-package `@athena/*` architecture defined i
 - **`@athena/agent-loop`**: default React Loop implementation / 默认 React Loop 实现
 - **`@athena/persist-jsonl`**: JSONL Session persistence / JSONL Session 持久化
 
-The legacy `@yesimbot/harness-core` and `@yesimbot/athena-runtime` packages remain in the repository as historical prototype references and are not part of the canonical design.
-旧的 `@yesimbot/harness-core` 和 `@yesimbot/athena-runtime` 仍保留为历史原型参考，不属于当前 canonical 设计。
+The legacy `@yesimbot/harness-core` source is archived under `legacy/harness-core`; `@yesimbot/athena-runtime` remains as a historical prototype reference and is not part of the canonical design.
+旧版 `@yesimbot/harness-core` 源码已归档到 `legacy/harness-core`；`@yesimbot/athena-runtime` 仍保留为历史原型参考，不属于当前 canonical 设计。
 
 ## Current State / 当前进展
 

@@ -84,7 +84,20 @@ export class ModeRegistry extends Service {
           await created.dispose?.();
         }
         for (const dispose of disposeMemory) dispose();
+        if (lifeId) {
+          for (const provider of providerList(created.providers?.state)) await provider.persist?.(lifeId);
+        }
         for (const provider of providerList(created.providers?.scheduler)) provider.cancelAll();
+        await Promise.allSettled(
+          [
+            ...memoryProviders,
+            ...providerList(created.providers?.model),
+            ...providerList(created.providers?.state),
+            ...providerList(created.providers?.delivery),
+            ...providerList(created.providers?.media),
+            ...providerList(created.providers?.scheduler),
+          ].map((provider) => provider.dispose?.()),
+        );
         if (lifeId) {
           (this.ctx.get("scheduler") as { cancelByLife(lifeId: string): void } | undefined)?.cancelByLife(lifeId);
         }

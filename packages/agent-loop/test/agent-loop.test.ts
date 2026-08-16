@@ -223,4 +223,22 @@ describe("agent-loop turn lifecycle", () => {
 
     await handle.dispose();
   });
+
+  it("emits streaming and output events", async () => {
+    const ctx = await setup();
+    const parts: unknown[] = [];
+    const outputs: unknown[] = [];
+    ctx.on("agent/stream-part", (event) => parts.push(event));
+    ctx.on("agent/output", (event) => outputs.push(event));
+
+    const handle = await ctx.agents.create({ model: makeStreamModel("hello") });
+    handle.agent.followup("hi");
+    await handle.agent.whenIdle();
+
+    expect(parts.length).toBeGreaterThan(0);
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]).toMatchObject({ agentId: handle.agent.id, kind: "assistant-message" });
+
+    await handle.dispose();
+  });
 });

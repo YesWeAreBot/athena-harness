@@ -8,12 +8,25 @@ import type { AgentLoopAccess } from "../agent-loop/types.js";
 import "../body/index.js";
 import type { BodyRegistry } from "../body/index.js";
 import type { ActuatorOptions, PerceptEvent } from "../body/types.js";
+import type { DeliveryProviderRegistry } from "../delivery-provider/index.js";
+import type { DeliveryPolicyRegistry } from "../delivery-policy/index.js";
 import { createId } from "../internal.js";
 import type { LifeMemory } from "../memory/index.js";
+import type { ModelProviderRegistry } from "../model-provider/index.js";
 import type { ModeRegistry } from "../mode/index.js";
-import type { ModeActuatorInterest, ModeCapabilities, ModeContext, ModeHandle, ModePerceptInterest } from "../mode/types.js";
+import type {
+  ModeActuatorInterest,
+  ModeCapabilities,
+  ModeContext,
+  ModeDeliveryKind,
+  ModeDeliveryProvider,
+  ModeHandle,
+  ModeModelRole,
+  ModePerceptInterest,
+} from "../mode/types.js";
 import type { Scheduler } from "../scheduler/index.js";
 import type { ModeSchedulerAccess, ScheduledTaskOptions } from "../scheduler/types.js";
+import type { StateProviderRegistry } from "../state-provider/index.js";
 import type {
   CreateLifeAgentInput,
   CreateLifeInput,
@@ -209,15 +222,26 @@ export class LifeRegistry extends Service {
       return next;
     };
 
+    const persistModeState = async (mode: ModeHandle | undefined): Promise<void> => {
+      for (const provider of providerList(mode?.providers?.state)) await provider.persist?.(life.id);
+    };
+
+    const restoreModeState = async (mode: ModeHandle | undefined): Promise<void> => {
+      for (const provider of providerList(mode?.providers?.state)) await provider.restore?.(life.id);
+    };
+
     const applyMode = async (next: ModeHandle | undefined): Promise<void> => {
       if (disposed) throw new Error(`Life is disposed: ${life.id}`);
       if (next === activeMode) return;
       if (next?.disposed) throw new Error(`Mode is disposed: ${next.id}`);
+      await persistModeState(activeMode);
       await stopMode(activeMode);
       activeMode = next;
+      await restoreModeState(activeMode);
       try {
         await activeMode?.start?.();
       } catch (error) {
+        await persistModeState(activeMode);
         await stopMode(activeMode);
         activeMode = undefined;
         throw error;
@@ -243,6 +267,7 @@ export class LifeRegistry extends Service {
       lifeId: life.id,
       life,
       session,
+      model: createModeModelAccess(this.ctx, () => activeMode),
       bodies: {
         dispatch: <T>(bodyId: string, kind: string, data: T) => this.ctx.bodies.dispatch(bodyId, kind, data),
         act: async (bodyId: string, actuatorId: string, action: unknown, options?: ActuatorOptions) => {
@@ -274,32 +299,55 @@ export class LifeRegistry extends Service {
       },
       agentLoop: this.ctx.get("agentLoop") as AgentLoopAccess | undefined,
       agent: agentHandle?.agent,
-      model: {
-        list: () => providerList(activeMode?.providers?.model),
-        resolve: (role) => providerList(activeMode?.providers?.model).find((provider) => provider.roles.includes(role)),
-      },
       state: {
         get: async <T>(id: string): Promise<T | undefined> => {
-          const provider = providerList(activeMode?.providers?.state).find((item) => item.id === id);
+          const provider =
+            providerList(activeMode?.providers?.state).find((item) => item.id === id) ??
+            (this.ctx.get("stateProviders") as StateProviderRegistry | undefined)?.get(id);
           return provider ? ((await provider.get()) as T) : undefined;
         },
         set: async <T>(id: string, value: T): Promise<void> => {
-          const provider = providerList(activeMode?.providers?.state).find((item) => item.id === id);
+          const provider =
+            providerList(activeMode?.providers?.state).find((item) => item.id === id) ??
+            (this.ctx.get("stateProviders") as StateProviderRegistry | undefined)?.get(id);
           if (!provider?.set) throw new Error(`State provider is not installed or has no set: ${id}`);
           await provider.set(value);
         },
       },
       delivery: {
         deliver: async (kind, target, payload) => {
-          const provider = providerList(activeMode?.providers?.delivery).find((item) => item.kinds.includes(kind));
+          assertDeliveryAllowed(this.ctx, kind, target);
+          const provider =
+            providerList(activeMode?.providers?.delivery).find((item) => deliveryMatches(item, kind, target)) ??
+            (this.ctx.get("deliveryProviders") as DeliveryProviderRegistry | undefined)?.resolve(kind, target);
           if (!provider?.deliver) throw new Error(`Delivery provider is not installed: ${kind}`);
           return provider.deliver(target, payload);
         },
+        schedule: async (delivery) => {
+          assertDeliveryAllowed(this.ctx, delivery.kind, delivery.target);
+          const provider =
+            providerList(activeMode?.providers?.delivery).find((item) => deliveryMatches(item, delivery.kind, delivery.target)) ??
+            (this.ctx.get("deliveryProviders") as DeliveryProviderRegistry | undefined)?.resolve(delivery.kind, delivery.target);
+          if (!provider?.schedule) throw new Error(`Delivery provider cannot schedule: ${delivery.kind}`);
+          return provider.schedule(delivery);
+        },
+        cancel: async (id) => {
+          const registry = this.ctx.get("deliveryProviders") as DeliveryProviderRegistry | undefined;
+          for (const provider of [...providerList(activeMode?.providers?.delivery), ...(registry?.list() ?? [])]) {
+            if (provider.cancel && (await provider.cancel(id))) return true;
+          }
+          return false;
+        },
       },
       media: {
-        list: () => [],
-        save: async () => {
-          throw new Error("Media provider is not installed");
+        list: async () => {
+          const provider = providerList(activeMode?.providers?.media)[0];
+          return provider?.list ? provider.list() : [];
+        },
+        save: async (ref) => {
+          const provider = providerList(activeMode?.providers?.media)[0];
+          if (!provider?.save) throw new Error("Media provider is not installed");
+          return provider.save(ref);
         },
       },
     });
@@ -349,6 +397,7 @@ export class LifeRegistry extends Service {
           if (!modes) throw new Error("ModeRegistry is not installed");
           const definition = modes.get(name);
           const created = await modes.create(name, config, modeContext(definition?.capabilities));
+          await (this.ctx.get("memory") as LifeMemory | undefined)?.restore(life.id);
           try {
             await applyMode(created);
           } catch (error) {
@@ -363,10 +412,84 @@ export class LifeRegistry extends Service {
         enqueue(async () => {
           if (disposed) throw new Error(`Life is disposed: ${life.id}`);
           if (!agentHandle?.agent) throw new Error("Life has no Agent");
-          const provider = providerList(activeMode?.providers?.model).find((item) => item.id === providerId);
+          const provider =
+            providerList(activeMode?.providers?.model).find((item) => item.id === providerId) ??
+            (this.ctx.get("modelProviders") as ModelProviderRegistry | undefined)?.get(providerId);
           if (!provider) throw new Error(`Model provider not found: ${providerId}`);
-          agentHandle.agent.setModel((await provider.get()) as never);
-          this.ctx.emit("model/changed", { id: life.id, providerId, model: agentHandle.agent.model });
+          try {
+            agentHandle.agent.setModel((await provider.get()) as never);
+            this.ctx.emit("model/changed", { id: life.id, providerId, model: agentHandle.agent.model });
+          } catch (error) {
+            this.ctx.emit("model/error", { id: life.id, providerId, error });
+            throw error;
+          }
+        }),
+      setModelByRole: (role) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          if (!agentHandle?.agent) throw new Error("Life has no Agent");
+          const candidates = [
+            ...providerList(activeMode?.providers?.model).filter((provider) => provider.roles.includes(role)),
+            ...((this.ctx.get("modelProviders") as ModelProviderRegistry | undefined)?.resolveAll(role) ?? []),
+          ];
+          let lastError: unknown;
+          for (const provider of candidates) {
+            try {
+              agentHandle.agent.setModel((await provider.get()) as never);
+              this.ctx.emit("model/changed", { id: life.id, providerId: provider.id, model: agentHandle.agent.model });
+              return;
+            } catch (error) {
+              this.ctx.emit("model/error", { id: life.id, providerId: provider.id, role, error });
+              lastError = error;
+            }
+          }
+          throw lastError ?? new Error(`No model provider for role: ${role}`);
+        }),
+      getState: (id) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          const provider =
+            providerList(activeMode?.providers?.state).find((item) => item.id === id) ??
+            (this.ctx.get("stateProviders") as StateProviderRegistry | undefined)?.get(id);
+          return provider ? ((await provider.get()) as never) : undefined;
+        }),
+      setState: (id, value) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          const provider =
+            providerList(activeMode?.providers?.state).find((item) => item.id === id) ??
+            (this.ctx.get("stateProviders") as StateProviderRegistry | undefined)?.get(id);
+          if (!provider?.set) throw new Error(`State provider is not installed or has no set: ${id}`);
+          await provider.set(value);
+        }),
+      deliver: (kind, target, payload) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          assertDeliveryAllowed(this.ctx, kind, target);
+          const provider =
+            providerList(activeMode?.providers?.delivery).find((item) => deliveryMatches(item, kind, target)) ??
+            (this.ctx.get("deliveryProviders") as DeliveryProviderRegistry | undefined)?.resolve(kind, target);
+          if (!provider?.deliver) throw new Error(`Delivery provider is not installed: ${kind}`);
+          return provider.deliver(target, payload);
+        }),
+      scheduleDelivery: (delivery) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          assertDeliveryAllowed(this.ctx, delivery.kind, delivery.target);
+          const provider =
+            providerList(activeMode?.providers?.delivery).find((item) => deliveryMatches(item, delivery.kind, delivery.target)) ??
+            (this.ctx.get("deliveryProviders") as DeliveryProviderRegistry | undefined)?.resolve(delivery.kind, delivery.target);
+          if (!provider?.schedule) throw new Error(`Delivery provider cannot schedule: ${delivery.kind}`);
+          return provider.schedule(delivery);
+        }),
+      cancelDelivery: (id) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          const registry = this.ctx.get("deliveryProviders") as DeliveryProviderRegistry | undefined;
+          for (const provider of [...providerList(activeMode?.providers?.delivery), ...(registry?.list() ?? [])]) {
+            if (provider.cancel && (await provider.cancel(id))) return true;
+          }
+          return false;
         }),
       attachBody: (bodyId) =>
         enqueue(async () => {
@@ -442,6 +565,24 @@ function providerList<T>(value: T | readonly T[] | undefined): readonly T[] {
   return [value as T];
 }
 
+function deliveryMatches(provider: ModeDeliveryProvider, kind: ModeDeliveryKind, target: unknown): boolean {
+  return provider.kinds.includes(kind) && (!provider.canDeliver || provider.canDeliver(target));
+}
+
+function assertDeliveryAllowed(ctx: Context, kind: ModeDeliveryKind, target: unknown): void {
+  const policies = ctx.get("deliveryPolicies") as DeliveryPolicyRegistry | undefined;
+  if (policies && !policies.allow({ kind, target })) throw new Error(`Delivery policy rejected: ${kind}`);
+}
+
+function createModeModelAccess(ctx: Context, getMode: () => ModeHandle | undefined) {
+  const registry = ctx.get("modelProviders") as ModelProviderRegistry | undefined;
+  return {
+    list: () => [...providerList(getMode()?.providers?.model), ...(registry?.list() ?? [])],
+    resolve: (role: ModeModelRole) =>
+      providerList(getMode()?.providers?.model).find((provider) => provider.roles.includes(role)) ?? registry?.resolve(role),
+  };
+}
+
 function createWakeEvent(reason: string, data?: unknown): PerceptEvent {
   return {
     id: createId("wake"),
@@ -479,6 +620,7 @@ declare module "cordis" {
     "life/disposed"(event: { id: string }): void;
     "life/error"(event: { id: string; error: unknown }): void;
     "model/changed"(event: { id: string; providerId: string; model: unknown }): void;
+    "model/error"(event: { id: string; providerId: string; role?: ModeModelRole; error: unknown }): void;
     "percept/routed"(event: { id: string; modeId: string; event: PerceptEvent; handled: boolean }): void;
     "percept/rejected"(event: { id: string; modeId?: string; event: PerceptEvent; reason: PerceptRejectReason }): void;
   }

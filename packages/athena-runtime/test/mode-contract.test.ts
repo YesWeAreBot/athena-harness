@@ -18,6 +18,10 @@ describe("Mode contract: future projects as composition", () => {
     ]);
     try {
       let remembers = 0;
+      let derives = 0;
+      let compacts = 0;
+      let restores = 0;
+      let disposed = 0;
       const provider = {
         id: "chat-memory",
         scopes: ["conversation"] as const,
@@ -35,8 +39,22 @@ describe("Mode contract: future projects as composition", () => {
           };
         },
         recall: async () => [],
+        derive: async () => {
+          derives++;
+          return [];
+        },
+        compact: async () => {
+          compacts++;
+          return [];
+        },
+        restore: async () => {
+          restores++;
+        },
         forget: async () => true,
         clear: async () => {},
+        dispose: async () => {
+          disposed++;
+        },
       };
       ctx.modes.register({
         name: "chat",
@@ -48,6 +66,7 @@ describe("Mode contract: future projects as composition", () => {
 
       const handle = ctx.lives.create({ id: "contract-chat" });
       await handle.createMode("chat", {});
+      expect(restores).toBe(1);
       await expect(
         handle.dispatchPercept({
           id: "p1",
@@ -65,8 +84,13 @@ describe("Mode contract: future projects as composition", () => {
         content: "hi",
       });
       expect(remembers).toBe(1);
+      await ctx.memory.derive("contract-chat");
+      await ctx.memory.compact("contract-chat");
+      expect(derives).toBe(1);
+      expect(compacts).toBe(1);
 
       await ctx.lives.dispose("contract-chat");
+      expect(disposed).toBe(1);
     } finally {
       await Promise.all(fibers.map((fiber) => fiber.dispose()));
     }
@@ -78,10 +102,48 @@ describe("Mode contract: future projects as composition", () => {
       ctx.plugin(SessionRegistry),
       ctx.plugin(modeRegistry),
       ctx.plugin(schedulerRegistry),
+      ctx.plugin(memoryRegistry),
       ctx.plugin(lifeRegistry),
     ]);
     try {
       let runs = 0;
+      let derives = 0;
+      let compacts = 0;
+      let restores = 0;
+      let disposed = 0;
+      const provider = {
+        id: "world-memory",
+        scopes: ["world", "facts"] as const,
+        remember: async () => {
+          return {
+            id: "world-1",
+            lifeId: "contract-world",
+            scope: "facts",
+            category: "fact",
+            content: "world fact",
+            importance: 0.5,
+            confidence: 0.5,
+            createdAt: Date.now(),
+          };
+        },
+        recall: async () => [],
+        derive: async () => {
+          derives++;
+          return [];
+        },
+        compact: async () => {
+          compacts++;
+          return [];
+        },
+        restore: async () => {
+          restores++;
+        },
+        forget: async () => true,
+        clear: async () => {},
+        dispose: async () => {
+          disposed++;
+        },
+      };
       ctx.modes.register({
         name: "world",
         setup: async (modeCtx) => {
@@ -92,17 +154,23 @@ describe("Mode contract: future projects as composition", () => {
               runs++;
             },
           });
-          return {};
+          return { providers: { memory: provider } };
         },
       });
 
       const handle = ctx.lives.create({ id: "contract-world" });
       const mode = await handle.createMode("world", {});
+      expect(restores).toBe(1);
       await new Promise((resolve) => setTimeout(resolve, 30));
       expect(runs).toBe(1);
+      await ctx.memory.derive("contract-world");
+      await ctx.memory.compact("contract-world");
+      expect(derives).toBe(1);
+      expect(compacts).toBe(1);
 
       await ctx.modes.dispose(mode.id);
       await ctx.lives.dispose("contract-world");
+      expect(disposed).toBe(1);
     } finally {
       await Promise.all(fibers.map((fiber) => fiber.dispose()));
     }
@@ -180,6 +248,10 @@ describe("Mode contract: future projects as composition", () => {
     try {
       let hookCalls = 0;
       let remembers = 0;
+      let derives = 0;
+      let compacts = 0;
+      let restores = 0;
+      let disposed = 0;
       const provider = {
         id: "interlude-story",
         scopes: ["story"] as const,
@@ -197,8 +269,22 @@ describe("Mode contract: future projects as composition", () => {
           };
         },
         recall: async () => [],
+        derive: async () => {
+          derives++;
+          return [];
+        },
+        compact: async () => {
+          compacts++;
+          return [];
+        },
+        restore: async () => {
+          restores++;
+        },
         forget: async () => true,
         clear: async () => {},
+        dispose: async () => {
+          disposed++;
+        },
       };
       ctx.modes.register({
         name: "interlude",
@@ -215,6 +301,7 @@ describe("Mode contract: future projects as composition", () => {
 
       const handle = ctx.lives.create({ id: "contract-interlude" });
       await handle.createMode("interlude", {});
+      expect(restores).toBe(1);
       await expect(
         handle.dispatchPercept({
           id: "p1",
@@ -233,8 +320,13 @@ describe("Mode contract: future projects as composition", () => {
         content: "story content",
       });
       expect(remembers).toBe(1);
+      await ctx.memory.derive("contract-interlude");
+      await ctx.memory.compact("contract-interlude");
+      expect(derives).toBe(1);
+      expect(compacts).toBe(1);
 
       await ctx.lives.dispose("contract-interlude");
+      expect(disposed).toBe(1);
     } finally {
       await Promise.all(fibers.map((fiber) => fiber.dispose()));
     }

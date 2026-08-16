@@ -23,6 +23,7 @@
   "dependencies": {
     "@athena/session": "0.0.0",
     "ai": "^7.0.0",
-    "cordis": "^4.0.0-rc.8"
+    "cordis": "^4.0.0-rc.8",
+    "zod": "^3.25.76"
   }
 }

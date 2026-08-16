@@ -41,6 +41,8 @@ The current architecture follows a **core thin, Mode thick** boundary:
 - Memory is a Life facade with Mode-specific providers.
 - Body/Percept/Actuator are extensible envelopes, not closed product types.
 - AgentLoop is the canonical `@athena/agent-loop`; Life binds its own Session to the loop.
+- MediaStore provides file-level media persistence for images, audio, video, and files.
+- `@athena/agent-loop` emits agent/stream-part and agent/output events.
 - Life serializes lifecycle operations and exposes an explicit `disposed` state.
 - Life emits observability events for creation, disposal, routing, rejection, and errors.
 
@@ -57,6 +59,7 @@ Confirmed contracts:
 - LifeHandle serializes lifecycle operations and exposes an explicit `disposed` state.
 - `LifeHandle.wake()` routes a Life-level wake Percept through the same attention/compact/Mode pipeline.
 - `LifeHandle.setModel()` resolves the active Mode model provider and emits `model/changed`.
+- `LifeHandle.getState/setState/deliver()` delegate to active Mode state and delivery providers.
 
 ## AgentLoop Wiring
 
@@ -83,6 +86,14 @@ Confirmed contracts:
 - Mode memory providers are registered into the Life memory facade and unregistered when the Mode is disposed;
 - Mode capabilities may declare model roles, state kinds, and delivery kinds;
 - Mode providers may declare model, state, and delivery implementations;
+- Life falls back to global model/state/delivery provider registries when no active Mode provider matches;
+- Delivery providers return a receipt and may support schedule/cancel for delayed delivery;
+- Delivery providers may declare canDeliver(target) so Life routes cross-conversation deliveries by target;
+- DeliveryQueue persists scheduled deliveries and fires them when due;
+- Mode state providers may expose restore(lifeId); Life calls it before starting the Mode;
+- Mode state providers may expose persist(lifeId); ModeRegistry calls it before provider disposal;
+- Life persists the old Mode state and restores the new Mode state when switching Modes;
+- Mode providers may declare media implementations; ModeContext.media reads the active Mode provider;
 - Mode providers may declare a scheduler implementation; ModeContext.scheduler prefers it and falls back to the Life scheduler;
 - ModeContext reserves model, state, delivery, and media access surfaces for Mode-specific composition;
 - Chat, World, and Interlude are future Mode consumers.
@@ -118,6 +129,14 @@ LifeMemory is the unified Life facade. Mode providers contribute scoped storage 
 `conversation`, `world`, `story`, `participant`, and `facts`; Life routes recall by scope and
 unregisters providers when the owning Mode is disposed.
 
+LifeMemory does not implement memory strategy. Derived memory, compaction, and forgetting are
+optional `MemoryProvider` capabilities; LifeMemory only routes `derive()` and `compact()` to the
+providers that support them.
+
+When a Mode registers its MemoryProvider through `LifeHandle.createMode()`, Life calls
+`ctx.memory.restore(lifeId)` before starting the Mode. Each provider restores its own persistent
+format; Life does not interpret provider-specific memory data.
+
 ## Confirmed Decisions
 
 - 2026-08-15: Athena Runtime is the digital life framework layer and next YesImBot core.
@@ -136,14 +155,32 @@ unregisters providers when the owning Mode is disposed.
 - 2026-08-16: Mode boundary is defined as capabilities + providers + hooks + Life-owned context, not a shared internal execution flow.
 - 2026-08-16: Mode scheduler providers are cancelled when the Mode is disposed.
 - 2026-08-16: LifeHandle.wake and LifeHandle.setModel are the first Life-owned active behavior and model switching entry points.
+- 2026-08-16: LifeHandle exposes getState/setState/deliver as Life-owned access to active Mode providers.
+- 2026-08-16: Mode media providers are available through ModeContext.media without entering Life core.
+- 2026-08-16: global ModelProviderRegistry, StateProviderRegistry, and DeliveryProviderRegistry provide fallback resolution.
+- 2026-08-16: Mode providers receive dispose() when the Mode is disposed; scheduler providers are also cancelled.
+- 2026-08-16: model switching emits model/changed and model/error events.
+- 2026-08-16: MediaStore supports save/get/list/delete over a configurable filesystem root.
+- 2026-08-16: Memory strategy stays in MemoryProvider; LifeMemory only routes and manages lifecycle.
+- 2026-08-16: Life triggers MemoryProvider.restore on Mode create; providers own their restore format and persistence.
+- 2026-08-16: Life triggers ModeStateProvider.restore on Mode create; providers own state persistence.
+- 2026-08-16: ModeRegistry persists state providers before disposing them.
+- 2026-08-16: Delivery providers expose deliver/schedule/cancel through ModeContext and LifeHandle; Life only delegates.
+- 2026-08-16: Delivery routing considers canDeliver(target) for cross-conversation delivery.
+- 2026-08-16: Mode switching persists old state providers and restores new state providers.
+- 2026-08-16: JsonlStateProvider provides per-Life JSON persistence for Mode state.
+- 2026-08-16: DeliveryQueue persists pending deliveries and restores timers after restart.
+- 2026-08-16: @athena/agent-loop emits stream-part and output events.
 
 ## Pending
 
 - Derived Memory, compaction, and forgetting policy;
 - WebUI;
-- global ModelProvider registry, failover, and provider cooldown;
+- provider cooldown and delivery queue persistence;
+- delivery permission registry beyond provider-local canDeliver;
 - Mode-specific behavior.
 - Chat, World, and Interlude Mode contract tests that verify the Mode boundary without importing product internals.
+- MediaStore search, gallery, captioning, and MediaAccess integration.
 
 ## Initial Internal Layout
 
@@ -157,9 +194,13 @@ packages/athena-runtime/
     body/
       index.ts
       types.ts
+    delivery-provider/
+      index.ts
     life/
       index.ts
       types.ts
+    media-store/
+      index.ts
     memory/
       index.ts
       jsonl.ts
@@ -168,8 +209,12 @@ packages/athena-runtime/
     mode/
       index.ts
       types.ts
+    model-provider/
+      index.ts
     scheduler/
       index.ts
       types.ts
+    state-provider/
+      index.ts
   test/
 ```

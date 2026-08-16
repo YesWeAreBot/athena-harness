@@ -12,8 +12,12 @@ import { MockLanguageModelV4 } from "ai/test";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
+import { deliveryProviderRegistry } from "../src/delivery-provider/index.js";
+import { deliveryPolicyRegistry } from "../src/delivery-policy/index.js";
 import { lifeRegistry } from "../src/life/index.js";
+import { modelProviderRegistry } from "../src/model-provider/index.js";
 import { modeRegistry } from "../src/mode/index.js";
+import { stateProviderRegistry } from "../src/state-provider/index.js";
 
 async function setupLife() {
   const ctx = new Context();
@@ -24,6 +28,10 @@ async function setupLife() {
     ctx.plugin(AgentRegistry),
     ctx.plugin(AgentLoop),
     ctx.plugin(modeRegistry),
+    ctx.plugin(modelProviderRegistry),
+    ctx.plugin(stateProviderRegistry),
+    ctx.plugin(deliveryProviderRegistry),
+    ctx.plugin(deliveryPolicyRegistry),
     ctx.plugin(lifeRegistry),
   ]);
   return { ctx, fibers };
@@ -181,6 +189,134 @@ describe("life agent-loop wiring", () => {
       expect(handle.agent?.model).toBe(second);
       expect(changed).toHaveLength(1);
       expect(changed[0]).toMatchObject({ id: "life-model", providerId: "main" });
+
+      await handle.dispose();
+    } finally {
+      await Promise.all(fibers.map((fiber) => fiber.dispose()));
+    }
+  });
+
+  it("fails over to the next global model provider for a role", async () => {
+    const { ctx, fibers } = await setupLife();
+    try {
+      const first = new MockLanguageModelV4();
+      const second = new MockLanguageModelV4();
+      let firstCalls = 0;
+      const errors: unknown[] = [];
+      ctx.on("model/error", (event) => errors.push(event));
+      ctx.modelProviders.register({
+        id: "main-a",
+        roles: ["main"] as const,
+        get: async () => {
+          firstCalls++;
+          throw new Error("provider a failed");
+        },
+      });
+      ctx.modelProviders.register({
+        id: "main-b",
+        roles: ["main"] as const,
+        get: async () => second,
+      });
+
+      const handle = await ctx.lives.createWithAgent({
+        id: "life-model-failover",
+        agentLoop: { model: first, maxSteps: 1 },
+      });
+      await handle.setModelByRole("main");
+
+      expect(firstCalls).toBe(1);
+      expect(handle.agent?.model).toBe(second);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({ id: "life-model-failover", providerId: "main-a", role: "main" });
+      await handle.dispose();
+    } finally {
+      await Promise.all(fibers.map((fiber) => fiber.dispose()));
+    }
+  });
+
+  it("falls back to global state and delivery providers", async () => {
+    const { ctx, fibers } = await setupLife();
+    try {
+      let stateValue = "s1";
+      let delivered = false;
+      let deliveredB = false;
+      ctx.stateProviders.register({
+        id: "global-state",
+        kinds: ["story"] as const,
+        get: async () => stateValue,
+        set: async (next: unknown) => {
+          stateValue = next as string;
+        },
+      });
+      ctx.deliveryProviders.register({
+        id: "global-delivery",
+        kinds: ["message"] as const,
+        canDeliver: (target: unknown) => (target as { channel?: string }).channel === "a",
+        deliver: async () => {
+          delivered = true;
+          return { id: "delivery-1", status: "delivered" };
+        },
+        schedule: async () => {
+          return { id: "delivery-2", status: "delayed", scheduledAt: Date.now() + 1000 };
+        },
+        cancel: async () => {
+          return true;
+        },
+      });
+      ctx.deliveryProviders.register({
+        id: "global-delivery-b",
+        kinds: ["message"] as const,
+        canDeliver: (target: unknown) => (target as { channel?: string }).channel === "b",
+        deliver: async () => {
+          deliveredB = true;
+          return { id: "delivery-b", status: "delivered" };
+        },
+        schedule: async () => {
+          return { id: "delivery-b-delayed", status: "delayed", scheduledAt: Date.now() + 1000 };
+        },
+        cancel: async () => {
+          return true;
+        },
+      });
+
+      const handle = await ctx.lives.createWithAgent({
+        id: "life-global-providers",
+        agentLoop: { model: new MockLanguageModelV4(), maxSteps: 1 },
+      });
+      await expect(handle.getState("global-state")).resolves.toBe("s1");
+      await handle.setState("global-state", "s2");
+      expect(stateValue).toBe("s2");
+      await expect(handle.deliver("message", { channel: "a" }, {})).resolves.toMatchObject({ status: "delivered" });
+      await expect(handle.deliver("message", { channel: "b" }, {})).resolves.toMatchObject({ status: "delivered" });
+      await expect(
+        handle.scheduleDelivery({ kind: "message", target: { channel: "a" }, payload: {}, at: Date.now() + 1000 }),
+      ).resolves.toMatchObject({ status: "delayed" });
+      await expect(handle.cancelDelivery("delivery-2")).resolves.toBe(true);
+      expect(delivered).toBe(true);
+      expect(deliveredB).toBe(true);
+
+      await handle.dispose();
+    } finally {
+      await Promise.all(fibers.map((fiber) => fiber.dispose()));
+    }
+  });
+
+  it("enforces global delivery policy before routing", async () => {
+    const { ctx, fibers } = await setupLife();
+    try {
+      ctx.deliveryPolicies.register("block-b", ({ target }) => (target as { channel?: string }).channel !== "blocked");
+      ctx.deliveryProviders.register({
+        id: "global-delivery",
+        kinds: ["message"] as const,
+        deliver: async () => ({ id: "delivery-1", status: "delivered" }),
+      });
+
+      const handle = await ctx.lives.createWithAgent({
+        id: "life-delivery-policy",
+        agentLoop: { model: new MockLanguageModelV4(), maxSteps: 1 },
+      });
+      await expect(handle.deliver("message", { channel: "blocked" }, {})).rejects.toThrow(/Delivery policy rejected/);
+      await expect(handle.deliver("message", { channel: "ok" }, {})).resolves.toMatchObject({ status: "delivered" });
 
       await handle.dispose();
     } finally {

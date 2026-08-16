@@ -33,6 +33,30 @@ export type ModeStateKind = "none" | "life" | "story" | "world" | "participant" 
 
 export type ModeDeliveryKind = "none" | "message" | "channel" | "cross-conversation" | "media" | "custom";
 
+export type ModeDeliveryStatus = "delivered" | "delayed" | "failed";
+
+export interface ModeDeliveryReceipt {
+  readonly id: string;
+  readonly status: ModeDeliveryStatus;
+  readonly scheduledAt?: number;
+  readonly error?: unknown;
+}
+
+export interface ModeDeliverySchedule {
+  readonly kind: ModeDeliveryKind;
+  readonly target: unknown;
+  readonly payload: unknown;
+  readonly at: number;
+}
+
+export interface ModeDeliveryPermission {
+  readonly kind: ModeDeliveryKind;
+  readonly target: unknown;
+  readonly actorId?: string;
+}
+
+export type ModeDeliveryPolicy = (permission: ModeDeliveryPermission) => boolean;
+
 export interface ModeCapabilities {
   readonly driver: ModeDriverKind;
   readonly percepts: readonly ModePerceptInterest[];
@@ -50,6 +74,7 @@ export interface ModeModelProvider {
   readonly id: string;
   readonly roles: readonly ModeModelRole[];
   get(): Awaitable<unknown>;
+  dispose?(): Awaitable<void>;
 }
 
 export interface ModeStateProvider {
@@ -57,12 +82,19 @@ export interface ModeStateProvider {
   readonly kinds: readonly ModeStateKind[];
   get(): Awaitable<unknown>;
   set?(next: unknown): Awaitable<void>;
+  persist?(lifeId: string): Awaitable<void>;
+  restore?(lifeId: string): Awaitable<void>;
+  dispose?(): Awaitable<void>;
 }
 
 export interface ModeDeliveryProvider {
   readonly id: string;
   readonly kinds: readonly ModeDeliveryKind[];
-  deliver?(target: unknown, payload: unknown): Awaitable<unknown>;
+  canDeliver?(target: unknown): boolean;
+  deliver?(target: unknown, payload: unknown): Awaitable<ModeDeliveryReceipt>;
+  schedule?(delivery: ModeDeliverySchedule): Awaitable<ModeDeliveryReceipt>;
+  cancel?(id: string): Awaitable<boolean>;
+  dispose?(): Awaitable<void>;
 }
 
 export interface ModeSchedulerProvider {
@@ -71,6 +103,7 @@ export interface ModeSchedulerProvider {
   schedule(options: ScheduledTaskOptions): ScheduledTaskHandle;
   cancel(id: string): boolean;
   cancelAll(): void;
+  dispose?(): Awaitable<void>;
 }
 
 export interface ModeModelAccess {
@@ -84,12 +117,21 @@ export interface ModeStateAccess {
 }
 
 export interface ModeDeliveryAccess {
-  deliver(kind: ModeDeliveryKind, target: unknown, payload: unknown): Awaitable<unknown>;
+  deliver(kind: ModeDeliveryKind, target: unknown, payload: unknown): Awaitable<ModeDeliveryReceipt>;
+  schedule(delivery: ModeDeliverySchedule): Awaitable<ModeDeliveryReceipt>;
+  cancel(id: string): Awaitable<boolean>;
 }
 
 export interface ModeMediaAccess {
-  list(): readonly unknown[];
+  list(): Awaitable<readonly unknown[]>;
   save(ref: unknown): Awaitable<unknown>;
+}
+
+export interface ModeMediaProvider {
+  readonly id: string;
+  list?(): Awaitable<readonly unknown[]>;
+  save?(ref: unknown): Awaitable<unknown>;
+  dispose?(): Awaitable<void>;
 }
 
 export interface ModeBodyAccess {
@@ -131,6 +173,7 @@ export interface ModeProviders {
   readonly state?: ModeStateProvider | readonly ModeStateProvider[];
   readonly delivery?: ModeDeliveryProvider | readonly ModeDeliveryProvider[];
   readonly scheduler?: ModeSchedulerProvider | readonly ModeSchedulerProvider[];
+  readonly media?: ModeMediaProvider | readonly ModeMediaProvider[];
 }
 
 export interface Mode<C = any> {

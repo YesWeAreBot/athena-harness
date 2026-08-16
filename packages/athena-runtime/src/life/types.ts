@@ -3,7 +3,7 @@ import type { Session } from "@athena/session";
 
 import type { PerceptEvent } from "../body/types.js";
 import type { Awaitable } from "../internal.js";
-import type { ModeHandle } from "../mode/types.js";
+import type { ModeDeliveryKind, ModeDeliveryReceipt, ModeDeliverySchedule, ModeHandle, ModeModelRole } from "../mode/types.js";
 
 export interface Life {
   readonly id: string;
@@ -24,6 +24,12 @@ export interface LifeHandle {
   dispatchPercept(event: PerceptEvent): Awaitable<boolean>;
   wake(reason: string, data?: unknown): Awaitable<boolean>;
   setModel(providerId: string): Awaitable<void>;
+  setModelByRole(role: ModeModelRole): Awaitable<void>;
+  getState<T = unknown>(id: string): Awaitable<T | undefined>;
+  setState<T = unknown>(id: string, value: T): Awaitable<void>;
+  deliver(kind: ModeDeliveryKind, target: unknown, payload: unknown): Awaitable<ModeDeliveryReceipt>;
+  scheduleDelivery(delivery: ModeDeliverySchedule): Awaitable<ModeDeliveryReceipt>;
+  cancelDelivery(id: string): Awaitable<boolean>;
   attachBody(bodyId: string): Awaitable<void>;
   detachBody(bodyId: string): Awaitable<void>;
   hasBody(bodyId: string): boolean;

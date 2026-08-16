@@ -93,7 +93,15 @@ export async function runTurn(opts: RunTurnOptions): Promise<string> {
         abortSignal: signal,
       });
 
+      const streamTask = (async () => {
+        try {
+          for await (const part of result.stream) {
+            ctx.emit("agent/stream-part", { agentId: agent.id, part });
+          }
+        } catch {}
+      })();
       const finalStep = await result.finalStep;
+      await streamTask;
 
       // g. Append assistant message
       const assistantMsg: AssistantModelMessage = {
@@ -101,6 +109,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<string> {
         content: finalStep.text,
       };
       session.append("assistant/message", { turn, step, message: assistantMsg }, { surfaceOp: "append" });
+      ctx.emit("agent/output", { agentId: agent.id, kind: "assistant-message", message: assistantMsg });
 
       // h. Execute each tool call (intent before side-effect)
       for (const call of finalStep.toolCalls) {

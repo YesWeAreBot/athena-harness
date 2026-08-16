@@ -68,12 +68,19 @@ export interface MemoryProvider {
   recall(lifeId: string, options?: MemoryRecallOptions): Awaitable<readonly MemoryRecord[]>;
   forget(id: string): Awaitable<boolean>;
   clear(lifeId: string): Awaitable<void>;
+  restore?(lifeId: string): Awaitable<void>;
+  derive?(lifeId: string, options?: MemoryRecallOptions): Awaitable<readonly MemoryRecord[]>;
+  compact?(lifeId: string, options?: MemoryRecallOptions): Awaitable<readonly MemoryRecord[]>;
+  dispose?(): Awaitable<void>;
 }
 
 export interface LifeMemory {
   remember(input: MemoryInput): Awaitable<MemoryRecord>;
   ingestPercept(input: PerceptMemoryInput): Awaitable<MemoryRecord>;
   recall(lifeId: string, options?: MemoryRecallOptions): Awaitable<readonly MemoryRecord[]>;
+  derive(lifeId: string, options?: MemoryRecallOptions): Awaitable<readonly MemoryRecord[]>;
+  compact(lifeId: string, options?: MemoryRecallOptions): Awaitable<readonly MemoryRecord[]>;
+  restore(lifeId: string): Awaitable<void>;
   forget(id: string): Awaitable<boolean>;
   clear(lifeId: string): Awaitable<void>;
   registerProvider(provider: MemoryProvider): () => void;
