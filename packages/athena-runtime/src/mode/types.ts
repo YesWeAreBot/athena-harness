@@ -1,9 +1,9 @@
 import type { Agent } from "@athena/agent";
 import type { Session } from "@athena/session";
 
-import type { Awaitable } from "../internal.js";
 import type { AgentLoopAccess } from "../agent-loop/types.js";
 import type { PerceptEvent } from "../body/types.js";
+import type { Awaitable } from "../internal.js";
 import type { Life } from "../life/types.js";
 import type { LifeMemory } from "../memory/index.js";
 import type { ModeSchedulerAccess, SchedulingKind } from "../scheduler/types.js";

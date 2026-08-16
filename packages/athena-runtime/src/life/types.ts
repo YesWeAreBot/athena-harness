@@ -1,8 +1,8 @@
 import type { Agent, CreateAgentOptions } from "@athena/agent";
 import type { Session } from "@athena/session";
 
-import type { Awaitable } from "../internal.js";
 import type { PerceptEvent } from "../body/types.js";
+import type { Awaitable } from "../internal.js";
 import type { ModeHandle } from "../mode/types.js";
 
 export interface Life {

@@ -1,3 +1,7 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { AgentRegistry } from "@athena/agent";
 import { AgentLoop } from "@athena/agent-loop";
 import { PersistJsonl } from "@athena/persist-jsonl";
@@ -6,9 +10,6 @@ import { SessionRegistry } from "@athena/session";
 import { ToolRegistry } from "@athena/tools";
 import { MockLanguageModelV4 } from "ai/test";
 import { Context } from "cordis";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { lifeRegistry } from "../src/life/index.js";
