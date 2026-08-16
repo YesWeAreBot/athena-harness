@@ -12,6 +12,12 @@ import type {
   PerceptMemoryInput,
 } from "./types.js";
 
+declare module "cordis" {
+  interface Context {
+    memory: LifeMemory;
+  }
+}
+
 /**
  * Early Memory provider boundary.
  * InMemoryMemory exists for tests and composition validation; production memory
@@ -79,28 +85,20 @@ export abstract class LifeMemory extends Service implements LifeMemoryContract {
 
   async derive(lifeId: string, options: MemoryRecallOptions = {}): Promise<readonly MemoryRecord[]> {
     const results = await Promise.all(
-      [...this.providers.values()]
-        .filter((provider) => provider.derive !== undefined)
-        .map((provider) => provider.derive!(lifeId, options)),
+      [...this.providers.values()].filter((provider) => provider.derive !== undefined).map((provider) => provider.derive!(lifeId, options)),
     );
     return results.flat();
   }
 
   async compact(lifeId: string, options: MemoryRecallOptions = {}): Promise<readonly MemoryRecord[]> {
     const results = await Promise.all(
-      [...this.providers.values()]
-        .filter((provider) => provider.compact !== undefined)
-        .map((provider) => provider.compact!(lifeId, options)),
+      [...this.providers.values()].filter((provider) => provider.compact !== undefined).map((provider) => provider.compact!(lifeId, options)),
     );
     return results.flat();
   }
 
   async restore(lifeId: string): Promise<void> {
-    await Promise.all(
-      [...this.providers.values()]
-        .filter((provider) => provider.restore !== undefined)
-        .map((provider) => provider.restore!(lifeId)),
-    );
+    await Promise.all([...this.providers.values()].filter((provider) => provider.restore !== undefined).map((provider) => provider.restore!(lifeId)));
   }
 
   async forget(id: string): Promise<boolean> {
@@ -167,18 +165,6 @@ export class InMemoryMemory extends LifeMemory {
     for (const [id, record] of this.records) {
       if (record.lifeId === lifeId) this.records.delete(id);
     }
-  }
-}
-
-export const memoryRegistry = {
-  apply(ctx: Context) {
-    new InMemoryMemory(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    memory: LifeMemory;
   }
 }
 

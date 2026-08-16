@@ -32,6 +32,12 @@ export interface MediaFileEntry {
   readonly data: Buffer;
 }
 
+declare module "cordis" {
+  interface Context {
+    mediaStore: MediaStore;
+  }
+}
+
 export class MediaStore extends Service {
   static provide = "mediaStore";
 
@@ -99,17 +105,5 @@ export class MediaStore extends Service {
 
   private metaPath(id: string): string {
     return join(this.config.root, `${encodeURIComponent(id)}.json`);
-  }
-}
-
-export const mediaStoreRegistry = {
-  apply(ctx: Context, config: MediaStoreConfig) {
-    new MediaStore(ctx, config);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    mediaStore: MediaStore;
   }
 }

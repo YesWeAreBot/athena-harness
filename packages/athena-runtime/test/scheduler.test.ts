@@ -2,13 +2,13 @@ import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
 import { createId } from "../src/internal.js";
-import { Scheduler, schedulerRegistry } from "../src/scheduler/index.js";
+import { Scheduler, SchedulerRegistry } from "../src/scheduler/index.js";
 import type { ScheduledTaskHandle, ScheduledTaskOptions } from "../src/scheduler/types.js";
 
 describe("scheduler infrastructure", () => {
   it("runs scheduled tasks and supports cancellation", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(schedulerRegistry);
+    const fiber = ctx.plugin(SchedulerRegistry);
     await fiber;
 
     const events: string[] = [];
@@ -38,7 +38,7 @@ describe("scheduler infrastructure", () => {
 
   it("cancels tasks by life and owner", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(schedulerRegistry);
+    const fiber = ctx.plugin(SchedulerRegistry);
     await fiber;
 
     const events: string[] = [];

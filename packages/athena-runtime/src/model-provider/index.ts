@@ -3,6 +3,12 @@ import type { Context } from "cordis";
 
 import type { ModeModelProvider, ModeModelRole } from "../mode/types.js";
 
+declare module "cordis" {
+  interface Context {
+    modelProviders: ModelProviderRegistry;
+  }
+}
+
 export class ModelProviderRegistry extends Service {
   static provide = "modelProviders";
 
@@ -43,18 +49,6 @@ export class ModelProviderRegistry extends Service {
 
   resolveAll(role: ModeModelRole): readonly ModeModelProvider[] {
     return this.list().filter((provider) => provider.roles.includes(role));
-  }
-}
-
-export const modelProviderRegistry = {
-  apply(ctx: Context) {
-    new ModelProviderRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    modelProviders: ModelProviderRegistry;
   }
 }
 

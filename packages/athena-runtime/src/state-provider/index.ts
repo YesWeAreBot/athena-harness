@@ -3,6 +3,12 @@ import type { Context } from "cordis";
 
 import type { ModeStateProvider } from "../mode/types.js";
 
+declare module "cordis" {
+  interface Context {
+    stateProviders: StateProviderRegistry;
+  }
+}
+
 export class StateProviderRegistry extends Service {
   static provide = "stateProviders";
 
@@ -38,18 +44,6 @@ export class StateProviderRegistry extends Service {
   }
 }
 
-export const stateProviderRegistry = {
-  apply(ctx: Context) {
-    new StateProviderRegistry(ctx);
-  },
-};
-
 export * from "./jsonl.js";
-
-declare module "cordis" {
-  interface Context {
-    stateProviders: StateProviderRegistry;
-  }
-}
 
 export type { ModeStateProvider } from "../mode/types.js";

@@ -2,10 +2,12 @@ import { Service } from "cordis";
 import type { Context } from "cordis";
 
 import type { ModeDeliveryPermission, ModeDeliveryPolicy } from "../mode/types.js";
-
+declare module "cordis" {
+  interface Context {
+    deliveryPolicies: DeliveryPolicyRegistry;
+  }
+}
 export class DeliveryPolicyRegistry extends Service {
-  static provide = "deliveryPolicies";
-
   private readonly policies = new Map<string, ModeDeliveryPolicy>();
 
   constructor(ctx: Context) {
@@ -35,18 +37,6 @@ export class DeliveryPolicyRegistry extends Service {
 
   allow(permission: ModeDeliveryPermission): boolean {
     return [...this.policies.values()].every((policy) => policy(permission));
-  }
-}
-
-export const deliveryPolicyRegistry = {
-  apply(ctx: Context) {
-    new DeliveryPolicyRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    deliveryPolicies: DeliveryPolicyRegistry;
   }
 }
 

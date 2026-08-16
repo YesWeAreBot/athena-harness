@@ -2,20 +2,15 @@ import { SessionRegistry } from "@athena/session";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { lifeRegistry } from "../src/life/index.js";
-import { memoryRegistry } from "../src/memory/index.js";
-import { modeRegistry } from "../src/mode/index.js";
-import { schedulerRegistry } from "../src/scheduler/index.js";
+import { LifeRegistry } from "../src/life/index.js";
+import { InMemoryMemory } from "../src/memory/index.js";
+import { ModeRegistry } from "../src/mode/index.js";
+import { SchedulerRegistry } from "../src/scheduler/index.js";
 
 describe("Mode contract: future projects as composition", () => {
   it("Chat Mode composes percept handling and a memory provider", async () => {
     const ctx = new Context();
-    const fibers = await Promise.all([
-      ctx.plugin(SessionRegistry),
-      ctx.plugin(modeRegistry),
-      ctx.plugin(memoryRegistry),
-      ctx.plugin(lifeRegistry),
-    ]);
+    const fibers = await Promise.all([ctx.plugin(SessionRegistry), ctx.plugin(ModeRegistry), ctx.plugin(InMemoryMemory), ctx.plugin(LifeRegistry)]);
     try {
       let remembers = 0;
       let derives = 0;
@@ -100,10 +95,10 @@ describe("Mode contract: future projects as composition", () => {
     const ctx = new Context();
     const fibers = await Promise.all([
       ctx.plugin(SessionRegistry),
-      ctx.plugin(modeRegistry),
-      ctx.plugin(schedulerRegistry),
-      ctx.plugin(memoryRegistry),
-      ctx.plugin(lifeRegistry),
+      ctx.plugin(ModeRegistry),
+      ctx.plugin(SchedulerRegistry),
+      ctx.plugin(InMemoryMemory),
+      ctx.plugin(LifeRegistry),
     ]);
     try {
       let runs = 0;
@@ -178,11 +173,7 @@ describe("Mode contract: future projects as composition", () => {
 
   it("World Mode can provide and clean up its own scheduler provider", async () => {
     const ctx = new Context();
-    const fibers = await Promise.all([
-      ctx.plugin(SessionRegistry),
-      ctx.plugin(modeRegistry),
-      ctx.plugin(lifeRegistry),
-    ]);
+    const fibers = await Promise.all([ctx.plugin(SessionRegistry), ctx.plugin(ModeRegistry), ctx.plugin(LifeRegistry)]);
     try {
       let schedules = 0;
       let cancelled = 0;
@@ -239,12 +230,7 @@ describe("Mode contract: future projects as composition", () => {
 
   it("Interlude Mode composes hooks and a story memory provider", async () => {
     const ctx = new Context();
-    const fibers = await Promise.all([
-      ctx.plugin(SessionRegistry),
-      ctx.plugin(modeRegistry),
-      ctx.plugin(memoryRegistry),
-      ctx.plugin(lifeRegistry),
-    ]);
+    const fibers = await Promise.all([ctx.plugin(SessionRegistry), ctx.plugin(ModeRegistry), ctx.plugin(InMemoryMemory), ctx.plugin(LifeRegistry)]);
     try {
       let hookCalls = 0;
       let remembers = 0;

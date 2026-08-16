@@ -12,12 +12,12 @@ import { MockLanguageModelV4 } from "ai/test";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { deliveryProviderRegistry } from "../src/delivery-provider/index.js";
-import { deliveryPolicyRegistry } from "../src/delivery-policy/index.js";
-import { lifeRegistry } from "../src/life/index.js";
-import { modelProviderRegistry } from "../src/model-provider/index.js";
-import { modeRegistry } from "../src/mode/index.js";
-import { stateProviderRegistry } from "../src/state-provider/index.js";
+import { DeliveryPolicyRegistry } from "../src/delivery-policy/index.js";
+import { DeliveryProviderRegistry } from "../src/delivery-provider/index.js";
+import { LifeRegistry } from "../src/life/index.js";
+import { ModeRegistry } from "../src/mode/index.js";
+import { ModelProviderRegistry } from "../src/model-provider/index.js";
+import { StateProviderRegistry } from "../src/state-provider/index.js";
 
 async function setupLife() {
   const ctx = new Context();
@@ -27,12 +27,12 @@ async function setupLife() {
     ctx.plugin(SystemPrompt),
     ctx.plugin(AgentRegistry),
     ctx.plugin(AgentLoop),
-    ctx.plugin(modeRegistry),
-    ctx.plugin(modelProviderRegistry),
-    ctx.plugin(stateProviderRegistry),
-    ctx.plugin(deliveryProviderRegistry),
-    ctx.plugin(deliveryPolicyRegistry),
-    ctx.plugin(lifeRegistry),
+    ctx.plugin(ModeRegistry),
+    ctx.plugin(ModelProviderRegistry),
+    ctx.plugin(StateProviderRegistry),
+    ctx.plugin(DeliveryProviderRegistry),
+    ctx.plugin(DeliveryPolicyRegistry),
+    ctx.plugin(LifeRegistry),
   ]);
   return { ctx, fibers };
 }
@@ -80,7 +80,7 @@ describe("life agent-loop wiring", () => {
 
   it("rolls back Session when AgentLoop is not installed", async () => {
     const ctx = new Context();
-    const fibers = await Promise.all([ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry)]);
+    const fibers = await Promise.all([ctx.plugin(SessionRegistry), ctx.plugin(LifeRegistry)]);
     try {
       await expect(
         ctx.lives.createWithAgent({
@@ -105,7 +105,7 @@ describe("life agent-loop wiring", () => {
       ctx.plugin(AgentRegistry),
       ctx.plugin(AgentLoop),
       ctx.plugin(PersistJsonl({ dir: root })),
-      ctx.plugin(lifeRegistry),
+      ctx.plugin(LifeRegistry),
     ]);
     try {
       const handle = await ctx.lives.createWithAgent({
@@ -288,9 +288,9 @@ describe("life agent-loop wiring", () => {
       expect(stateValue).toBe("s2");
       await expect(handle.deliver("message", { channel: "a" }, {})).resolves.toMatchObject({ status: "delivered" });
       await expect(handle.deliver("message", { channel: "b" }, {})).resolves.toMatchObject({ status: "delivered" });
-      await expect(
-        handle.scheduleDelivery({ kind: "message", target: { channel: "a" }, payload: {}, at: Date.now() + 1000 }),
-      ).resolves.toMatchObject({ status: "delayed" });
+      await expect(handle.scheduleDelivery({ kind: "message", target: { channel: "a" }, payload: {}, at: Date.now() + 1000 })).resolves.toMatchObject({
+        status: "delayed",
+      });
       await expect(handle.cancelDelivery("delivery-2")).resolves.toBe(true);
       expect(delivered).toBe(true);
       expect(deliveredB).toBe(true);

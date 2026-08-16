@@ -3,6 +3,12 @@ import type { Context } from "cordis";
 
 import type { ModeDeliveryKind, ModeDeliveryProvider } from "../mode/types.js";
 
+declare module "cordis" {
+  interface Context {
+    deliveryProviders: DeliveryProviderRegistry;
+  }
+}
+
 export class DeliveryProviderRegistry extends Service {
   static provide = "deliveryProviders";
 
@@ -34,25 +40,11 @@ export class DeliveryProviderRegistry extends Service {
   }
 
   resolveAll(kind: ModeDeliveryKind, target?: unknown): readonly ModeDeliveryProvider[] {
-    return this.list().filter(
-      (provider) => provider.kinds.includes(kind) && (!provider.canDeliver || provider.canDeliver(target)),
-    );
+    return this.list().filter((provider) => provider.kinds.includes(kind) && (!provider.canDeliver || provider.canDeliver(target)));
   }
 
   list(): readonly ModeDeliveryProvider[] {
     return [...this.providers.values()];
-  }
-}
-
-export const deliveryProviderRegistry = {
-  apply(ctx: Context) {
-    new DeliveryProviderRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    deliveryProviders: DeliveryProviderRegistry;
   }
 }
 

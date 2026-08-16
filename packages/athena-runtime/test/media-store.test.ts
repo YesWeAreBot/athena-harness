@@ -5,13 +5,13 @@ import { join } from "node:path";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { mediaStoreRegistry } from "../src/media-store/index.js";
+import { MediaStore } from "../src/media-store/index.js";
 
 describe("media store", () => {
   it("saves, lists, reads, and deletes media files", async () => {
     const root = await mkdtemp(join(tmpdir(), "athena-media-"));
     const ctx = new Context();
-    const fiber = ctx.plugin(mediaStoreRegistry, { root });
+    const fiber = ctx.plugin(MediaStore, { root });
     await fiber;
     try {
       const file = await ctx.mediaStore.save({

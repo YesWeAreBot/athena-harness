@@ -1,4 +1,4 @@
-import { bodyRegistry } from "@yesimbot/athena-runtime";
+import { BodyRegistry } from "@yesimbot/athena-runtime";
 import type { PerceptEvent } from "@yesimbot/athena-runtime";
 import { Context } from "cordis";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -65,7 +65,7 @@ describe("onebot body adapter", () => {
 
   it("connects, dispatches percepts, patches state, and stops cleanly", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     const percepts: PerceptEvent[] = [];
@@ -117,7 +117,7 @@ describe("onebot body adapter", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ status: "ok", data: { message_id: 42 } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     const adapter = new OneBotBodyAdapter(
@@ -140,7 +140,7 @@ describe("onebot body adapter", () => {
 
   it("keeps meta events out of the percept pipeline", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     const percepts: PerceptEvent[] = [];
@@ -183,7 +183,7 @@ describe("onebot body adapter", () => {
     vi.stubGlobal("WebSocket", FailingWebSocket as unknown as typeof WebSocket);
 
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
     const adapter = new OneBotBodyAdapter(
       resolveOneBotConfig({

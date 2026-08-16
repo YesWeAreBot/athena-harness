@@ -7,12 +7,12 @@ import { MockLanguageModelV4 } from "ai/test";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { agentLoopRegistry } from "../src/agent-loop/index.js";
+import { AgentLoopRegistry } from "../src/agent-loop/index.js";
 
 describe("agent loop infrastructure", () => {
   it("registers providers and delegates create/resume", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(agentLoopRegistry);
+    const fiber = ctx.plugin(AgentLoopRegistry);
     await fiber;
 
     const handle = { agent: {} as never, dispose: async () => {} } as AgentHandle;
@@ -52,7 +52,7 @@ describe("agent loop infrastructure", () => {
       ctx.plugin(SystemPrompt),
       ctx.plugin(AgentRegistry),
       ctx.plugin(AgentLoop),
-      ctx.plugin(agentLoopRegistry),
+      ctx.plugin(AgentLoopRegistry),
     ]);
 
     const factory: AgentFactory = {

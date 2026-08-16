@@ -2,13 +2,13 @@ import { SessionRegistry } from "@athena/session";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { modePipelineRegistry } from "../src/mode-pipeline/index.js";
+import { ModePipelineRegistry } from "../src/mode-pipeline/index.js";
 import type { ModePipeline } from "../src/mode-pipeline/types.js";
 
 describe("mode pipeline", () => {
   it("registers and runs a six-axis pipeline", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(modePipelineRegistry);
+    const fiber = ctx.plugin(ModePipelineRegistry);
     await fiber;
     const sessionFiber = ctx.plugin(SessionRegistry);
     await sessionFiber;

@@ -12,6 +12,12 @@ interface ScheduledTask {
   timer?: ReturnType<typeof setTimeout>;
 }
 
+declare module "cordis" {
+  interface Context {
+    scheduler: Scheduler;
+  }
+}
+
 /**
  * @experimental Replaceable Scheduler service.
  */
@@ -124,18 +130,6 @@ export class SchedulerRegistry extends Scheduler {
     } else {
       this.tasks.delete(id);
     }
-  }
-}
-
-export const schedulerRegistry = {
-  apply(ctx: Context) {
-    new SchedulerRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    scheduler: Scheduler;
   }
 }
 

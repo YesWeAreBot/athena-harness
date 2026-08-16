@@ -4,9 +4,20 @@ import type { Context } from "cordis";
 import { createId, deepFreeze } from "../internal.js";
 import type { ActuatorOptions, ActuatorResult, Body, BodyAdapter, BodyAdapterContext, PerceptEvent, PerceptEventOptions } from "./types.js";
 
-export class BodyRegistry extends Service {
-  static provide = "bodies";
+declare module "cordis" {
+  interface Context {
+    bodies: BodyRegistry;
+  }
 
+  interface Events {
+    "body/percept"(event: PerceptEvent): void;
+    "body/disposed"(event: { id: string }): void;
+    "body/state-changed"(event: { id: string; patch: Readonly<Record<string, unknown>>; state: Readonly<Record<string, unknown>> }): void;
+    "actuator/executed"(event: { bodyId: string; actuatorId: string; kind?: string; result: ActuatorResult; attempt: number }): void;
+  }
+}
+
+export class BodyRegistry extends Service {
   private bodies = new Map<string, Body>();
 
   constructor(ctx: Context) {
@@ -150,23 +161,4 @@ function normalizeActuatorResult(value: unknown): ActuatorResult {
     }
   }
   return { status: "ok", output: value };
-}
-
-export const bodyRegistry = {
-  apply(ctx: Context) {
-    new BodyRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    bodies: BodyRegistry;
-  }
-
-  interface Events {
-    "body/percept"(event: PerceptEvent): void;
-    "body/disposed"(event: { id: string }): void;
-    "body/state-changed"(event: { id: string; patch: Readonly<Record<string, unknown>>; state: Readonly<Record<string, unknown>> }): void;
-    "actuator/executed"(event: { bodyId: string; actuatorId: string; kind?: string; result: ActuatorResult; attempt: number }): void;
-  }
 }

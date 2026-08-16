@@ -4,6 +4,16 @@ import type { Context } from "cordis";
 import { createId } from "../internal.js";
 import type { Mode, ModeContext, ModeHandle, ModeSetupHandle } from "./types.js";
 
+declare module "cordis" {
+  interface Context {
+    modes: ModeRegistry;
+  }
+
+  interface Events {
+    "mode/disposed"(event: { id: string; name: string }): void;
+  }
+}
+
 export class ModeRegistry extends Service {
   static provide = "modes";
 
@@ -128,20 +138,4 @@ function providerList<T>(value: T | readonly T[] | undefined): readonly T[] {
   if (value === undefined) return [];
   if (Array.isArray(value)) return value as readonly T[];
   return [value as T];
-}
-
-export const modeRegistry = {
-  apply(ctx: Context) {
-    new ModeRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    modes: ModeRegistry;
-  }
-
-  interface Events {
-    "mode/disposed"(event: { id: string; name: string }): void;
-  }
 }

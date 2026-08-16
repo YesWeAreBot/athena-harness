@@ -8,11 +8,10 @@ import type { AgentLoopAccess } from "../agent-loop/types.js";
 import "../body/index.js";
 import type { BodyRegistry } from "../body/index.js";
 import type { ActuatorOptions, PerceptEvent } from "../body/types.js";
-import type { DeliveryProviderRegistry } from "../delivery-provider/index.js";
 import type { DeliveryPolicyRegistry } from "../delivery-policy/index.js";
+import type { DeliveryProviderRegistry } from "../delivery-provider/index.js";
 import { createId } from "../internal.js";
 import type { LifeMemory } from "../memory/index.js";
-import type { ModelProviderRegistry } from "../model-provider/index.js";
 import type { ModeRegistry } from "../mode/index.js";
 import type {
   ModeActuatorInterest,
@@ -24,6 +23,7 @@ import type {
   ModeModelRole,
   ModePerceptInterest,
 } from "../mode/types.js";
+import type { ModelProviderRegistry } from "../model-provider/index.js";
 import type { Scheduler } from "../scheduler/index.js";
 import type { ModeSchedulerAccess, ScheduledTaskOptions } from "../scheduler/types.js";
 import type { StateProviderRegistry } from "../state-provider/index.js";
@@ -38,9 +38,23 @@ import type {
   ResumeLifeInput,
 } from "./types.js";
 
-export class LifeRegistry extends Service {
-  static provide = "lives";
+declare module "cordis" {
+  interface Context {
+    lives: LifeRegistry;
+  }
 
+  interface Events {
+    "life/created"(event: { id: string; life: Life }): void;
+    "life/disposed"(event: { id: string }): void;
+    "life/error"(event: { id: string; error: unknown }): void;
+    "model/changed"(event: { id: string; providerId: string; model: unknown }): void;
+    "model/error"(event: { id: string; providerId: string; role?: ModeModelRole; error: unknown }): void;
+    "percept/routed"(event: { id: string; modeId: string; event: PerceptEvent; handled: boolean }): void;
+    "percept/rejected"(event: { id: string; modeId?: string; event: PerceptEvent; reason: PerceptRejectReason }): void;
+  }
+}
+
+export class LifeRegistry extends Service {
   private lives = new Map<string, LifeHandle>();
 
   constructor(ctx: Context) {
@@ -578,8 +592,7 @@ function createModeModelAccess(ctx: Context, getMode: () => ModeHandle | undefin
   const registry = ctx.get("modelProviders") as ModelProviderRegistry | undefined;
   return {
     list: () => [...providerList(getMode()?.providers?.model), ...(registry?.list() ?? [])],
-    resolve: (role: ModeModelRole) =>
-      providerList(getMode()?.providers?.model).find((provider) => provider.roles.includes(role)) ?? registry?.resolve(role),
+    resolve: (role: ModeModelRole) => providerList(getMode()?.providers?.model).find((provider) => provider.roles.includes(role)) ?? registry?.resolve(role),
   };
 }
 
@@ -601,27 +614,4 @@ function createModeScheduler(ctx: Context, lifeId: string): ModeSchedulerAccess 
     cancel: (id: string) => scheduler.cancel(id),
     cancelAll: () => scheduler.cancelByLife(lifeId),
   };
-}
-
-export const lifeRegistry = {
-  inject: ["sessions"] as const,
-  apply(ctx: Context) {
-    new LifeRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    lives: LifeRegistry;
-  }
-
-  interface Events {
-    "life/created"(event: { id: string; life: Life }): void;
-    "life/disposed"(event: { id: string }): void;
-    "life/error"(event: { id: string; error: unknown }): void;
-    "model/changed"(event: { id: string; providerId: string; model: unknown }): void;
-    "model/error"(event: { id: string; providerId: string; role?: ModeModelRole; error: unknown }): void;
-    "percept/routed"(event: { id: string; modeId: string; event: PerceptEvent; handled: boolean }): void;
-    "percept/rejected"(event: { id: string; modeId?: string; event: PerceptEvent; reason: PerceptRejectReason }): void;
-  }
 }

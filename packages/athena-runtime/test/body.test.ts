@@ -1,13 +1,13 @@
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { bodyRegistry } from "../src/body/index.js";
+import { BodyRegistry } from "../src/body/index.js";
 import type { PerceptEvent } from "../src/body/types.js";
 
 describe("body registry", () => {
   it("registers a body and dispatches percept events", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     const percepts: PerceptEvent[] = [];
@@ -38,7 +38,7 @@ describe("body registry", () => {
 
   it("carries PerceptEvent envelope metadata", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     ctx.bodies.register({ id: "minecraft", state: {} });
@@ -64,7 +64,7 @@ describe("body registry", () => {
 
   it("rejects percepts from unregistered bodies", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     expect(() => ctx.bodies.dispatch("ghost", "world/observation", {})).toThrow(/Body not registered/);
@@ -74,7 +74,7 @@ describe("body registry", () => {
 
   it("executes registered actuator actions", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     const actions: string[] = [];
@@ -107,7 +107,7 @@ describe("body registry", () => {
 
   it("returns ActuatorResult and retries retryable errors", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     let calls = 0;
@@ -135,7 +135,7 @@ describe("body registry", () => {
 
   it("passes Body/Life/Mode context to actuators", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     let seen: unknown;
@@ -178,7 +178,7 @@ describe("body registry", () => {
 
   it("returns canceled ActuatorResult when the signal is aborted", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     ctx.bodies.register({
@@ -198,7 +198,7 @@ describe("body registry", () => {
 
   it("registers a BodyAdapter and manages its start/stop lifecycle", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     const events: string[] = [];
@@ -235,7 +235,7 @@ describe("body registry", () => {
 
   it("rolls back a BodyAdapter when start fails", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     await expect(
@@ -253,7 +253,7 @@ describe("body registry", () => {
 
   it("still disposes Body when adapter stop fails", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     const dispose = await ctx.bodies.registerAdapter({
@@ -272,7 +272,7 @@ describe("body registry", () => {
 
   it("patches BodyAdapter state and emits state-changed", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(bodyRegistry);
+    const fiber = ctx.plugin(BodyRegistry);
     await fiber;
 
     const changes: Array<{

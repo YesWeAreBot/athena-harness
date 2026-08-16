@@ -4,9 +4,13 @@ import type { Context } from "cordis";
 
 import type { AgentLoopAccess, AgentLoopProvider } from "./types.js";
 
-export class AgentLoopRegistry extends Service implements AgentLoopAccess {
-  static provide = "agentLoop";
+declare module "cordis" {
+  interface Context {
+    agentLoop: AgentLoopRegistry;
+  }
+}
 
+export class AgentLoopRegistry extends Service implements AgentLoopAccess {
   private readonly providers = new Map<string, AgentLoopProvider>();
 
   constructor(ctx: Context) {
@@ -48,18 +52,6 @@ export class AgentLoopRegistry extends Service implements AgentLoopAccess {
       throw new Error(`AgentLoop provider not found: ${id}`);
     }
     return provider;
-  }
-}
-
-export const agentLoopRegistry = {
-  apply(ctx: Context) {
-    new AgentLoopRegistry(ctx);
-  },
-};
-
-declare module "cordis" {
-  interface Context {
-    agentLoop: AgentLoopRegistry;
   }
 }
 

@@ -5,13 +5,13 @@ import { join } from "node:path";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { LifeMemory, memoryRegistry, type MemoryProvider } from "../src/memory/index.js";
+import { LifeMemory, InMemoryMemory, type MemoryProvider } from "../src/memory/index.js";
 import { jsonlMemory, JsonlMemory } from "../src/memory/jsonl.js";
 
 describe("memory infrastructure", () => {
   it("remembers and recalls life-scoped records", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(memoryRegistry);
+    const fiber = ctx.plugin(InMemoryMemory);
     await fiber;
 
     await ctx.memory.remember({
@@ -30,7 +30,7 @@ describe("memory infrastructure", () => {
 
   it("ingests a percept as a Life-scoped memory record", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(memoryRegistry);
+    const fiber = ctx.plugin(InMemoryMemory);
     await fiber;
 
     const record = await ctx.memory.ingestPercept({
@@ -55,7 +55,7 @@ describe("memory infrastructure", () => {
 
   it("forgets and clears memory records", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(memoryRegistry);
+    const fiber = ctx.plugin(InMemoryMemory);
     await fiber;
 
     const record = await ctx.memory.remember({
@@ -151,7 +151,7 @@ describe("memory infrastructure", () => {
 
   it("routes Life memory by registered Mode provider scope", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(memoryRegistry);
+    const fiber = ctx.plugin(InMemoryMemory);
     await fiber;
 
     const calls: string[] = [];
@@ -250,7 +250,7 @@ describe("memory infrastructure", () => {
 
   it("isolates memory records by life", async () => {
     const ctx = new Context();
-    const fiber = ctx.plugin(memoryRegistry);
+    const fiber = ctx.plugin(InMemoryMemory);
     await fiber;
 
     await ctx.memory.remember({
