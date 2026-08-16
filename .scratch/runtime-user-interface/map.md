@@ -1,6 +1,6 @@
 # Runtime User Interface Map
 
-**Status:** designing + first vertical slice implemented
+**Status:** designing
 
 ## Notes
 
@@ -15,8 +15,6 @@
 - Management API is the single control plane.
 - CLI and web console are clients of that API.
 - Local-first security model is the default.
-- A first implementation now exists under `packages/athena-*` and the new mode-pipeline module.
-- `@yesimbot/athena-loader` now loads local Mode/Body packages from manifests and validates config schemas.
 
 ## Fog
 
@@ -27,5 +25,5 @@
 
 ## Frontier
 
-- No implementation tickets exist yet; the first slice was implemented directly from the spec.
-- Next step is to split the remaining work into implementation tickets under `issues/`.
+- No implementation tickets exist yet.
+- Next step after design review is to split the design into implementation tickets under `issues/`.

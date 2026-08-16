@@ -1,8 +1,0 @@
-{
-  "name": "@fixture/body-onebot",
-  "version": "0.1.0",
-  "type": "module",
-  "athena": {
-    "body": "./athena.body.json"
-  }
-}
