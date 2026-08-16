@@ -1,4 +1,4 @@
-import type { Awaitable } from "@yesimbot/harness-core";
+import type { Awaitable } from "../internal.js";
 
 export interface Body {
   readonly id: string;

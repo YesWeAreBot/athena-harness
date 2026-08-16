@@ -1,7 +1,7 @@
-import { createId } from "@yesimbot/harness-core";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
+import { createId } from "../src/internal.js";
 import { Scheduler, schedulerRegistry } from "../src/scheduler/index.js";
 import type { ScheduledTaskHandle, ScheduledTaskOptions } from "../src/scheduler/types.js";
 

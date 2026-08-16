@@ -24,7 +24,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@yesimbot/harness-core": "workspace:^",
+    "@athena/agent": "workspace:^",
+    "@athena/agent-loop": "workspace:^",
+    "@athena/session": "workspace:^",
     "cordis": "^4.0.0-rc.8"
   }
 }

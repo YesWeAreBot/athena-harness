@@ -1,9 +1,9 @@
 import { appendFile, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { createId } from "@yesimbot/harness-core";
 import type { Context } from "cordis";
 
+import { createId } from "../internal.js";
 import { LifeMemory } from "./index.js";
 import type { MemoryInput, MemoryRecallOptions, MemoryRecord } from "./types.js";
 

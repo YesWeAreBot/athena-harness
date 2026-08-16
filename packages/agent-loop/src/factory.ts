@@ -1,4 +1,5 @@
 import type { AgentFactory, AgentHandle, CreateAgentOptions, ResumeAgentOptions } from "@athena/agent";
+import type { Session } from "@athena/session";
 import type { Context } from "cordis";
 
 import { ConcreteAgent } from "./agent-impl.js";
@@ -7,10 +8,11 @@ export class ReactLoopAgentFactory implements AgentFactory {
   constructor(private ctx: Context) {}
 
   async createAgent(options: CreateAgentOptions): Promise<AgentHandle> {
-    const session = this.ctx.sessions.create(options.id ? { id: options.id } : undefined);
+    const ownsSession = options.session === undefined;
+    const session = options.session ?? this.ctx.sessions.create(options.id ? { id: options.id } : undefined);
 
     // Acquire persistence binding before setup, so crash during setup doesn't orphan a file
-    const binding = this.ctx.sessions.persistence ? await this.ctx.sessions.persistence.create(session.header) : undefined;
+    const binding = options.binding ?? (this.ctx.sessions.persistence ? await this.ctx.sessions.persistence.create(session.header) : undefined);
 
     const agent = new ConcreteAgent({
       id: session.id,
@@ -34,20 +36,25 @@ export class ReactLoopAgentFactory implements AgentFactory {
       dispose: async () => {
         await agent.dispose();
         await binding?.close();
-        this.ctx.sessions.remove(session.id);
+        if (ownsSession) this.ctx.sessions.remove(session.id);
       },
     };
   }
 
   async resumeAgent(options: ResumeAgentOptions): Promise<AgentHandle> {
-    const persistence = this.ctx.sessions.persistence;
-    if (!persistence) throw new Error("Cannot resume: no persistence handler registered");
+    const ownsSession = options.session === undefined;
+    let session: Session;
+    if (options.session) {
+      session = options.session;
+    } else {
+      const persistence = this.ctx.sessions.persistence;
+      if (!persistence) throw new Error("Cannot resume: no persistence handler registered");
+      const prepared = await persistence.prepare(options.id);
+      session = this.ctx.sessions.restore(prepared.header, prepared.events);
+      await prepared.close();
+    }
 
-    const prepared = await persistence.prepare(options.id);
-    const session = this.ctx.sessions.restore(prepared.header, prepared.events);
-    await prepared.close();
-
-    const binding = await persistence.open(options.id);
+    const binding = options.binding ?? (this.ctx.sessions.persistence ? await this.ctx.sessions.persistence.open(session.id) : undefined);
     const agent = new ConcreteAgent({
       id: session.id,
       session,
@@ -68,8 +75,8 @@ export class ReactLoopAgentFactory implements AgentFactory {
       agent,
       dispose: async () => {
         await agent.dispose();
-        await binding.close();
-        this.ctx.sessions.remove(session.id);
+        await binding?.close();
+        if (ownsSession) this.ctx.sessions.remove(session.id);
       },
     };
   }

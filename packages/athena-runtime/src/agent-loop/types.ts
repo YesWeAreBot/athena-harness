@@ -1,4 +1,4 @@
-import type { AgentFactory, AgentHandle, CreateAgentInput, ResumeAgentInput } from "@yesimbot/harness-core";
+import type { AgentFactory, AgentHandle, CreateAgentOptions, ResumeAgentOptions } from "@athena/agent";
 
 /**
  * @experimental AgentLoop provider slot.
@@ -12,6 +12,6 @@ export interface AgentLoopAccess {
   register(provider: AgentLoopProvider): () => Promise<void>;
   get(id: string): AgentLoopProvider | undefined;
   list(): readonly AgentLoopProvider[];
-  create(providerId: string, input: CreateAgentInput): Promise<AgentHandle>;
-  resume(providerId: string, input: ResumeAgentInput): Promise<AgentHandle>;
+  create(providerId: string, input: CreateAgentOptions): Promise<AgentHandle>;
+  resume(providerId: string, input: ResumeAgentOptions): Promise<AgentHandle>;
 }

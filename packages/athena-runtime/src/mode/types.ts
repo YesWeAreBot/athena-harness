@@ -1,5 +1,7 @@
-import type { Awaitable, Session } from "@yesimbot/harness-core";
+import type { Agent } from "@athena/agent";
+import type { Session } from "@athena/session";
 
+import type { Awaitable } from "../internal.js";
 import type { AgentLoopAccess } from "../agent-loop/types.js";
 import type { PerceptEvent } from "../body/types.js";
 import type { Life } from "../life/types.js";
@@ -47,6 +49,7 @@ export interface ModeContext {
   readonly lifeId?: string;
   readonly life?: Life;
   readonly session?: Session;
+  readonly agent?: Agent;
   readonly bodies?: ModeBodyAccess;
   readonly memory?: LifeMemory;
   readonly scheduler?: ModeSchedulerAccess;

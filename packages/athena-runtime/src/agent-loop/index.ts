@@ -1,4 +1,4 @@
-import type { AgentHandle, CreateAgentInput, ResumeAgentInput } from "@yesimbot/harness-core";
+import type { AgentHandle, CreateAgentOptions, ResumeAgentOptions } from "@athena/agent";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
@@ -34,12 +34,12 @@ export class AgentLoopRegistry extends Service implements AgentLoopAccess {
     return [...this.providers.values()];
   }
 
-  async create(providerId: string, input: CreateAgentInput): Promise<AgentHandle> {
-    return this.require(providerId).factory.create(input);
+  async create(providerId: string, input: CreateAgentOptions): Promise<AgentHandle> {
+    return this.require(providerId).factory.createAgent(input);
   }
 
-  async resume(providerId: string, input: ResumeAgentInput): Promise<AgentHandle> {
-    return this.require(providerId).factory.resume(input);
+  async resume(providerId: string, input: ResumeAgentOptions): Promise<AgentHandle> {
+    return this.require(providerId).factory.resumeAgent(input);
   }
 
   private require(id: string): AgentLoopProvider {

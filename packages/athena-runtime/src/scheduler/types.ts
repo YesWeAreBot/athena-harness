@@ -1,4 +1,4 @@
-import type { Awaitable } from "@yesimbot/harness-core";
+import type { Awaitable } from "../internal.js";
 
 export type SchedulingKind = "none" | "event" | "timer" | "tingle" | "due-intent" | "sweep" | "auto-advance" | "custom";
 

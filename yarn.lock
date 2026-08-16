@@ -42,7 +42,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@athena/agent-loop@workspace:packages/agent-loop":
+"@athena/agent-loop@workspace:^, @athena/agent-loop@workspace:packages/agent-loop":
   version: 0.0.0-use.local
   resolution: "@athena/agent-loop@workspace:packages/agent-loop"
   dependencies:
@@ -55,7 +55,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@athena/agent@npm:0.0.0, @athena/agent@workspace:packages/agent":
+"@athena/agent@npm:0.0.0, @athena/agent@workspace:^, @athena/agent@workspace:packages/agent":
   version: 0.0.0-use.local
   resolution: "@athena/agent@workspace:packages/agent"
   dependencies:
@@ -82,7 +82,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@athena/session@npm:0.0.0, @athena/session@workspace:packages/session":
+"@athena/session@npm:0.0.0, @athena/session@workspace:^, @athena/session@workspace:packages/session":
   version: 0.0.0-use.local
   resolution: "@athena/session@workspace:packages/session"
   dependencies:
@@ -692,12 +692,14 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@yesimbot/athena-runtime@workspace:packages/athena-runtime"
   dependencies:
-    "@yesimbot/harness-core": "workspace:^"
+    "@athena/agent": "workspace:^"
+    "@athena/agent-loop": "workspace:^"
+    "@athena/session": "workspace:^"
     cordis: "npm:^4.0.0-rc.8"
   languageName: unknown
   linkType: soft
 
-"@yesimbot/harness-core@workspace:^, @yesimbot/harness-core@workspace:packages/harness-core":
+"@yesimbot/harness-core@workspace:packages/harness-core":
   version: 0.0.0-use.local
   resolution: "@yesimbot/harness-core@workspace:packages/harness-core"
   dependencies:

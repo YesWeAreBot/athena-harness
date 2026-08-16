@@ -1,4 +1,4 @@
-import type { Session } from "@athena/session";
+import type { Session, SessionBinding } from "@athena/session";
 import type { LanguageModel, UserContent } from "ai";
 
 export type AgentStatus = "idle" | "running" | "stopping" | "disposed";
@@ -32,6 +32,10 @@ export interface AgentHandle {
 
 export interface CreateAgentOptions {
   id?: string;
+  /** Bind an externally owned Session instead of creating one. */
+  session?: Session;
+  /** Optional persistence binding for an externally owned Session. */
+  binding?: SessionBinding;
   model: LanguageModel;
   maxSteps?: number;
   /** Called before the agent is published. Register scoped tools/prompt here. */
@@ -40,6 +44,10 @@ export interface CreateAgentOptions {
 
 export interface ResumeAgentOptions {
   id: string;
+  /** Bind an externally owned Session instead of restoring one. */
+  session?: Session;
+  /** Optional persistence binding for an externally owned Session. */
+  binding?: SessionBinding;
   model: LanguageModel;
   maxSteps?: number;
   setup?(agentCtx: import("cordis").Context): void | Promise<void>;

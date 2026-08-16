@@ -1,7 +1,7 @@
-import { createId } from "@yesimbot/harness-core";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
+import { createId } from "../internal.js";
 import type { ScheduledTaskHandle, ScheduledTaskOptions } from "./types.js";
 
 interface ScheduledTask {

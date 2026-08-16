@@ -186,4 +186,28 @@ describe("agent-loop turn lifecycle", () => {
     await handle.dispose();
     expect(handle.agent.status).toBe("disposed");
   });
+
+  it("createAgent binds an externally owned Session", async () => {
+    const ctx = await setup();
+    const session = ctx.sessions.create({ id: "external-create" });
+
+    const handle = await ctx.agents.create({ id: session.id, session, model: makeStreamModel() });
+    expect(handle.agent.session).toBe(session);
+
+    await handle.dispose();
+    expect(ctx.sessions.get(session.id)).toBe(session);
+    ctx.sessions.remove(session.id);
+  });
+
+  it("resumeAgent binds an externally owned Session without persistence", async () => {
+    const ctx = await setup();
+    const session = ctx.sessions.create({ id: "external-resume" });
+
+    const handle = await ctx.agents.resume({ id: session.id, session, model: makeStreamModel() });
+    expect(handle.agent.session).toBe(session);
+
+    await handle.dispose();
+    expect(ctx.sessions.get(session.id)).toBe(session);
+    ctx.sessions.remove(session.id);
+  });
 });

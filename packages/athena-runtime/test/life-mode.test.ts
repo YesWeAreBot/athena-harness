@@ -1,4 +1,4 @@
-import { sessionStore } from "@yesimbot/harness-core";
+import { SessionRegistry } from "@athena/session";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
@@ -13,7 +13,7 @@ import { schedulerRegistry } from "../src/scheduler/index.js";
 describe("life and mode registries", () => {
   it("creates and disposes a life", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(lifeRegistry)];
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry)];
     await Promise.all(fibers);
 
     const handle = ctx.lives.create({ id: "life-1" });
@@ -43,7 +43,7 @@ describe("life and mode registries", () => {
 
   it("routes percepts from a life to its active mode", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
     await Promise.all(fibers);
 
     const percepts: string[] = [];
@@ -75,7 +75,7 @@ describe("life and mode registries", () => {
 
   it("routes body percept events to attached lives", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(bodyRegistry), ctx.plugin(sessionStore), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    const fibers = [ctx.plugin(bodyRegistry), ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
     await Promise.all(fibers);
 
     const percepts: string[] = [];
@@ -106,7 +106,7 @@ describe("life and mode registries", () => {
 
   it("starts the new mode and stops/disposes the previous mode", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
     await Promise.all(fibers);
 
     const events: string[] = [];
@@ -147,7 +147,7 @@ describe("life and mode registries", () => {
 
   it("clears the active mode when mode start fails", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
     await Promise.all(fibers);
 
     ctx.modes.register({
@@ -170,7 +170,7 @@ describe("life and mode registries", () => {
 
   it("clears active mode and detached body after plugin-style disposal", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(bodyRegistry), ctx.plugin(sessionStore), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    const fibers = [ctx.plugin(bodyRegistry), ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
     await Promise.all(fibers);
 
     const disposeMode = ctx.modes.register({
@@ -225,7 +225,7 @@ describe("life and mode registries", () => {
   it("injects the full ModeContext through Life.createMode", async () => {
     const ctx = new Context();
     const fibers = [
-      ctx.plugin(sessionStore),
+      ctx.plugin(SessionRegistry),
       ctx.plugin(bodyRegistry),
       ctx.plugin(memoryRegistry),
       ctx.plugin(schedulerRegistry),
@@ -275,7 +275,7 @@ describe("life and mode registries", () => {
 
   it("rejects Life resume when the session is missing", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(lifeRegistry)];
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry)];
     await Promise.all(fibers);
 
     await expect(ctx.lives.resume({ id: "missing-life" })).rejects.toThrow(/not found/);
@@ -285,7 +285,7 @@ describe("life and mode registries", () => {
 
   it("cancels mode scheduler tasks when the mode is disposed", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry), ctx.plugin(schedulerRegistry)];
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry), ctx.plugin(schedulerRegistry)];
     await Promise.all(fibers);
 
     const events: string[] = [];
@@ -318,7 +318,7 @@ describe("life and mode registries", () => {
 
   it("disposes a Life idempotently", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(lifeRegistry)];
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry)];
     await Promise.all(fibers);
 
     const handle = ctx.lives.create({ id: "life-idempotent" });
@@ -331,7 +331,7 @@ describe("life and mode registries", () => {
 
   it("survives concurrent Life dispose and Mode definition unload", async () => {
     const ctx = new Context();
-    const fibers = [ctx.plugin(sessionStore), ctx.plugin(bodyRegistry), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(bodyRegistry), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
     await Promise.all(fibers);
 
     const disposeMode = ctx.modes.register({

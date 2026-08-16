@@ -1,4 +1,6 @@
-import type { Persistence, Session } from "@yesimbot/harness-core";
+import "@athena/agent";
+import type { AgentHandle, AgentRegistry } from "@athena/agent";
+import type { Session, SessionBinding } from "@athena/session";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
@@ -10,7 +12,7 @@ import type { ModeRegistry } from "../mode/index.js";
 import type { ModeContext, ModeHandle } from "../mode/types.js";
 import type { Scheduler } from "../scheduler/index.js";
 import type { ModeSchedulerAccess, ScheduledTaskOptions } from "../scheduler/types.js";
-import type { CreateLifeInput, Life, LifeHandle, ResumeLifeInput } from "./types.js";
+import type { CreateLifeAgentInput, CreateLifeInput, Life, LifeHandle, ResumeLifeAgentInput, ResumeLifeInput } from "./types.js";
 
 export class LifeRegistry extends Service {
   static provide = "lives";
@@ -52,9 +54,9 @@ export class LifeRegistry extends Service {
   }
 
   async resume(input: ResumeLifeInput): Promise<LifeHandle> {
-    const persist = this.ctx.get("persist") as Persistence | undefined;
-    if (persist) {
-      const prepared = await persist.prepare(input.id);
+    const persistence = this.ctx.sessions.persistence;
+    if (persistence) {
+      const prepared = await persistence.prepare(input.id);
       try {
         const session = this.ctx.sessions.restore(prepared.header, prepared.events);
         await prepared.close();
@@ -71,6 +73,94 @@ export class LifeRegistry extends Service {
     return this.register(session);
   }
 
+  async createWithAgent(input: CreateLifeAgentInput): Promise<LifeHandle> {
+    const agents = this.ctx.get("agents") as AgentRegistry | undefined;
+    if (!agents) throw new Error("AgentRegistry is not installed");
+
+    const session = this.ctx.sessions.create({ id: input.id });
+    let binding: SessionBinding | undefined;
+    if (this.ctx.sessions.persistence) {
+      try {
+        binding = await this.ctx.sessions.persistence.create(session.header);
+      } catch (error) {
+        this.ctx.sessions.remove(session.id);
+        throw error;
+      }
+    }
+    let agentHandle: AgentHandle | undefined;
+    try {
+      agentHandle = await agents.create({
+        id: session.id,
+        session,
+        binding,
+        model: input.agentLoop.model,
+        maxSteps: input.agentLoop.maxSteps,
+        setup: input.agentLoop.setup,
+      });
+      return this.register(session, agentHandle);
+    } catch (error) {
+      try {
+        if (agentHandle) await agentHandle.dispose();
+        else await binding?.close();
+      } finally {
+        this.ctx.sessions.remove(session.id);
+      }
+      throw error;
+    }
+  }
+
+  async resumeWithAgent(input: ResumeLifeAgentInput): Promise<LifeHandle> {
+    const agents = this.ctx.get("agents") as AgentRegistry | undefined;
+    if (!agents) throw new Error("AgentRegistry is not installed");
+
+    const persistence = this.ctx.sessions.persistence;
+    let session: Session;
+    let binding: SessionBinding | undefined;
+    if (persistence) {
+      const prepared = await persistence.prepare(input.id);
+      try {
+        session = this.ctx.sessions.restore(prepared.header, prepared.events);
+        await prepared.close();
+      } catch (error) {
+        await prepared.close();
+        throw error;
+      }
+      try {
+        binding = await persistence.open(input.id);
+      } catch (error) {
+        this.ctx.sessions.remove(session.id);
+        throw error;
+      }
+    } else {
+      const existing = this.ctx.sessions.get(input.id);
+      if (!existing) {
+        throw new Error(`Life session not found: ${input.id}`);
+      }
+      session = existing;
+    }
+
+    let agentHandle: AgentHandle | undefined;
+    try {
+      agentHandle = await agents.resume({
+        id: session.id,
+        session,
+        binding,
+        model: input.agentLoop.model,
+        maxSteps: input.agentLoop.maxSteps,
+        setup: input.agentLoop.setup,
+      });
+      return this.register(session, agentHandle);
+    } catch (error) {
+      try {
+        if (agentHandle) await agentHandle.dispose();
+        else await binding?.close();
+      } finally {
+        this.ctx.sessions.remove(session.id);
+      }
+      throw error;
+    }
+  }
+
   get(id: string): Life | undefined {
     return this.lives.get(id)?.life;
   }
@@ -84,7 +174,7 @@ export class LifeRegistry extends Service {
     if (handle) await handle.dispose();
   }
 
-  private register(session: Session): LifeHandle {
+  private register(session: Session, agentHandle?: AgentHandle): LifeHandle {
     if (this.lives.has(session.id)) {
       throw new Error(`Life already exists: ${session.id}`);
     }
@@ -95,6 +185,7 @@ export class LifeRegistry extends Service {
     const life: Life = {
       id: session.id,
       session,
+      ...(agentHandle ? { agent: agentHandle.agent } : {}),
       get activeModeId() {
         return activeMode?.id;
       },
@@ -114,10 +205,14 @@ export class LifeRegistry extends Service {
       memory: this.ctx.get("memory") as LifeMemory | undefined,
       scheduler: createModeScheduler(this.ctx, life.id),
       agentLoop: this.ctx.get("agentLoop") as AgentLoopAccess | undefined,
+      agent: agentHandle?.agent,
     });
 
     const handle: LifeHandle = {
       life,
+      get agent() {
+        return life.agent;
+      },
       get activeModeId() {
         return life.activeModeId;
       },
@@ -159,9 +254,13 @@ export class LifeRegistry extends Service {
         if (disposed) return;
         disposed = true;
         this.lives.delete(life.id);
-        await stopMode(activeMode);
-        activeMode = undefined;
-        this.ctx.sessions.remove(life.id);
+        try {
+          await stopMode(activeMode);
+          activeMode = undefined;
+          await agentHandle?.dispose();
+        } finally {
+          this.ctx.sessions.remove(life.id);
+        }
       },
     };
     this.lives.set(life.id, handle);

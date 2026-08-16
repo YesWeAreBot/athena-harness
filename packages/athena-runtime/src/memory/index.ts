@@ -1,7 +1,7 @@
-import { createId } from "@yesimbot/harness-core";
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
+import { createId } from "../internal.js";
 import type { LifeMemory as LifeMemoryContract, MemoryInput, MemoryRecallOptions, MemoryRecord } from "./types.js";
 
 /**
