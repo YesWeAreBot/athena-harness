@@ -129,6 +129,153 @@ describe("life and mode registries", () => {
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 
+  it("applies Life percept attention and compact pipeline before routing", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    const received: string[] = [];
+    const rejected: unknown[] = [];
+    ctx.on("percept/rejected", (event) => rejected.push(event));
+    ctx.modes.register({
+      name: "chat",
+      setup: async () => ({
+        handle: async (event) => {
+          received.push(event.kind);
+          return true;
+        },
+      }),
+    });
+
+    const handle = ctx.lives.create({
+      id: "life-pipeline",
+      perceptPipeline: {
+        attention: (event) => event.bodyId === "im",
+        compact: (event) => ({ ...event, id: `compact:${event.id}`, kind: `compact:${event.kind}` }),
+      },
+    });
+    await handle.setMode(await ctx.modes.create("chat", {}));
+
+    await handle.dispatchPercept({
+      id: "percept-ignored",
+      time: Date.now(),
+      bodyId: "minecraft",
+      kind: "world/observation",
+      data: {},
+    });
+    await handle.dispatchPercept({
+      id: "percept-compacted",
+      time: Date.now(),
+      bodyId: "im",
+      kind: "message-created",
+      data: { text: "hi" },
+    });
+
+    expect(received).toEqual(["compact:message-created"]);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]).toMatchObject({ id: "life-pipeline", reason: "attention" });
+
+    await ctx.lives.dispose("life-pipeline");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("supports Mode hooks as the percept entry point", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    const seen: string[] = [];
+    ctx.modes.register({
+      name: "hook-mode",
+      setup: async () => ({
+        hooks: {
+          onPercept: async (event, hookContext) => {
+            seen.push(`${event.kind}:${hookContext.modeId}`);
+            return event.kind === "accepted";
+          },
+        },
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-hook-mode" });
+    await handle.setMode(await ctx.modes.create("hook-mode", {}));
+
+    await expect(
+      handle.dispatchPercept({
+        id: "percept-hook-rejected",
+        time: Date.now(),
+        bodyId: "im",
+        kind: "rejected",
+        data: {},
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      handle.dispatchPercept({
+        id: "percept-hook-accepted",
+        time: Date.now(),
+        bodyId: "im",
+        kind: "accepted",
+        data: {},
+      }),
+    ).resolves.toBe(true);
+    expect(seen).toHaveLength(2);
+
+    await ctx.lives.dispose("life-hook-mode");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("registers and unregisters Mode memory providers on Life memory", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(modeRegistry), ctx.plugin(memoryRegistry), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    let calls = 0;
+    const provider = {
+      id: "mode-story",
+      scopes: ["story"],
+      remember: async (input: { lifeId: string; scope: string; category: string; content: string }) => {
+        calls++;
+        return {
+          id: "story-1",
+          lifeId: input.lifeId,
+          scope: input.scope,
+          category: input.category,
+          content: input.content,
+          importance: 0.5,
+          confidence: 0.5,
+          createdAt: Date.now(),
+        };
+      },
+      recall: async () => [],
+      forget: async () => true,
+      clear: async () => {},
+    };
+    ctx.modes.register({
+      name: "story",
+      setup: async () => ({
+        providers: { memory: provider },
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-memory-provider" });
+    const mode = await handle.createMode("story", {});
+    expect(ctx.memory.listProviders().map((item) => item.id)).toEqual(["mode-story"]);
+
+    await ctx.memory.remember({
+      lifeId: "life-memory-provider",
+      scope: "story",
+      category: "arc",
+      content: "story content",
+    });
+    expect(calls).toBe(1);
+
+    await ctx.modes.dispose(mode.id);
+    expect(ctx.memory.listProviders()).toEqual([]);
+
+    await ctx.lives.dispose("life-memory-provider");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
   it("routes body percept events to attached lives", async () => {
     const ctx = new Context();
     const fibers = [ctx.plugin(bodyRegistry), ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
@@ -187,6 +334,43 @@ describe("life and mode registries", () => {
     expect((errors[0] as Error).message).toBe("boom");
 
     await ctx.lives.dispose("life-error");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("emits Life lifecycle and percept routing events", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    const lifecycle: string[] = [];
+    const routed: unknown[] = [];
+    ctx.on("life/created", (event) => lifecycle.push(`created:${event.id}`));
+    ctx.on("life/disposed", (event) => lifecycle.push(`disposed:${event.id}`));
+    ctx.on("percept/routed", (event) => routed.push(event));
+    ctx.modes.register({
+      name: "chat",
+      setup: async () => ({
+        handle: async () => true,
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-events" });
+    await handle.setMode(await ctx.modes.create("chat", {}));
+    await handle.dispatchPercept({
+      id: "percept-routed",
+      time: Date.now(),
+      bodyId: "im",
+      kind: "message-created",
+      data: {},
+    });
+
+    expect(lifecycle).toEqual(["created:life-events"]);
+    expect(routed).toHaveLength(1);
+    expect(routed[0]).toMatchObject({ id: "life-events", handled: true });
+
+    await ctx.lives.dispose("life-events");
+    expect(lifecycle).toEqual(["created:life-events", "disposed:life-events"]);
+
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 
@@ -287,12 +471,12 @@ describe("life and mode registries", () => {
     ctx.bodies.register({
       id: "minecraft",
       state: {},
-      actuators: [{ id: "move", kind: "world", act: async () => "ok" }],
+      actuators: [{ id: "move", kind: "world", act: async () => ({ status: "ok", output: "ok" }) }],
     });
     ctx.bodies.register({
       id: "im",
       state: {},
-      actuators: [{ id: "send", kind: "chat", act: async () => "ok" }],
+      actuators: [{ id: "send", kind: "chat", act: async () => ({ status: "ok", output: "ok" }) }],
     });
     ctx.modes.register({
       name: "world",
@@ -307,7 +491,7 @@ describe("life and mode registries", () => {
       },
       setup: async (modeCtx) => {
         await expect(modeCtx.bodies!.act("im", "send", {})).rejects.toThrow(/not allowed/);
-        await expect(modeCtx.bodies!.act("minecraft", "move", {})).resolves.toBe("ok");
+        await expect(modeCtx.bodies!.act("minecraft", "move", {})).resolves.toMatchObject({ status: "ok", output: "ok" });
         return {};
       },
     });
@@ -344,6 +528,7 @@ describe("life and mode registries", () => {
 
     await disposeMode();
     await disposeBody();
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(handle.activeModeId).toBeUndefined();
     expect(handle.life.bodyIds).toEqual([]);
@@ -476,6 +661,8 @@ describe("life and mode registries", () => {
     await handle.dispose();
     await handle.dispose();
     expect(ctx.lives.get("life-idempotent")).toBeUndefined();
+    expect(handle.disposed).toBe(true);
+    expect(handle.life.disposed).toBe(true);
 
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { LifeMemory, memoryRegistry } from "../src/memory/index.js";
+import { LifeMemory, memoryRegistry, type MemoryProvider } from "../src/memory/index.js";
 import { jsonlMemory, JsonlMemory } from "../src/memory/jsonl.js";
 
 describe("memory infrastructure", () => {
@@ -35,13 +35,15 @@ describe("memory infrastructure", () => {
 
     const record = await ctx.memory.ingestPercept({
       lifeId: "life-percept",
-      percept: { id: "percept-1" },
+      percept: { id: "percept-1", bodyId: "im", kind: "message-created" },
       scope: "derived",
       category: "observation",
       content: "saw a cat",
       importance: 0.8,
     });
     expect(record.sourcePerceptId).toBe("percept-1");
+    expect(record.sourceBodyId).toBe("im");
+    expect(record.sourceBodyKind).toBe("message-created");
     expect(record.scope).toBe("derived");
 
     const recalled = await ctx.memory.recall("life-percept");
@@ -105,7 +107,7 @@ describe("memory infrastructure", () => {
         super(next);
       }
 
-      override async remember(input: Parameters<LifeMemory["remember"]>[0]) {
+      override async rememberLocal(input: Parameters<LifeMemory["remember"]>[0]) {
         calls.push(`remember:${input.lifeId}`);
         return {
           id: "custom-1",
@@ -119,15 +121,15 @@ describe("memory infrastructure", () => {
         };
       }
 
-      override async recall() {
+      override async recallLocal() {
         return [];
       }
 
-      override async forget() {
+      override async forgetLocal() {
         return true;
       }
 
-      override async clear() {}
+      override async clearLocal() {}
     }
 
     const fiber = ctx.plugin({
@@ -144,6 +146,57 @@ describe("memory infrastructure", () => {
       content: "Athena",
     });
     expect(calls).toEqual(["remember:life-custom"]);
+    await fiber.dispose();
+  });
+
+  it("routes Life memory by registered Mode provider scope", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(memoryRegistry);
+    await fiber;
+
+    const calls: string[] = [];
+    const provider: MemoryProvider = {
+      id: "story",
+      scopes: ["story"],
+      remember: async (input) => {
+        calls.push(`remember:${input.lifeId}:${input.scope}`);
+        return {
+          id: "story-1",
+          lifeId: input.lifeId,
+          scope: input.scope,
+          category: input.category,
+          content: input.content,
+          importance: input.importance ?? 0.5,
+          confidence: input.confidence ?? 0.5,
+          createdAt: Date.now(),
+        };
+      },
+      recall: async () => [],
+      forget: async () => true,
+      clear: async () => {},
+    };
+    const dispose = ctx.memory.registerProvider(provider);
+
+    await ctx.memory.remember({
+      lifeId: "life-story",
+      scope: "story",
+      category: "arc",
+      content: "story content",
+    });
+    expect(calls).toEqual(["remember:life-story:story"]);
+
+    await ctx.memory.remember({
+      lifeId: "life-local",
+      scope: "identity",
+      category: "name",
+      content: "Athena",
+    });
+    expect(calls).toHaveLength(1);
+    expect(await ctx.memory.recall("life-local", { scope: "identity" })).toHaveLength(1);
+
+    dispose();
+    expect(ctx.memory.listProviders()).toEqual([]);
+
     await fiber.dispose();
   });
 

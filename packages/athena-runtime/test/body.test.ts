@@ -36,6 +36,32 @@ describe("body registry", () => {
     await fiber.dispose();
   });
 
+  it("carries PerceptEvent envelope metadata", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    ctx.bodies.register({ id: "minecraft", state: {} });
+    const event = ctx.bodies.dispatch(
+      "minecraft",
+      "world/observation",
+      { block: "dirt" },
+      {
+        source: "adapter",
+        priority: 1,
+        target: { id: "channel-1", kind: "group" },
+        meta: { visible: true },
+      },
+    );
+
+    expect(event.source).toBe("adapter");
+    expect(event.priority).toBe(1);
+    expect(event.target).toEqual({ id: "channel-1", kind: "group" });
+    expect(event.meta).toEqual({ visible: true });
+
+    await fiber.dispose();
+  });
+
   it("rejects percepts from unregistered bodies", async () => {
     const ctx = new Context();
     const fiber = ctx.plugin(bodyRegistry);
@@ -52,6 +78,8 @@ describe("body registry", () => {
     await fiber;
 
     const actions: string[] = [];
+    const executed: unknown[] = [];
+    ctx.on("actuator/executed", (event) => executed.push(event));
     ctx.bodies.register({
       id: "im",
       state: {},
@@ -61,7 +89,7 @@ describe("body registry", () => {
           kind: "chat",
           act: async (action) => {
             actions.push(String(action));
-            return { ok: true };
+            return { status: "ok", output: { ok: true } };
           },
         },
       ],
@@ -69,8 +97,101 @@ describe("body registry", () => {
 
     const result = await ctx.bodies.act("im", "send", "hello");
     expect(actions).toEqual(["hello"]);
-    expect(result).toEqual({ ok: true });
+    expect(result).toMatchObject({ status: "ok", output: { ok: true } });
+    expect(executed).toHaveLength(1);
+    expect(executed[0]).toMatchObject({ bodyId: "im", actuatorId: "send" });
     await expect(ctx.bodies.act("im", "missing", {})).rejects.toThrow(/Actuator not found/);
+
+    await fiber.dispose();
+  });
+
+  it("returns ActuatorResult and retries retryable errors", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    let calls = 0;
+    ctx.bodies.register({
+      id: "retry",
+      state: {},
+      actuators: [
+        {
+          id: "flaky",
+          act: async () => {
+            calls++;
+            if (calls < 3) return { status: "error", error: new Error("flaky"), retryable: true };
+            return { status: "ok", output: "done" };
+          },
+        },
+      ],
+    });
+
+    const result = await ctx.bodies.act("retry", "flaky", {}, { retries: 2 });
+    expect(calls).toBe(3);
+    expect(result).toMatchObject({ status: "ok", output: "done" });
+
+    await fiber.dispose();
+  });
+
+  it("passes Body/Life/Mode context to actuators", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    let seen: unknown;
+    ctx.bodies.register({
+      id: "im",
+      state: {},
+      actuators: [
+        {
+          id: "send",
+          act: async (_action, context) => {
+            seen = context;
+            return { status: "ok", output: null };
+          },
+        },
+      ],
+    });
+
+    await ctx.bodies.act(
+      "im",
+      "send",
+      {},
+      {
+        lifeId: "life-1",
+        modeId: "mode-1",
+        delivery: { kind: "message" },
+        media: { id: "m1" },
+      },
+    );
+    expect(seen).toMatchObject({
+      bodyId: "im",
+      lifeId: "life-1",
+      modeId: "mode-1",
+      attempt: 0,
+      delivery: { kind: "message" },
+      media: { id: "m1" },
+    });
+
+    await fiber.dispose();
+  });
+
+  it("returns canceled ActuatorResult when the signal is aborted", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    ctx.bodies.register({
+      id: "cancel",
+      state: {},
+      actuators: [{ id: "slow", act: async () => ({ status: "ok", output: "never" }) }],
+    });
+    const controller = new AbortController();
+    controller.abort("stop");
+
+    const result = await ctx.bodies.act("cancel", "slow", {}, { signal: controller.signal, retries: 2 });
+    expect(result.status).toBe("canceled");
+    expect(result.error).toBe("stop");
 
     await fiber.dispose();
   });
@@ -84,12 +205,13 @@ describe("body registry", () => {
     const dispose = await ctx.bodies.registerAdapter({
       id: "onebot",
       name: "OneBot",
+      state: { online: true },
       senses: [{ id: "message", kind: "chat" }],
       actuators: [
         {
           id: "send",
           kind: "chat",
-          act: async () => ({ ok: true }),
+          act: async () => ({ status: "ok", output: { ok: true } }),
         },
       ],
       start: async () => {
@@ -101,6 +223,7 @@ describe("body registry", () => {
     });
 
     expect(ctx.bodies.get("onebot")?.name).toBe("OneBot");
+    expect(ctx.bodies.get("onebot")?.state).toEqual({ online: true });
     expect(events).toEqual(["start"]);
 
     await dispose();

@@ -13,10 +13,38 @@ export interface Sense {
   readonly kind?: string;
 }
 
+export type ActuatorStatus = "ok" | "error" | "canceled";
+
+export interface ActuatorResult {
+  readonly status: ActuatorStatus;
+  readonly output?: unknown;
+  readonly error?: unknown;
+  readonly retryable?: boolean;
+}
+
+export interface ActuatorContext {
+  readonly bodyId: string;
+  readonly signal?: AbortSignal;
+  readonly attempt: number;
+  readonly lifeId?: string;
+  readonly modeId?: string;
+  readonly delivery?: unknown;
+  readonly media?: unknown;
+}
+
+export interface ActuatorOptions {
+  readonly signal?: AbortSignal;
+  readonly retries?: number;
+  readonly lifeId?: string;
+  readonly modeId?: string;
+  readonly delivery?: unknown;
+  readonly media?: unknown;
+}
+
 export interface Actuator {
   readonly id: string;
   readonly kind?: string;
-  act?(action: unknown): Awaitable<unknown>;
+  act?(action: unknown, context?: ActuatorContext): Awaitable<ActuatorResult>;
 }
 
 export interface BodyAdapterContext {
@@ -30,6 +58,7 @@ export interface BodyAdapterContext {
 export interface BodyAdapter {
   readonly id: string;
   readonly name?: string;
+  readonly state?: Readonly<Record<string, unknown>>;
   readonly senses?: readonly Sense[];
   readonly actuators?: readonly Actuator[];
   start?(context: BodyAdapterContext): Awaitable<void>;
@@ -42,4 +71,38 @@ export interface PerceptEvent<T = unknown> {
   readonly bodyId: string;
   readonly kind: string;
   readonly data: T;
+  readonly source?: string;
+  readonly priority?: number;
+  readonly expiresAt?: number;
+  readonly actor?: PerceptActor;
+  readonly target?: PerceptTarget;
+  readonly attachments?: readonly MediaRef[];
+  readonly meta?: Readonly<Record<string, unknown>>;
+}
+
+export interface PerceptActor {
+  readonly id: string;
+  readonly name?: string;
+}
+
+export interface PerceptTarget {
+  readonly id: string;
+  readonly kind?: string;
+}
+
+export interface MediaRef {
+  readonly id: string;
+  readonly type: "image" | "audio" | "video" | "file";
+  readonly mime?: string;
+  readonly uri?: string;
+}
+
+export interface PerceptEventOptions {
+  readonly source?: string;
+  readonly priority?: number;
+  readonly expiresAt?: number;
+  readonly actor?: PerceptActor;
+  readonly target?: PerceptTarget;
+  readonly attachments?: readonly MediaRef[];
+  readonly meta?: Readonly<Record<string, unknown>>;
 }

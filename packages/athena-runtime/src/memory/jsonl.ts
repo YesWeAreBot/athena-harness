@@ -26,13 +26,13 @@ export class JsonlMemory extends LifeMemory {
     super(ctx);
   }
 
-  async remember(input: MemoryInput): Promise<MemoryRecord> {
+  async rememberLocal(input: MemoryInput): Promise<MemoryRecord> {
     const record = createMemoryRecord(input);
     await this.append(input.lifeId, record);
     return record;
   }
 
-  async recall(lifeId: string, options: MemoryRecallOptions = {}): Promise<readonly MemoryRecord[]> {
+  async recallLocal(lifeId: string, options: MemoryRecallOptions = {}): Promise<readonly MemoryRecord[]> {
     await this.tail.get(lifeId);
     const query = options.query?.trim().toLowerCase();
     const records = await this.read(lifeId);
@@ -46,7 +46,7 @@ export class JsonlMemory extends LifeMemory {
     );
   }
 
-  async forget(id: string): Promise<boolean> {
+  async forgetLocal(id: string): Promise<boolean> {
     for (const lifeId of await this.lifeIds()) {
       const records = await this.read(lifeId);
       const next = records.filter((record) => record.id !== id);
@@ -57,7 +57,7 @@ export class JsonlMemory extends LifeMemory {
     return false;
   }
 
-  async clear(lifeId: string): Promise<void> {
+  async clearLocal(lifeId: string): Promise<void> {
     await rm(this.path(lifeId), { force: true });
   }
 

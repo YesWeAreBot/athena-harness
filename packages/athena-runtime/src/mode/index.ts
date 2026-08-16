@@ -42,6 +42,25 @@ export class ModeRegistry extends Service {
       throw new Error(`Mode not registered: ${name}`);
     }
     const created: ModeSetupHandle = await mode.setup(context, config);
+    const memoryProviders =
+      created.providers?.memory === undefined ? [] : Array.isArray(created.providers.memory) ? created.providers.memory : [created.providers.memory];
+    const disposeMemory: Array<() => void> = [];
+    if (memoryProviders.length > 0) {
+      if (!context.memory) {
+        await created.stop?.();
+        await created.dispose?.();
+        throw new Error("LifeMemory is not installed");
+      }
+      try {
+        for (const provider of memoryProviders) {
+          disposeMemory.push(context.memory.registerProvider(provider));
+        }
+      } catch (error) {
+        for (const dispose of disposeMemory) dispose();
+        await created.dispose?.();
+        throw error;
+      }
+    }
     const id = createId("mode");
     const lifeId = context.lifeId;
     let disposed = false;
@@ -50,6 +69,8 @@ export class ModeRegistry extends Service {
       id,
       name: mode.name,
       capabilities: mode.capabilities,
+      hooks: created.hooks,
+      providers: created.providers,
       get disposed() {
         return disposed;
       },
@@ -62,6 +83,7 @@ export class ModeRegistry extends Service {
         } finally {
           await created.dispose?.();
         }
+        for (const dispose of disposeMemory) dispose();
         if (lifeId) {
           (this.ctx.get("scheduler") as { cancelByLife(lifeId: string): void } | undefined)?.cancelByLife(lifeId);
         }

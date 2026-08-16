@@ -11,6 +11,8 @@ export function createMemoryRecord(input: MemoryInput): MemoryRecord {
     importance: input.importance ?? 0.5,
     confidence: input.confidence ?? 0.5,
     ...(input.sourcePerceptId === undefined ? {} : { sourcePerceptId: input.sourcePerceptId }),
+    ...(input.sourceBodyId === undefined ? {} : { sourceBodyId: input.sourceBodyId }),
+    ...(input.sourceBodyKind === undefined ? {} : { sourceBodyKind: input.sourceBodyKind }),
     createdAt: Date.now(),
   };
 }

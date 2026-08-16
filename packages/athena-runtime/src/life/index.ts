@@ -7,13 +7,22 @@ import type { Context } from "cordis";
 import type { AgentLoopAccess } from "../agent-loop/types.js";
 import "../body/index.js";
 import type { BodyRegistry } from "../body/index.js";
-import type { PerceptEvent } from "../body/types.js";
+import type { ActuatorOptions, PerceptEvent } from "../body/types.js";
 import type { LifeMemory } from "../memory/index.js";
 import type { ModeRegistry } from "../mode/index.js";
 import type { ModeActuatorInterest, ModeCapabilities, ModeContext, ModeHandle, ModePerceptInterest } from "../mode/types.js";
 import type { Scheduler } from "../scheduler/index.js";
 import type { ModeSchedulerAccess, ScheduledTaskOptions } from "../scheduler/types.js";
-import type { CreateLifeAgentInput, CreateLifeInput, Life, LifeHandle, ResumeLifeAgentInput, ResumeLifeInput } from "./types.js";
+import type {
+  CreateLifeAgentInput,
+  CreateLifeInput,
+  Life,
+  LifeHandle,
+  PerceptPipeline,
+  PerceptRejectReason,
+  ResumeLifeAgentInput,
+  ResumeLifeInput,
+} from "./types.js";
 
 export class LifeRegistry extends Service {
   static provide = "lives";
@@ -57,7 +66,7 @@ export class LifeRegistry extends Service {
 
   create(input: CreateLifeInput = {}): LifeHandle {
     const session = this.ctx.sessions.create({ id: input.id });
-    return this.register(session);
+    return this.register(session, undefined, input.perceptPipeline);
   }
 
   async resume(input: ResumeLifeInput): Promise<LifeHandle> {
@@ -67,7 +76,7 @@ export class LifeRegistry extends Service {
       try {
         const session = this.ctx.sessions.restore(prepared.header, prepared.events);
         await prepared.close();
-        return this.register(session);
+        return this.register(session, undefined, input.perceptPipeline);
       } catch (error) {
         await prepared.close();
         throw error;
@@ -77,7 +86,7 @@ export class LifeRegistry extends Service {
     if (!session) {
       throw new Error(`Life session not found: ${input.id}`);
     }
-    return this.register(session);
+    return this.register(session, undefined, input.perceptPipeline);
   }
 
   async createWithAgent(input: CreateLifeAgentInput): Promise<LifeHandle> {
@@ -104,7 +113,7 @@ export class LifeRegistry extends Service {
         maxSteps: input.agentLoop.maxSteps,
         setup: input.agentLoop.setup,
       });
-      return this.register(session, agentHandle);
+      return this.register(session, agentHandle, input.perceptPipeline);
     } catch (error) {
       try {
         if (agentHandle) await agentHandle.dispose();
@@ -156,7 +165,7 @@ export class LifeRegistry extends Service {
         maxSteps: input.agentLoop.maxSteps,
         setup: input.agentLoop.setup,
       });
-      return this.register(session, agentHandle);
+      return this.register(session, agentHandle, input.perceptPipeline);
     } catch (error) {
       try {
         if (agentHandle) await agentHandle.dispose();
@@ -181,18 +190,46 @@ export class LifeRegistry extends Service {
     if (handle) await handle.dispose();
   }
 
-  private register(session: Session, agentHandle?: AgentHandle): LifeHandle {
+  private register(session: Session, agentHandle?: AgentHandle, perceptPipeline?: PerceptPipeline): LifeHandle {
     if (this.lives.has(session.id)) {
       throw new Error(`Life already exists: ${session.id}`);
     }
     let disposed = false;
     let activeMode: ModeHandle | undefined;
     const bodies = new Set<string>();
+    let queue: Promise<void> = Promise.resolve();
+
+    const enqueue = <T>(task: () => Promise<T>): Promise<T> => {
+      const next = queue.then(task, task);
+      queue = next.then(
+        () => undefined,
+        () => undefined,
+      );
+      return next;
+    };
+
+    const applyMode = async (next: ModeHandle | undefined): Promise<void> => {
+      if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+      if (next === activeMode) return;
+      if (next?.disposed) throw new Error(`Mode is disposed: ${next.id}`);
+      await stopMode(activeMode);
+      activeMode = next;
+      try {
+        await activeMode?.start?.();
+      } catch (error) {
+        await stopMode(activeMode);
+        activeMode = undefined;
+        throw error;
+      }
+    };
 
     const life: Life = {
       id: session.id,
       session,
       ...(agentHandle ? { agent: agentHandle.agent } : {}),
+      get disposed() {
+        return disposed;
+      },
       get activeModeId() {
         return activeMode?.id;
       },
@@ -207,12 +244,12 @@ export class LifeRegistry extends Service {
       session,
       bodies: {
         dispatch: <T>(bodyId: string, kind: string, data: T) => this.ctx.bodies.dispatch(bodyId, kind, data),
-        act: async (bodyId: string, actuatorId: string, action: unknown) => {
+        act: async (bodyId: string, actuatorId: string, action: unknown, options?: ActuatorOptions) => {
           const actuator = this.ctx.bodies.get(bodyId)?.actuators?.find((item) => item.id === actuatorId);
           if (!canUseActuator(capabilities, bodyId, actuatorId, actuator?.kind)) {
             throw new Error(`Mode is not allowed to use actuator: ${bodyId}/${actuatorId}`);
           }
-          return this.ctx.bodies.act(bodyId, actuatorId, action);
+          return this.ctx.bodies.act(bodyId, actuatorId, action, { ...options, lifeId: life.id });
         },
       },
       memory: this.ctx.get("memory") as LifeMemory | undefined,
@@ -226,70 +263,86 @@ export class LifeRegistry extends Service {
       get agent() {
         return life.agent;
       },
+      get disposed() {
+        return disposed;
+      },
       get activeModeId() {
         return life.activeModeId;
       },
-      setMode: async (next) => {
-        if (disposed) throw new Error(`Life is disposed: ${life.id}`);
-        if (next === activeMode) return;
-        if (next?.disposed) throw new Error(`Mode is disposed: ${next.id}`);
-        await stopMode(activeMode);
-        activeMode = next;
-        try {
-          await activeMode?.start?.();
-        } catch (error) {
-          await stopMode(activeMode);
-          activeMode = undefined;
-          throw error;
-        }
-      },
-      createMode: async (name, config) => {
-        if (disposed) throw new Error(`Life is disposed: ${life.id}`);
-        const modes = this.ctx.get("modes") as ModeRegistry | undefined;
-        if (!modes) throw new Error("ModeRegistry is not installed");
-        const definition = modes.get(name);
-        const created = await modes.create(name, config, modeContext(definition?.capabilities));
-        try {
-          await handle.setMode(created);
-        } catch (error) {
-          await stopMode(created);
-          throw error;
-        }
-        return created;
-      },
-      dispatchPercept: async (event: PerceptEvent) => {
-        if (activeMode?.disposed) activeMode = undefined;
-        if (!activeMode?.handle) return false;
-        if (!acceptsPercept(activeMode, event)) return false;
-        return await activeMode.handle(event);
-      },
-      attachBody: async (bodyId: string) => {
-        if (disposed) throw new Error(`Life is disposed: ${life.id}`);
-        const bodyRegistry = this.ctx.get("bodies") as BodyRegistry | undefined;
-        if (bodyRegistry && !bodyRegistry.get(bodyId)) {
-          throw new Error(`Body not registered: ${bodyId}`);
-        }
-        bodies.add(bodyId);
-      },
-      detachBody: async (bodyId: string) => {
-        if (disposed) throw new Error(`Life is disposed: ${life.id}`);
-        bodies.delete(bodyId);
-      },
+      setMode: (next) =>
+        enqueue(async () => {
+          await applyMode(next);
+        }),
+      createMode: (name, config) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          const modes = this.ctx.get("modes") as ModeRegistry | undefined;
+          if (!modes) throw new Error("ModeRegistry is not installed");
+          const definition = modes.get(name);
+          const created = await modes.create(name, config, modeContext(definition?.capabilities));
+          try {
+            await applyMode(created);
+          } catch (error) {
+            await stopMode(created);
+            throw error;
+          }
+          return created;
+        }),
+      dispatchPercept: (originalEvent) =>
+        enqueue(async () => {
+          if (activeMode?.disposed) activeMode = undefined;
+          let event = originalEvent;
+          const reject = (reason: PerceptRejectReason, modeId?: string): false => {
+            this.ctx.emit("percept/rejected", { id: life.id, modeId, event, reason });
+            return false;
+          };
+          if (perceptPipeline?.attention && !(await perceptPipeline.attention(event))) return reject("attention");
+          if (perceptPipeline?.compact) event = await perceptPipeline.compact(event);
+          if (!activeMode) return reject("no-mode");
+          if (!acceptsPercept(activeMode, event)) return reject("capabilities", activeMode.id);
+          const hookResult = await activeMode.hooks?.onPercept?.(event, {
+            lifeId: life.id,
+            modeId: activeMode.id,
+            session,
+          });
+          if (hookResult === false) return reject("hook", activeMode.id);
+          if (!activeMode.handle && hookResult !== true) return reject("no-mode", activeMode.id);
+          const handled = activeMode.handle ? await activeMode.handle(event) : true;
+          this.ctx.emit("percept/routed", { id: life.id, modeId: activeMode.id, event, handled });
+          return handled;
+        }),
+      attachBody: (bodyId) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          const bodyRegistry = this.ctx.get("bodies") as BodyRegistry | undefined;
+          if (bodyRegistry && !bodyRegistry.get(bodyId)) {
+            throw new Error(`Body not registered: ${bodyId}`);
+          }
+          bodies.add(bodyId);
+        }),
+      detachBody: (bodyId) =>
+        enqueue(async () => {
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          bodies.delete(bodyId);
+        }),
       hasBody: (bodyId: string) => bodies.has(bodyId),
-      dispose: async () => {
-        if (disposed) return;
-        disposed = true;
-        this.lives.delete(life.id);
-        try {
-          await stopMode(activeMode);
-          activeMode = undefined;
-          await agentHandle?.dispose();
-        } finally {
-          this.ctx.sessions.remove(life.id);
-        }
-      },
+      dispose: () =>
+        enqueue(async () => {
+          if (disposed) return;
+          disposed = true;
+          this.lives.delete(life.id);
+          try {
+            await stopMode(activeMode);
+            activeMode = undefined;
+            await agentHandle?.dispose();
+          } finally {
+            this.ctx.sessions.remove(life.id);
+            this.ctx.emit("life/disposed", { id: life.id });
+          }
+        }),
     };
     this.lives.set(life.id, handle);
+    this.ctx.emit("life/created", { id: life.id, life });
     return handle;
   }
 }
@@ -349,6 +402,10 @@ declare module "cordis" {
   }
 
   interface Events {
+    "life/created"(event: { id: string; life: Life }): void;
+    "life/disposed"(event: { id: string }): void;
     "life/error"(event: { id: string; error: unknown }): void;
+    "percept/routed"(event: { id: string; modeId: string; event: PerceptEvent; handled: boolean }): void;
+    "percept/rejected"(event: { id: string; modeId?: string; event: PerceptEvent; reason: PerceptRejectReason }): void;
   }
 }

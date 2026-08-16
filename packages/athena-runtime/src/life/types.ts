@@ -9,6 +9,7 @@ export interface Life {
   readonly id: string;
   readonly session: Session;
   readonly agent?: Agent;
+  readonly disposed: boolean;
   readonly activeModeId?: string;
   readonly bodyIds: readonly string[];
 }
@@ -16,6 +17,7 @@ export interface Life {
 export interface LifeHandle {
   readonly life: Life;
   readonly agent?: Agent;
+  readonly disposed: boolean;
   readonly activeModeId?: string;
   setMode(mode: ModeHandle | undefined): Awaitable<void>;
   createMode<C = any>(name: string, config: C): Promise<ModeHandle>;
@@ -26,12 +28,21 @@ export interface LifeHandle {
   dispose(): Promise<void>;
 }
 
+export interface PerceptPipeline {
+  readonly attention?: (event: PerceptEvent) => Awaitable<boolean>;
+  readonly compact?: (event: PerceptEvent) => Awaitable<PerceptEvent>;
+}
+
+export type PerceptRejectReason = "attention" | "capabilities" | "no-mode" | "hook";
+
 export interface CreateLifeInput {
   id?: string;
+  perceptPipeline?: PerceptPipeline;
 }
 
 export interface ResumeLifeInput {
   id: string;
+  perceptPipeline?: PerceptPipeline;
 }
 
 export interface LifeAgentLoopOptions {

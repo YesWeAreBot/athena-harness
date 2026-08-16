@@ -2,7 +2,7 @@ import { Service } from "cordis";
 import type { Context } from "cordis";
 
 import { createId, deepFreeze } from "../internal.js";
-import type { Body, BodyAdapter, PerceptEvent } from "./types.js";
+import type { ActuatorOptions, ActuatorResult, Body, BodyAdapter, PerceptEvent, PerceptEventOptions } from "./types.js";
 
 export class BodyRegistry extends Service {
   static provide = "bodies";
@@ -31,7 +31,7 @@ export class BodyRegistry extends Service {
     const body: Body = {
       id: adapter.id,
       ...(adapter.name === undefined ? {} : { name: adapter.name }),
-      state: {},
+      state: adapter.state ?? {},
       ...(adapter.senses === undefined ? {} : { senses: adapter.senses }),
       ...(adapter.actuators === undefined ? {} : { actuators: adapter.actuators }),
     };
@@ -59,7 +59,7 @@ export class BodyRegistry extends Service {
     return [...this.bodies.values()];
   }
 
-  async act(bodyId: string, actuatorId: string, action: unknown): Promise<unknown> {
+  async act(bodyId: string, actuatorId: string, action: unknown, options: ActuatorOptions = {}): Promise<ActuatorResult> {
     const body = this.bodies.get(bodyId);
     if (!body) {
       throw new Error(`Body not registered: ${bodyId}`);
@@ -71,10 +71,40 @@ export class BodyRegistry extends Service {
     if (!actuator.act) {
       throw new Error(`Actuator has no act implementation: ${bodyId}/${actuatorId}`);
     }
-    return await actuator.act(action);
+
+    const attempts = Math.max(0, options.retries ?? 0) + 1;
+    let lastResult: ActuatorResult = { status: "error", error: new Error("Actuator did not run"), retryable: true };
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      if (options.signal?.aborted) {
+        lastResult = { status: "canceled", error: options.signal.reason, retryable: false };
+        break;
+      }
+      try {
+        const raw = await actuator.act(action, {
+          bodyId,
+          signal: options.signal,
+          attempt,
+          ...(options.lifeId === undefined ? {} : { lifeId: options.lifeId }),
+          ...(options.modeId === undefined ? {} : { modeId: options.modeId }),
+          ...(options.delivery === undefined ? {} : { delivery: options.delivery }),
+          ...(options.media === undefined ? {} : { media: options.media }),
+        });
+        const result = normalizeActuatorResult(raw);
+        if (result.status === "error" && result.retryable !== false && attempt + 1 < attempts) {
+          lastResult = result;
+          continue;
+        }
+        this.ctx.emit("actuator/executed", { bodyId, actuatorId, kind: actuator.kind, result, attempt });
+        return result;
+      } catch (error) {
+        lastResult = { status: "error", error, retryable: true };
+      }
+    }
+    this.ctx.emit("actuator/executed", { bodyId, actuatorId, kind: actuator.kind, result: lastResult, attempt: attempts - 1 });
+    return lastResult;
   }
 
-  dispatch<T>(bodyId: string, kind: string, data: T): PerceptEvent<T> {
+  dispatch<T>(bodyId: string, kind: string, data: T, options: PerceptEventOptions = {}): PerceptEvent<T> {
     if (!this.bodies.has(bodyId)) {
       throw new Error(`Body not registered: ${bodyId}`);
     }
@@ -84,10 +114,27 @@ export class BodyRegistry extends Service {
       bodyId,
       kind,
       data: deepFreeze(data),
+      ...(options.source === undefined ? {} : { source: options.source }),
+      ...(options.priority === undefined ? {} : { priority: options.priority }),
+      ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
+      ...(options.actor === undefined ? {} : { actor: Object.freeze(options.actor) }),
+      ...(options.target === undefined ? {} : { target: Object.freeze(options.target) }),
+      ...(options.attachments === undefined ? {} : { attachments: Object.freeze([...options.attachments]) }),
+      ...(options.meta === undefined ? {} : { meta: deepFreeze(options.meta) }),
     }) as PerceptEvent<T>;
     this.ctx.emit("body/percept", event);
     return event;
   }
+}
+
+function normalizeActuatorResult(value: unknown): ActuatorResult {
+  if (value && typeof value === "object" && "status" in value) {
+    const status = (value as { status?: unknown }).status;
+    if (status === "ok" || status === "error" || status === "canceled") {
+      return value as ActuatorResult;
+    }
+  }
+  return { status: "ok", output: value };
 }
 
 export const bodyRegistry = {
@@ -104,5 +151,6 @@ declare module "cordis" {
   interface Events {
     "body/percept"(event: PerceptEvent): void;
     "body/disposed"(event: { id: string }): void;
+    "actuator/executed"(event: { bodyId: string; actuatorId: string; kind?: string; result: ActuatorResult; attempt: number }): void;
   }
 }
