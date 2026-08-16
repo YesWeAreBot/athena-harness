@@ -43,8 +43,11 @@ export class BodyRegistry extends Service {
       throw error;
     }
     return async () => {
-      await adapter.stop?.();
-      dispose();
+      try {
+        await adapter.stop?.();
+      } finally {
+        dispose();
+      }
     };
   }
 

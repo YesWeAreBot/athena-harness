@@ -1,8 +1,8 @@
 import { Service } from "cordis";
 import type { Context } from "cordis";
 
-import { createId } from "../internal.js";
-import type { LifeMemory as LifeMemoryContract, MemoryInput, MemoryRecallOptions, MemoryRecord } from "./types.js";
+import { createMemoryRecord } from "./record.js";
+import type { LifeMemory as LifeMemoryContract, MemoryInput, MemoryRecallOptions, MemoryRecord, PerceptMemoryInput } from "./types.js";
 
 /**
  * Early Memory provider boundary.
@@ -19,6 +19,18 @@ export abstract class LifeMemory extends Service implements LifeMemoryContract {
 
   abstract remember(input: MemoryInput): Promise<MemoryRecord>;
 
+  async ingestPercept(input: PerceptMemoryInput): Promise<MemoryRecord> {
+    return this.remember({
+      lifeId: input.lifeId,
+      scope: input.scope,
+      category: input.category,
+      content: input.content,
+      importance: input.importance,
+      confidence: input.confidence,
+      sourcePerceptId: input.percept.id,
+    });
+  }
+
   abstract recall(lifeId: string, options?: MemoryRecallOptions): Promise<readonly MemoryRecord[]>;
 
   abstract forget(id: string): Promise<boolean>;
@@ -34,17 +46,7 @@ export class InMemoryMemory extends LifeMemory {
   }
 
   async remember(input: MemoryInput): Promise<MemoryRecord> {
-    const record: MemoryRecord = {
-      id: createId("memory"),
-      lifeId: input.lifeId,
-      scope: input.scope,
-      category: input.category,
-      content: input.content,
-      importance: input.importance ?? 0.5,
-      confidence: input.confidence ?? 0.5,
-      ...(input.sourcePerceptId === undefined ? {} : { sourcePerceptId: input.sourcePerceptId }),
-      createdAt: Date.now(),
-    };
+    const record = createMemoryRecord(input);
     this.records.set(record.id, record);
     return record;
   }
@@ -86,4 +88,4 @@ declare module "cordis" {
   }
 }
 
-export type { MemoryInput, MemoryRecallOptions, MemoryRecord } from "./types.js";
+export type { MemoryInput, MemoryPercept, MemoryRecallOptions, MemoryRecord, PerceptMemoryInput } from "./types.js";

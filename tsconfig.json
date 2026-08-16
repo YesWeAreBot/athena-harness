@@ -3,5 +3,5 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["packages/athena-runtime", "harness-core"]
+  "include": ["packages/athena-runtime/src", "packages/athena-runtime/test"]
 }

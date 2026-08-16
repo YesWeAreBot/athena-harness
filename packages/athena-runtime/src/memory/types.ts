@@ -37,8 +37,23 @@ export interface MemoryInput {
   readonly sourcePerceptId?: string;
 }
 
+export interface MemoryPercept {
+  readonly id: string;
+}
+
+export interface PerceptMemoryInput {
+  readonly lifeId: string;
+  readonly percept: MemoryPercept;
+  readonly scope: MemoryScope;
+  readonly category: string;
+  readonly content: string;
+  readonly importance?: number;
+  readonly confidence?: number;
+}
+
 export interface LifeMemory {
   remember(input: MemoryInput): Awaitable<MemoryRecord>;
+  ingestPercept(input: PerceptMemoryInput): Awaitable<MemoryRecord>;
   recall(lifeId: string, options?: MemoryRecallOptions): Awaitable<readonly MemoryRecord[]>;
   forget(id: string): Awaitable<boolean>;
   clear(lifeId: string): Awaitable<void>;

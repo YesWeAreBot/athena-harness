@@ -69,6 +69,7 @@ export interface Mode<C = any> {
 export interface ModeHandle {
   readonly id: string;
   readonly name: string;
+  readonly capabilities?: ModeCapabilities;
   readonly disposed: boolean;
   start?(): Awaitable<void>;
   stop?(): Awaitable<void>;

@@ -28,6 +28,29 @@ describe("memory infrastructure", () => {
     await fiber.dispose();
   });
 
+  it("ingests a percept as a Life-scoped memory record", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(memoryRegistry);
+    await fiber;
+
+    const record = await ctx.memory.ingestPercept({
+      lifeId: "life-percept",
+      percept: { id: "percept-1" },
+      scope: "derived",
+      category: "observation",
+      content: "saw a cat",
+      importance: 0.8,
+    });
+    expect(record.sourcePerceptId).toBe("percept-1");
+    expect(record.scope).toBe("derived");
+
+    const recalled = await ctx.memory.recall("life-percept");
+    expect(recalled).toHaveLength(1);
+    expect(recalled[0]!.sourcePerceptId).toBe("percept-1");
+
+    await fiber.dispose();
+  });
+
   it("forgets and clears memory records", async () => {
     const ctx = new Context();
     const fiber = ctx.plugin(memoryRegistry);

@@ -6,10 +6,11 @@ import type { Context } from "cordis";
 
 import type { AgentLoopAccess } from "../agent-loop/types.js";
 import "../body/index.js";
+import type { BodyRegistry } from "../body/index.js";
 import type { PerceptEvent } from "../body/types.js";
 import type { LifeMemory } from "../memory/index.js";
 import type { ModeRegistry } from "../mode/index.js";
-import type { ModeContext, ModeHandle } from "../mode/types.js";
+import type { ModeActuatorInterest, ModeCapabilities, ModeContext, ModeHandle, ModePerceptInterest } from "../mode/types.js";
 import type { Scheduler } from "../scheduler/index.js";
 import type { ModeSchedulerAccess, ScheduledTaskOptions } from "../scheduler/types.js";
 import type { CreateLifeAgentInput, CreateLifeInput, Life, LifeHandle, ResumeLifeAgentInput, ResumeLifeInput } from "./types.js";
@@ -24,17 +25,23 @@ export class LifeRegistry extends Service {
     this.ctx.effect(() => {
       const dispose = this.ctx.on("body/percept", (event: PerceptEvent) => {
         for (const handle of this.lives.values()) {
-          if (handle.hasBody(event.bodyId)) void handle.dispatchPercept(event);
+          if (handle.hasBody(event.bodyId)) {
+            void Promise.resolve(handle.dispatchPercept(event)).catch((error: unknown) => this.ctx.emit("life/error", { id: handle.life.id, error }));
+          }
         }
       });
       const modeDispose = this.ctx.on("mode/disposed", (event: { id: string }) => {
         for (const handle of this.lives.values()) {
-          if (handle.activeModeId === event.id) void handle.setMode(undefined);
+          if (handle.activeModeId === event.id) {
+            void Promise.resolve(handle.setMode(undefined)).catch((error: unknown) => this.ctx.emit("life/error", { id: handle.life.id, error }));
+          }
         }
       });
       const bodyDispose = this.ctx.on("body/disposed", (event: { id: string }) => {
         for (const handle of this.lives.values()) {
-          if (handle.hasBody(event.id)) void handle.detachBody(event.id);
+          if (handle.hasBody(event.id)) {
+            void Promise.resolve(handle.detachBody(event.id)).catch((error: unknown) => this.ctx.emit("life/error", { id: handle.life.id, error }));
+          }
         }
       });
       return () => {
@@ -194,13 +201,19 @@ export class LifeRegistry extends Service {
       },
     };
 
-    const modeContext = (): ModeContext => ({
+    const modeContext = (capabilities?: ModeCapabilities): ModeContext => ({
       lifeId: life.id,
       life,
       session,
       bodies: {
         dispatch: <T>(bodyId: string, kind: string, data: T) => this.ctx.bodies.dispatch(bodyId, kind, data),
-        act: (bodyId: string, actuatorId: string, action: unknown) => this.ctx.bodies.act(bodyId, actuatorId, action),
+        act: async (bodyId: string, actuatorId: string, action: unknown) => {
+          const actuator = this.ctx.bodies.get(bodyId)?.actuators?.find((item) => item.id === actuatorId);
+          if (!canUseActuator(capabilities, bodyId, actuatorId, actuator?.kind)) {
+            throw new Error(`Mode is not allowed to use actuator: ${bodyId}/${actuatorId}`);
+          }
+          return this.ctx.bodies.act(bodyId, actuatorId, action);
+        },
       },
       memory: this.ctx.get("memory") as LifeMemory | undefined,
       scheduler: createModeScheduler(this.ctx, life.id),
@@ -234,19 +247,32 @@ export class LifeRegistry extends Service {
         if (disposed) throw new Error(`Life is disposed: ${life.id}`);
         const modes = this.ctx.get("modes") as ModeRegistry | undefined;
         if (!modes) throw new Error("ModeRegistry is not installed");
-        const created = await modes.create(name, config, modeContext());
-        await handle.setMode(created);
+        const definition = modes.get(name);
+        const created = await modes.create(name, config, modeContext(definition?.capabilities));
+        try {
+          await handle.setMode(created);
+        } catch (error) {
+          await stopMode(created);
+          throw error;
+        }
         return created;
       },
       dispatchPercept: async (event: PerceptEvent) => {
         if (activeMode?.disposed) activeMode = undefined;
-        return activeMode?.handle ? await activeMode.handle(event) : false;
+        if (!activeMode?.handle) return false;
+        if (!acceptsPercept(activeMode, event)) return false;
+        return await activeMode.handle(event);
       },
       attachBody: async (bodyId: string) => {
         if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+        const bodyRegistry = this.ctx.get("bodies") as BodyRegistry | undefined;
+        if (bodyRegistry && !bodyRegistry.get(bodyId)) {
+          throw new Error(`Body not registered: ${bodyId}`);
+        }
         bodies.add(bodyId);
       },
       detachBody: async (bodyId: string) => {
+        if (disposed) throw new Error(`Life is disposed: ${life.id}`);
         bodies.delete(bodyId);
       },
       hasBody: (bodyId: string) => bodies.has(bodyId),
@@ -274,6 +300,32 @@ async function stopMode(mode: ModeHandle | undefined): Promise<void> {
   else await mode.stop?.();
 }
 
+function acceptsPercept(mode: ModeHandle, event: PerceptEvent): boolean {
+  const capabilities = mode.capabilities;
+  if (!capabilities) return true;
+  if (capabilities.bodies && !capabilities.bodies.includes(event.bodyId)) return false;
+  return capabilities.percepts.some((interest) => matchesPerceptInterest(interest, event));
+}
+
+function matchesPerceptInterest(interest: ModePerceptInterest, event: PerceptEvent): boolean {
+  if (interest.body !== undefined && interest.body !== event.bodyId) return false;
+  if (interest.kind !== undefined && interest.kind !== event.kind) return false;
+  return true;
+}
+
+function canUseActuator(capabilities: ModeCapabilities | undefined, bodyId: string, actuatorId: string, kind: string | undefined): boolean {
+  if (!capabilities) return true;
+  if (capabilities.bodies && !capabilities.bodies.includes(bodyId)) return false;
+  return capabilities.actuators.some((interest) => matchesActuatorInterest(interest, bodyId, actuatorId, kind));
+}
+
+function matchesActuatorInterest(interest: ModeActuatorInterest, bodyId: string, actuatorId: string, kind: string | undefined): boolean {
+  if (interest.body !== undefined && interest.body !== bodyId) return false;
+  if (interest.actuator !== undefined && interest.actuator !== actuatorId) return false;
+  if (interest.kind !== undefined && interest.kind !== kind) return false;
+  return true;
+}
+
 function createModeScheduler(ctx: Context, lifeId: string): ModeSchedulerAccess | undefined {
   const scheduler = ctx.get("scheduler") as Scheduler | undefined;
   if (!scheduler) return undefined;
@@ -294,5 +346,9 @@ export const lifeRegistry = {
 declare module "cordis" {
   interface Context {
     lives: LifeRegistry;
+  }
+
+  interface Events {
+    "life/error"(event: { id: string; error: unknown }): void;
   }
 }

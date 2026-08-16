@@ -49,6 +49,7 @@ export class ModeRegistry extends Service {
       ...created,
       id,
       name: mode.name,
+      capabilities: mode.capabilities,
       get disposed() {
         return disposed;
       },

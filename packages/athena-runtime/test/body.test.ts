@@ -127,4 +127,23 @@ describe("body registry", () => {
 
     await fiber.dispose();
   });
+
+  it("still disposes Body when adapter stop fails", async () => {
+    const ctx = new Context();
+    const fiber = ctx.plugin(bodyRegistry);
+    await fiber;
+
+    const dispose = await ctx.bodies.registerAdapter({
+      id: "stop-broken",
+      start: async () => {},
+      stop: async () => {
+        throw new Error("stop failed");
+      },
+    });
+
+    await expect(dispose()).rejects.toThrow("stop failed");
+    expect(ctx.bodies.get("stop-broken")).toBeUndefined();
+
+    await fiber.dispose();
+  });
 });

@@ -73,6 +73,62 @@ describe("life and mode registries", () => {
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 
+  it("routes percepts only when Mode capabilities match", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    const percepts: string[] = [];
+    ctx.modes.register({
+      name: "world",
+      capabilities: {
+        driver: "continuous-mailbox",
+        percepts: [{ body: "minecraft", kind: "world/observation" }],
+        actuators: [],
+        scheduling: ["event"],
+        memory: ["facts"],
+        productState: ["world"],
+        bodies: ["minecraft"],
+      },
+      setup: async () => ({
+        handle: async (event) => {
+          percepts.push(event.kind);
+          return true;
+        },
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-capabilities" });
+    await handle.attachBody("minecraft");
+    await handle.attachBody("im");
+    const mode = await ctx.modes.create("world", {});
+    expect(mode.capabilities).toBeDefined();
+    await handle.setMode(mode);
+
+    await expect(
+      handle.dispatchPercept({
+        id: "percept-ignored",
+        time: Date.now(),
+        bodyId: "im",
+        kind: "message-created",
+        data: {},
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      handle.dispatchPercept({
+        id: "percept-accepted",
+        time: Date.now(),
+        bodyId: "minecraft",
+        kind: "world/observation",
+        data: { block: "dirt" },
+      }),
+    ).resolves.toBe(true);
+    expect(percepts).toEqual(["world/observation"]);
+
+    await ctx.lives.dispose("life-capabilities");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
   it("routes body percept events to attached lives", async () => {
     const ctx = new Context();
     const fibers = [ctx.plugin(bodyRegistry), ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
@@ -101,6 +157,36 @@ describe("life and mode registries", () => {
     expect(percepts).toEqual(["message-created"]);
 
     await ctx.lives.dispose("life-3");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("emits life/error when Mode percept handler rejects", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(bodyRegistry), ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    const errors: unknown[] = [];
+    ctx.on("life/error", (event) => errors.push(event.error));
+    ctx.modes.register({
+      name: "broken",
+      setup: async () => ({
+        handle: async () => {
+          throw new Error("boom");
+        },
+      }),
+    });
+    ctx.bodies.register({ id: "im", state: {} });
+
+    const handle = ctx.lives.create({ id: "life-error" });
+    await handle.attachBody("im");
+    await handle.setMode(await ctx.modes.create("broken", {}));
+
+    ctx.bodies.dispatch("im", "message-created", {});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(errors).toHaveLength(1);
+    expect((errors[0] as Error).message).toBe("boom");
+
+    await ctx.lives.dispose("life-error");
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 
@@ -165,6 +251,71 @@ describe("life and mode registries", () => {
     expect(handle.activeModeId).toBeUndefined();
 
     await ctx.lives.dispose("life-fail");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("disposes a created Mode when Life attach fails", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    const disposed: string[] = [];
+    ctx.on("mode/disposed", (event) => disposed.push(event.id));
+    ctx.modes.register({
+      name: "broken",
+      setup: async () => ({
+        start: async () => {
+          throw new Error("start failed");
+        },
+        stop: async () => {},
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-create-fail" });
+    await expect(handle.createMode("broken", {})).rejects.toThrow("start failed");
+    expect(disposed).toHaveLength(1);
+
+    await ctx.lives.dispose("life-create-fail");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("gates Mode actuator access by capabilities", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(bodyRegistry), ctx.plugin(modeRegistry), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    ctx.bodies.register({
+      id: "minecraft",
+      state: {},
+      actuators: [{ id: "move", kind: "world", act: async () => "ok" }],
+    });
+    ctx.bodies.register({
+      id: "im",
+      state: {},
+      actuators: [{ id: "send", kind: "chat", act: async () => "ok" }],
+    });
+    ctx.modes.register({
+      name: "world",
+      capabilities: {
+        driver: "continuous-mailbox",
+        percepts: [],
+        actuators: [{ body: "minecraft", actuator: "move" }],
+        scheduling: ["event"],
+        memory: ["facts"],
+        productState: ["world"],
+        bodies: ["minecraft"],
+      },
+      setup: async (modeCtx) => {
+        await expect(modeCtx.bodies!.act("im", "send", {})).rejects.toThrow(/not allowed/);
+        await expect(modeCtx.bodies!.act("minecraft", "move", {})).resolves.toBe("ok");
+        return {};
+      },
+    });
+
+    const handle = ctx.lives.create({ id: "life-actuator-gate" });
+    await handle.createMode("world", {});
+
+    await ctx.lives.dispose("life-actuator-gate");
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 
@@ -326,6 +477,31 @@ describe("life and mode registries", () => {
     await handle.dispose();
     expect(ctx.lives.get("life-idempotent")).toBeUndefined();
 
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("rejects detach after Life is disposed", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    const handle = ctx.lives.create({ id: "life-detach-late" });
+    await handle.dispose();
+    await expect(handle.detachBody("im")).rejects.toThrow(/disposed/);
+
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("rejects attaching an unregistered Body when BodyRegistry is installed", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(bodyRegistry), ctx.plugin(lifeRegistry)];
+    await Promise.all(fibers);
+
+    const handle = ctx.lives.create({ id: "life-attach-invalid" });
+    await expect(handle.attachBody("ghost")).rejects.toThrow(/not registered/);
+    expect(handle.life.bodyIds).toEqual([]);
+
+    await ctx.lives.dispose("life-attach-invalid");
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 

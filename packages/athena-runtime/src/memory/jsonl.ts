@@ -3,8 +3,8 @@ import { join } from "node:path";
 
 import type { Context } from "cordis";
 
-import { createId } from "../internal.js";
 import { LifeMemory } from "./index.js";
+import { createMemoryRecord } from "./record.js";
 import type { MemoryInput, MemoryRecallOptions, MemoryRecord } from "./types.js";
 
 /**
@@ -27,17 +27,7 @@ export class JsonlMemory extends LifeMemory {
   }
 
   async remember(input: MemoryInput): Promise<MemoryRecord> {
-    const record: MemoryRecord = {
-      id: createId("memory"),
-      lifeId: input.lifeId,
-      scope: input.scope,
-      category: input.category,
-      content: input.content,
-      importance: input.importance ?? 0.5,
-      confidence: input.confidence ?? 0.5,
-      ...(input.sourcePerceptId === undefined ? {} : { sourcePerceptId: input.sourcePerceptId }),
-      createdAt: Date.now(),
-    };
+    const record = createMemoryRecord(input);
     await this.append(input.lifeId, record);
     return record;
   }
