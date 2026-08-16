@@ -10,35 +10,35 @@ For the original prototype feature guides, see [archive/prototype-guides/](../ar
 
 ## Package Overview
 
-| Package | Purpose | Key Types |
-|---------|---------|-----------|
-| **@athena/session** | Append-only event log, Surface projection | `Session`, `SessionRegistry`, `Surface`, `SessionEvent` |
-| **@athena/tools** | Tool registration with scoped visibility | `ToolRegistry`, descriptor-only vs executors, tool gate |
-| **@athena/prompt** | System prompt composition | `SystemPrompt`, `PromptSection`, fingerprint caching |
-| **@athena/agent** | Agent interface and inbox | `Agent`, `AgentRegistry`, `AgentFactory`, `Inbox` (followup/steer/inject) |
-| **@athena/agent-loop** | React loop implementation | `ConcreteAgent`, turn runner, `ReactLoopAgentFactory` |
-| **@athena/persist-jsonl** | JSONL persistence | `JsonlHandler`, `JsonlSessionBinding` |
+| Package                   | Purpose                                   | Key Types                                                                 |
+| ------------------------- | ----------------------------------------- | ------------------------------------------------------------------------- |
+| **@athena/session**       | Append-only event log, Surface projection | `Session`, `SessionRegistry`, `Surface`, `SessionEvent`                   |
+| **@athena/tools**         | Tool registration with scoped visibility  | `ToolRegistry`, descriptor-only vs executors, tool gate                   |
+| **@athena/prompt**        | System prompt composition                 | `SystemPrompt`, `PromptSection`, fingerprint caching                      |
+| **@athena/agent**         | Agent interface and inbox                 | `Agent`, `AgentRegistry`, `AgentFactory`, `Inbox` (followup/steer/inject) |
+| **@athena/agent-loop**    | React loop implementation                 | `ConcreteAgent`, turn runner, `ReactLoopAgentFactory`                     |
+| **@athena/persist-jsonl** | JSONL persistence                         | `JsonlHandler`, `JsonlSessionBinding`                                     |
 
 ## Quick Start
 
 ### Basic Setup
 
 ```typescript
-import { Context } from 'cordis'
-import { sessionRegistry } from '@athena/session'
-import { toolRegistry } from '@athena/tools'
-import { systemPrompt } from '@athena/prompt'
-import { agentRegistry } from '@athena/agent'
-import { agentLoop } from '@athena/agent-loop'
-import { persistJsonl } from '@athena/persist-jsonl'
+import { Context } from "cordis";
+import { sessionRegistry } from "@athena/session";
+import { toolRegistry } from "@athena/tools";
+import { systemPrompt } from "@athena/prompt";
+import { agentRegistry } from "@athena/agent";
+import { agentLoop } from "@athena/agent-loop";
+import { persistJsonl } from "@athena/persist-jsonl";
 
-const ctx = new Context()
-ctx.plugin(sessionRegistry)
-ctx.plugin(toolRegistry)
-ctx.plugin(systemPrompt)
-ctx.plugin(agentRegistry)
-ctx.plugin(agentLoop)
-ctx.plugin(persistJsonl, { dir: './sessions' })
+const ctx = new Context();
+ctx.plugin(sessionRegistry);
+ctx.plugin(toolRegistry);
+ctx.plugin(systemPrompt);
+ctx.plugin(agentRegistry);
+ctx.plugin(agentLoop);
+ctx.plugin(persistJsonl, { dir: "./sessions" });
 
 // Create agent
 const handle = await ctx.agents.create({
@@ -46,17 +46,17 @@ const handle = await ctx.agents.create({
   maxSteps: 10,
   setup(agentCtx) {
     // Register scoped tools and prompt sections here
-  }
-})
+  },
+});
 
 // Send input
-handle.agent.followup({ role: 'user', content: 'Hello!' })
+handle.agent.followup({ role: "user", content: "Hello!" });
 
 // Wait for completion
-await handle.agent.whenIdle()
+await handle.agent.whenIdle();
 
 // Cleanup
-await handle.dispose()
+await handle.dispose();
 ```
 
 ## Usage Patterns
@@ -65,25 +65,25 @@ await handle.dispose()
 
 ```typescript
 // Global tool (visible to all agents)
-ctx.tools.register('get_weather', {
-  description: 'Get current weather',
+ctx.tools.register("get_weather", {
+  description: "Get current weather",
   parameters: z.object({ city: z.string() }),
-  execute: async ({ city }) => getWeather(city)
-})
+  execute: async ({ city }) => getWeather(city),
+});
 
 // Agent-scoped tool (only visible to this agent)
-const agentKey = Symbol('my-agent')
-ctx.tools.register('private_tool', myTool, agentKey)
+const agentKey = Symbol("my-agent");
+ctx.tools.register("private_tool", myTool, agentKey);
 
 // Get descriptors for streamText (no execute function)
-const descriptors = ctx.tools.descriptors(agentKey)
+const descriptors = ctx.tools.descriptors(agentKey);
 
 // Get executors for running tools (with execute function)
-const executors = ctx.tools.executors(agentKey)
+const executors = ctx.tools.executors(agentKey);
 
 // Tool gate (filter visible tools)
-const activeTools = new Set(['get_weather', 'search'])
-const gatedDescriptors = ctx.tools.descriptors(agentKey, activeTools)
+const activeTools = new Set(["get_weather", "search"]);
+const gatedDescriptors = ctx.tools.descriptors(agentKey, activeTools);
 ```
 
 ### Prompt Sections
@@ -91,20 +91,23 @@ const gatedDescriptors = ctx.tools.descriptors(agentKey, activeTools)
 ```typescript
 // Global section
 ctx.systemPrompt.add({
-  name: 'identity',
+  name: "identity",
   order: 0,
-  render: () => 'You are a helpful assistant.'
-})
+  render: () => "You are a helpful assistant.",
+});
 
 // Agent-scoped section
-ctx.systemPrompt.add({
-  name: 'agent-context',
-  order: 10,
-  render: async () => await getAgentContext()
-}, agentKey)
+ctx.systemPrompt.add(
+  {
+    name: "agent-context",
+    order: 10,
+    render: async () => await getAgentContext(),
+  },
+  agentKey,
+);
 
 // Assemble prompt
-const { system, rendered } = await ctx.systemPrompt.assemble(agentKey)
+const { system, rendered } = await ctx.systemPrompt.assemble(agentKey);
 // `rendered` is a fingerprint for deduplication
 ```
 
@@ -112,30 +115,30 @@ const { system, rendered } = await ctx.systemPrompt.assemble(agentKey)
 
 ```typescript
 // followup: next-turn slot, wakes loop, starts new Turn
-agent.followup({ role: 'user', content: 'Hello' })
+agent.followup({ role: "user", content: "Hello" });
 
 // steer: next-step slot, wakes loop, continues current Turn
-agent.steer({ role: 'user', content: 'Correction: use Celsius' })
+agent.steer({ role: "user", content: "Correction: use Celsius" });
 
 // inject: next-step slot, no wake, passive accumulation
-agent.inject({ role: 'user', content: 'Background info' })
+agent.inject({ role: "user", content: "Background info" });
 ```
 
 ### Session Access
 
 ```typescript
 // Access agent's session
-const session = handle.agent.session
+const session = handle.agent.session;
 
 // Append custom events
-session.append('custom/event', { data: 'value' })
+session.append("custom/event", { data: "value" });
 
 // Get snapshot
-const snapshot = session.snapshot()
+const snapshot = session.snapshot();
 
 // Access Surface (model-visible view)
-const surface = session.surface
-const messages = surface.deriveMessages(projectorMap)
+const surface = session.surface;
+const messages = surface.deriveMessages(projectorMap);
 ```
 
 ### Persistence
@@ -145,16 +148,16 @@ const messages = surface.deriveMessages(projectorMap)
 // Each session → {dir}/{id}.jsonl
 
 // Restore from JSONL
-const prepared = await ctx.sessions.persistence.prepare(sessionId)
-const session = ctx.sessions.restore(prepared.header, prepared.events)
-await prepared.close()
+const prepared = await ctx.sessions.persistence.prepare(sessionId);
+const session = ctx.sessions.restore(prepared.header, prepared.events);
+await prepared.close();
 
 // Resume agent from persisted session
 const handle = await ctx.agents.resume({
   id: sessionId,
   model: myLanguageModel,
-  maxSteps: 10
-})
+  maxSteps: 10,
+});
 ```
 
 ## Architecture
@@ -209,6 +212,7 @@ yarn workspace @athena/agent-loop test
 ## Archived Prototype Guides
 
 The original 13 feature guides describing `@yesimbot/harness-core` are preserved at:
+
 - **[../archive/prototype-guides/](../archive/prototype-guides/)**
 
 These show the evolution from prototype to canonical implementation.

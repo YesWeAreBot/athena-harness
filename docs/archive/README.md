@@ -7,6 +7,7 @@ This directory contains historical design exploration, superseded documents, and
 **[0814-exploration/](./0814-exploration/)** contains the August 14, 2026 deepseek-harness analysis and Athena design exploration session that led to the canonical spec at `docs/spark/2026-08-15-harness-core-design.md`.
 
 Contains:
+
 - `conversation-summary.md` — Structured summary of the 9-round conversation
 - `design-evaluation.md` — Architecture validation
 - `结论摘要.md` — Chinese summary of core decisions
@@ -24,7 +25,7 @@ These documents informed the architecture foundation but have been superseded by
 
 - **`design.md`** — Older harness-core prototype design (explicitly stated it should not override architecture-foundation.md)
 - **`positioning.md`** — Early project framing (harness vs runtime boundaries)
-- **`vision.md`** — Initial vision statement  
+- **`vision.md`** — Initial vision statement
 - **`mode-capability-scope.md`** — Mode capability exploration
 - **`contract-stability.md`** — Contract stability discussion
 
