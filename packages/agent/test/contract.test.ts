@@ -17,6 +17,7 @@ function stubAgent(id: string): Agent {
     followup: () => {},
     steer: () => {},
     inject: () => {},
+    setModel: () => {},
     cancel: () => {},
     whenIdle: () => Promise.resolve(),
   };

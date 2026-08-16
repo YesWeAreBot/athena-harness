@@ -6,7 +6,7 @@ import type { ActuatorOptions, ActuatorResult, PerceptEvent } from "../body/type
 import type { Awaitable } from "../internal.js";
 import type { Life } from "../life/types.js";
 import type { LifeMemory, MemoryProvider } from "../memory/index.js";
-import type { ModeSchedulerAccess, SchedulingKind } from "../scheduler/types.js";
+import type { ModeSchedulerAccess, ScheduledTaskHandle, ScheduledTaskOptions, SchedulingKind } from "../scheduler/types.js";
 
 export type ModeDriverKind = "finite-tool-loop" | "continuous-mailbox" | "narrative-decision" | "custom";
 
@@ -63,6 +63,14 @@ export interface ModeDeliveryProvider {
   readonly id: string;
   readonly kinds: readonly ModeDeliveryKind[];
   deliver?(target: unknown, payload: unknown): Awaitable<unknown>;
+}
+
+export interface ModeSchedulerProvider {
+  readonly id: string;
+  readonly kinds: readonly ModeSchedulingKind[];
+  schedule(options: ScheduledTaskOptions): ScheduledTaskHandle;
+  cancel(id: string): boolean;
+  cancelAll(): void;
 }
 
 export interface ModeModelAccess {
@@ -122,6 +130,7 @@ export interface ModeProviders {
   readonly model?: ModeModelProvider | readonly ModeModelProvider[];
   readonly state?: ModeStateProvider | readonly ModeStateProvider[];
   readonly delivery?: ModeDeliveryProvider | readonly ModeDeliveryProvider[];
+  readonly scheduler?: ModeSchedulerProvider | readonly ModeSchedulerProvider[];
 }
 
 export interface Mode<C = any> {

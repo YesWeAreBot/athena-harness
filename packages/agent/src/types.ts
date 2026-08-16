@@ -21,6 +21,7 @@ export interface Agent {
   /** Append to next-step slot without waking. Passive env accumulation. */
   inject(content: UserContent): void;
 
+  setModel(model: LanguageModel): void;
   cancel(cause?: unknown): void;
   whenIdle(): Promise<void>;
 }

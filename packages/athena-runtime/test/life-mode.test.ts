@@ -179,6 +179,40 @@ describe("life and mode registries", () => {
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 
+  it("wakes Life through a Life-level wake Percept", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    const received: unknown[] = [];
+    ctx.modes.register({
+      name: "chat",
+      capabilities: {
+        driver: "finite-tool-loop",
+        percepts: [{ body: "life", kind: "wake" }],
+        actuators: [],
+        scheduling: ["event"],
+        memory: [],
+        productState: [],
+      },
+      setup: async () => ({
+        handle: async (event) => {
+          received.push(event.data);
+          return true;
+        },
+      }),
+    });
+
+    const handle = ctx.lives.create({ id: "life-wake" });
+    await handle.createMode("chat", {});
+    await expect(handle.wake("world.tingle", { t: 1 })).resolves.toBe(true);
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({ reason: "world.tingle", data: { t: 1 } });
+
+    await ctx.lives.dispose("life-wake");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
   it("supports Mode hooks as the percept entry point", async () => {
     const ctx = new Context();
     const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
@@ -273,6 +307,65 @@ describe("life and mode registries", () => {
     expect(ctx.memory.listProviders()).toEqual([]);
 
     await ctx.lives.dispose("life-memory-provider");
+    await Promise.all(fibers.map((fiber) => fiber.dispose()));
+  });
+
+  it("exposes active Mode model/state/delivery providers through ModeContext", async () => {
+    const ctx = new Context();
+    const fibers = [ctx.plugin(SessionRegistry), ctx.plugin(lifeRegistry), ctx.plugin(modeRegistry)];
+    await Promise.all(fibers);
+
+    let captured: unknown;
+    let stateUpdated: unknown;
+    const modelProvider = {
+      id: "main-model",
+      roles: ["main"] as const,
+      get: async () => ({ id: "model-a" }),
+    };
+    const stateProvider = {
+      id: "story-state",
+      kinds: ["story"] as const,
+      get: async () => ({ arc: "arc-1" }),
+      set: async (next: unknown) => {
+        stateUpdated = next;
+      },
+    };
+    const deliveryProvider = {
+      id: "chat-delivery",
+      kinds: ["message"] as const,
+      deliver: async (target: unknown, payload: unknown) => ({ ok: true, target, payload }),
+    };
+    ctx.modes.register({
+      name: "providers",
+      setup: async (modeCtx) => {
+        captured = modeCtx;
+        return {
+          providers: {
+            model: modelProvider,
+            state: stateProvider,
+            delivery: deliveryProvider,
+          },
+        };
+      },
+    });
+
+    const handle = ctx.lives.create({ id: "life-mode-providers" });
+    await handle.createMode("providers", {});
+
+    const modeCtx = captured as {
+      model?: { resolve(role: string): { id?: string } | undefined };
+      state?: { get<T>(id: string): Promise<T | undefined>; set(id: string, value: unknown): Promise<void> };
+      delivery?: { deliver(kind: string, target: unknown, payload: unknown): Promise<unknown> };
+      media?: { save(ref: unknown): Promise<unknown> };
+    };
+    expect(modeCtx.model?.resolve("main")?.id).toBe("main-model");
+    await expect(modeCtx.state!.get("story-state")).resolves.toEqual({ arc: "arc-1" });
+    await modeCtx.state!.set("story-state", { arc: "arc-2" });
+    expect(stateUpdated).toEqual({ arc: "arc-2" });
+    await expect(modeCtx.delivery!.deliver("message", { channel: "1" }, { text: "hi" })).resolves.toMatchObject({ ok: true });
+    await expect(modeCtx.media!.save({})).rejects.toThrow(/Media provider is not installed/);
+
+    await ctx.lives.dispose("life-mode-providers");
     await Promise.all(fibers.map((fiber) => fiber.dispose()));
   });
 

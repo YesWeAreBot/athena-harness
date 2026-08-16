@@ -149,4 +149,42 @@ describe("life agent-loop wiring", () => {
       await Promise.all(fibers.map((fiber) => fiber.dispose()));
     }
   });
+
+  it("switches Life Agent model through Mode model provider", async () => {
+    const { ctx, fibers } = await setupLife();
+    try {
+      const first = new MockLanguageModelV4();
+      const second = new MockLanguageModelV4();
+      const changed: unknown[] = [];
+      ctx.on("model/changed", (event) => changed.push(event));
+      ctx.modes.register({
+        name: "model-mode",
+        setup: async () => ({
+          providers: {
+            model: {
+              id: "main",
+              roles: ["main"] as const,
+              get: async () => second,
+            },
+          },
+        }),
+      });
+
+      const handle = await ctx.lives.createWithAgent({
+        id: "life-model",
+        agentLoop: { model: first, maxSteps: 1 },
+      });
+      await handle.createMode("model-mode", {});
+      expect(handle.agent?.model).toBe(first);
+
+      await handle.setModel("main");
+      expect(handle.agent?.model).toBe(second);
+      expect(changed).toHaveLength(1);
+      expect(changed[0]).toMatchObject({ id: "life-model", providerId: "main" });
+
+      await handle.dispose();
+    } finally {
+      await Promise.all(fibers.map((fiber) => fiber.dispose()));
+    }
+  });
 });

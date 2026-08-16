@@ -210,4 +210,17 @@ describe("agent-loop turn lifecycle", () => {
     expect(ctx.sessions.get(session.id)).toBe(session);
     ctx.sessions.remove(session.id);
   });
+
+  it("setModel swaps the model for later turns", async () => {
+    const ctx = await setup();
+    const first = makeStreamModel("first");
+    const second = makeStreamModel("second");
+
+    const handle = await ctx.agents.create({ model: first });
+    expect(handle.agent.model).toBe(first);
+    handle.agent.setModel(second);
+    expect(handle.agent.model).toBe(second);
+
+    await handle.dispose();
+  });
 });

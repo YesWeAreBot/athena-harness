@@ -8,6 +8,7 @@ import type { AgentLoopAccess } from "../agent-loop/types.js";
 import "../body/index.js";
 import type { BodyRegistry } from "../body/index.js";
 import type { ActuatorOptions, PerceptEvent } from "../body/types.js";
+import { createId } from "../internal.js";
 import type { LifeMemory } from "../memory/index.js";
 import type { ModeRegistry } from "../mode/index.js";
 import type { ModeActuatorInterest, ModeCapabilities, ModeContext, ModeHandle, ModePerceptInterest } from "../mode/types.js";
@@ -253,10 +254,78 @@ export class LifeRegistry extends Service {
         },
       },
       memory: this.ctx.get("memory") as LifeMemory | undefined,
-      scheduler: createModeScheduler(this.ctx, life.id),
+      scheduler: {
+        schedule: (options) => {
+          const provider = providerList(activeMode?.providers?.scheduler).find((item) => item.kinds.includes(options.kind));
+          if (provider) return provider.schedule({ ...options, lifeId: life.id });
+          const global = createModeScheduler(this.ctx, life.id);
+          if (!global) throw new Error("Scheduler is not installed");
+          return global.schedule(options);
+        },
+        cancel: (id) => {
+          const global = createModeScheduler(this.ctx, life.id);
+          if (global?.cancel(id)) return true;
+          return providerList(activeMode?.providers?.scheduler).some((provider) => provider.cancel(id));
+        },
+        cancelAll: () => {
+          createModeScheduler(this.ctx, life.id)?.cancelAll();
+          for (const provider of providerList(activeMode?.providers?.scheduler)) provider.cancelAll();
+        },
+      },
       agentLoop: this.ctx.get("agentLoop") as AgentLoopAccess | undefined,
       agent: agentHandle?.agent,
+      model: {
+        list: () => providerList(activeMode?.providers?.model),
+        resolve: (role) => providerList(activeMode?.providers?.model).find((provider) => provider.roles.includes(role)),
+      },
+      state: {
+        get: async <T>(id: string): Promise<T | undefined> => {
+          const provider = providerList(activeMode?.providers?.state).find((item) => item.id === id);
+          return provider ? ((await provider.get()) as T) : undefined;
+        },
+        set: async <T>(id: string, value: T): Promise<void> => {
+          const provider = providerList(activeMode?.providers?.state).find((item) => item.id === id);
+          if (!provider?.set) throw new Error(`State provider is not installed or has no set: ${id}`);
+          await provider.set(value);
+        },
+      },
+      delivery: {
+        deliver: async (kind, target, payload) => {
+          const provider = providerList(activeMode?.providers?.delivery).find((item) => item.kinds.includes(kind));
+          if (!provider?.deliver) throw new Error(`Delivery provider is not installed: ${kind}`);
+          return provider.deliver(target, payload);
+        },
+      },
+      media: {
+        list: () => [],
+        save: async () => {
+          throw new Error("Media provider is not installed");
+        },
+      },
     });
+
+    const routePercept = async (originalEvent: PerceptEvent): Promise<boolean> => {
+      if (activeMode?.disposed) activeMode = undefined;
+      let event = originalEvent;
+      const reject = (reason: PerceptRejectReason, modeId?: string): false => {
+        this.ctx.emit("percept/rejected", { id: life.id, modeId, event, reason });
+        return false;
+      };
+      if (perceptPipeline?.attention && !(await perceptPipeline.attention(event))) return reject("attention");
+      if (perceptPipeline?.compact) event = await perceptPipeline.compact(event);
+      if (!activeMode) return reject("no-mode");
+      if (!acceptsPercept(activeMode, event)) return reject("capabilities", activeMode.id);
+      const hookResult = await activeMode.hooks?.onPercept?.(event, {
+        lifeId: life.id,
+        modeId: activeMode.id,
+        session,
+      });
+      if (hookResult === false) return reject("hook", activeMode.id);
+      if (!activeMode.handle && hookResult !== true) return reject("no-mode", activeMode.id);
+      const handled = activeMode.handle ? await activeMode.handle(event) : true;
+      this.ctx.emit("percept/routed", { id: life.id, modeId: activeMode.id, event, handled });
+      return handled;
+    };
 
     const handle: LifeHandle = {
       life,
@@ -288,28 +357,16 @@ export class LifeRegistry extends Service {
           }
           return created;
         }),
-      dispatchPercept: (originalEvent) =>
+      dispatchPercept: (originalEvent) => enqueue(() => routePercept(originalEvent)),
+      wake: (reason, data) => enqueue(() => routePercept(createWakeEvent(reason, data))),
+      setModel: (providerId) =>
         enqueue(async () => {
-          if (activeMode?.disposed) activeMode = undefined;
-          let event = originalEvent;
-          const reject = (reason: PerceptRejectReason, modeId?: string): false => {
-            this.ctx.emit("percept/rejected", { id: life.id, modeId, event, reason });
-            return false;
-          };
-          if (perceptPipeline?.attention && !(await perceptPipeline.attention(event))) return reject("attention");
-          if (perceptPipeline?.compact) event = await perceptPipeline.compact(event);
-          if (!activeMode) return reject("no-mode");
-          if (!acceptsPercept(activeMode, event)) return reject("capabilities", activeMode.id);
-          const hookResult = await activeMode.hooks?.onPercept?.(event, {
-            lifeId: life.id,
-            modeId: activeMode.id,
-            session,
-          });
-          if (hookResult === false) return reject("hook", activeMode.id);
-          if (!activeMode.handle && hookResult !== true) return reject("no-mode", activeMode.id);
-          const handled = activeMode.handle ? await activeMode.handle(event) : true;
-          this.ctx.emit("percept/routed", { id: life.id, modeId: activeMode.id, event, handled });
-          return handled;
+          if (disposed) throw new Error(`Life is disposed: ${life.id}`);
+          if (!agentHandle?.agent) throw new Error("Life has no Agent");
+          const provider = providerList(activeMode?.providers?.model).find((item) => item.id === providerId);
+          if (!provider) throw new Error(`Model provider not found: ${providerId}`);
+          agentHandle.agent.setModel((await provider.get()) as never);
+          this.ctx.emit("model/changed", { id: life.id, providerId, model: agentHandle.agent.model });
         }),
       attachBody: (bodyId) =>
         enqueue(async () => {
@@ -379,6 +436,22 @@ function matchesActuatorInterest(interest: ModeActuatorInterest, bodyId: string,
   return true;
 }
 
+function providerList<T>(value: T | readonly T[] | undefined): readonly T[] {
+  if (value === undefined) return [];
+  if (Array.isArray(value)) return value as readonly T[];
+  return [value as T];
+}
+
+function createWakeEvent(reason: string, data?: unknown): PerceptEvent {
+  return {
+    id: createId("wake"),
+    time: Date.now(),
+    bodyId: "life",
+    kind: "wake",
+    data: { reason, ...(data === undefined ? {} : { data }) },
+  };
+}
+
 function createModeScheduler(ctx: Context, lifeId: string): ModeSchedulerAccess | undefined {
   const scheduler = ctx.get("scheduler") as Scheduler | undefined;
   if (!scheduler) return undefined;
@@ -405,6 +478,7 @@ declare module "cordis" {
     "life/created"(event: { id: string; life: Life }): void;
     "life/disposed"(event: { id: string }): void;
     "life/error"(event: { id: string; error: unknown }): void;
+    "model/changed"(event: { id: string; providerId: string; model: unknown }): void;
     "percept/routed"(event: { id: string; modeId: string; event: PerceptEvent; handled: boolean }): void;
     "percept/rejected"(event: { id: string; modeId?: string; event: PerceptEvent; reason: PerceptRejectReason }): void;
   }

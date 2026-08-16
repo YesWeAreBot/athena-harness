@@ -55,6 +55,8 @@ Confirmed contracts:
 - a Life can attach Body ids;
 - `LifeRegistry` routes matching `body/percept` events to that Life's active Mode.
 - LifeHandle serializes lifecycle operations and exposes an explicit `disposed` state.
+- `LifeHandle.wake()` routes a Life-level wake Percept through the same attention/compact/Mode pipeline.
+- `LifeHandle.setModel()` resolves the active Mode model provider and emits `model/changed`.
 
 ## AgentLoop Wiring
 
@@ -81,6 +83,7 @@ Confirmed contracts:
 - Mode memory providers are registered into the Life memory facade and unregistered when the Mode is disposed;
 - Mode capabilities may declare model roles, state kinds, and delivery kinds;
 - Mode providers may declare model, state, and delivery implementations;
+- Mode providers may declare a scheduler implementation; ModeContext.scheduler prefers it and falls back to the Life scheduler;
 - ModeContext reserves model, state, delivery, and media access surfaces for Mode-specific composition;
 - Chat, World, and Interlude are future Mode consumers.
 
@@ -131,12 +134,14 @@ unregisters providers when the owning Mode is disposed.
 - 2026-08-16: LifeMemory exposes registerProvider/unregisterProvider/listProviders so Modes can contribute scoped memory while Life remains the unified facade.
 - 2026-08-16: Mode hooks and Mode providers are the first composition seams beyond setup/handle.
 - 2026-08-16: Mode boundary is defined as capabilities + providers + hooks + Life-owned context, not a shared internal execution flow.
+- 2026-08-16: Mode scheduler providers are cancelled when the Mode is disposed.
+- 2026-08-16: LifeHandle.wake and LifeHandle.setModel are the first Life-owned active behavior and model switching entry points.
 
 ## Pending
 
 - Derived Memory, compaction, and forgetting policy;
 - WebUI;
-- model provider and model hot-switching;
+- global ModelProvider registry, failover, and provider cooldown;
 - Mode-specific behavior.
 - Chat, World, and Interlude Mode contract tests that verify the Mode boundary without importing product internals.
 

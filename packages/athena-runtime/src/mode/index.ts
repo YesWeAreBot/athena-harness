@@ -84,6 +84,7 @@ export class ModeRegistry extends Service {
           await created.dispose?.();
         }
         for (const dispose of disposeMemory) dispose();
+        for (const provider of providerList(created.providers?.scheduler)) provider.cancelAll();
         if (lifeId) {
           (this.ctx.get("scheduler") as { cancelByLife(lifeId: string): void } | undefined)?.cancelByLife(lifeId);
         }
@@ -108,6 +109,12 @@ export class ModeRegistry extends Service {
     await Promise.allSettled(entries.map((entry) => entry.handle.dispose?.()));
     this.definitions.delete(name);
   }
+}
+
+function providerList<T>(value: T | readonly T[] | undefined): readonly T[] {
+  if (value === undefined) return [];
+  if (Array.isArray(value)) return value as readonly T[];
+  return [value as T];
 }
 
 export const modeRegistry = {

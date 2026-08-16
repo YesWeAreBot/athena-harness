@@ -22,6 +22,8 @@ export interface LifeHandle {
   setMode(mode: ModeHandle | undefined): Awaitable<void>;
   createMode<C = any>(name: string, config: C): Promise<ModeHandle>;
   dispatchPercept(event: PerceptEvent): Awaitable<boolean>;
+  wake(reason: string, data?: unknown): Awaitable<boolean>;
+  setModel(providerId: string): Awaitable<void>;
   attachBody(bodyId: string): Awaitable<void>;
   detachBody(bodyId: string): Awaitable<void>;
   hasBody(bodyId: string): boolean;

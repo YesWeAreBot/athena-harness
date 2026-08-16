@@ -9,10 +9,10 @@ import { runTurn } from "./turn-runner.js";
 export class ConcreteAgent implements Agent {
   readonly id: string;
   readonly session: Session;
-  readonly model: import("ai").LanguageModel;
   readonly maxSteps: number;
   readonly agentKey: symbol;
 
+  private _model: import("ai").LanguageModel;
   private _status: AgentStatus = "idle";
   private _inbox = new Inbox();
   private _ctrl: AbortController | undefined;
@@ -25,7 +25,7 @@ export class ConcreteAgent implements Agent {
   constructor(opts: { id: string; session: Session; model: import("ai").LanguageModel; maxSteps: number; ctx: Context; binding?: SessionBinding }) {
     this.id = opts.id;
     this.session = opts.session;
-    this.model = opts.model;
+    this._model = opts.model;
     this.maxSteps = opts.maxSteps;
     this.agentKey = Symbol(opts.id);
     this._ctx = opts.ctx;
@@ -34,6 +34,10 @@ export class ConcreteAgent implements Agent {
 
   get status(): AgentStatus {
     return this._status;
+  }
+
+  get model(): import("ai").LanguageModel {
+    return this._model;
   }
 
   followup(content: UserContent): void {
@@ -52,6 +56,11 @@ export class ConcreteAgent implements Agent {
     this._assertNotDisposed();
     this._inbox.pushStep(content);
     // no wake — passive accumulation
+  }
+
+  setModel(model: import("ai").LanguageModel): void {
+    this._assertNotDisposed();
+    this._model = model;
   }
 
   cancel(cause?: unknown): void {
