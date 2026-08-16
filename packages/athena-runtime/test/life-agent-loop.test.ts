@@ -254,10 +254,10 @@ describe("life agent-loop wiring", () => {
         canDeliver: (target: unknown) => (target as { channel?: string }).channel === "a",
         deliver: async () => {
           delivered = true;
-          return { id: "delivery-1", status: "delivered" };
+          return { id: "delivery-1", status: "delivered" as const };
         },
         schedule: async () => {
-          return { id: "delivery-2", status: "delayed", scheduledAt: Date.now() + 1000 };
+          return { id: "delivery-2", status: "delayed" as const, scheduledAt: Date.now() + 1000 };
         },
         cancel: async () => {
           return true;
@@ -269,10 +269,10 @@ describe("life agent-loop wiring", () => {
         canDeliver: (target: unknown) => (target as { channel?: string }).channel === "b",
         deliver: async () => {
           deliveredB = true;
-          return { id: "delivery-b", status: "delivered" };
+          return { id: "delivery-b", status: "delivered" as const };
         },
         schedule: async () => {
-          return { id: "delivery-b-delayed", status: "delayed", scheduledAt: Date.now() + 1000 };
+          return { id: "delivery-b-delayed", status: "delayed" as const, scheduledAt: Date.now() + 1000 };
         },
         cancel: async () => {
           return true;
@@ -308,7 +308,7 @@ describe("life agent-loop wiring", () => {
       ctx.deliveryProviders.register({
         id: "global-delivery",
         kinds: ["message"] as const,
-        deliver: async () => ({ id: "delivery-1", status: "delivered" }),
+        deliver: async () => ({ id: "delivery-1", status: "delivered" as const }),
       });
 
       const handle = await ctx.lives.createWithAgent({

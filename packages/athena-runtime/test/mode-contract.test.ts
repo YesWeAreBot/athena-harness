@@ -193,7 +193,7 @@ describe("Mode contract: future projects as composition", () => {
           schedules++;
           return {
             id: "task-1",
-            kind: "tingle",
+            kind: "tingle" as const,
             nextRunAt: Date.now() + 10,
             cancel: () => {
               cancelled++;

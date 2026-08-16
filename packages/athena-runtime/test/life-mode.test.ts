@@ -353,8 +353,8 @@ describe("life and mode registries", () => {
     const deliveryProvider = {
       id: "chat-delivery",
       kinds: ["message"] as const,
-      deliver: async () => ({ id: "delivery-1", status: "delivered" }),
-      schedule: async () => ({ id: "delivery-2", status: "delayed", scheduledAt: Date.now() + 1000 }),
+      deliver: async () => ({ id: "delivery-1", status: "delivered" as const }),
+      schedule: async () => ({ id: "delivery-2", status: "delayed" as const, scheduledAt: Date.now() + 1000 }),
       cancel: async () => true,
       dispose: async () => {
         disposed.push("delivery");
