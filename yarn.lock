@@ -42,7 +42,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@athena/agent-loop@workspace:^, @athena/agent-loop@workspace:packages/agent-loop":
+"@athena/agent-loop@npm:0.0.0, @athena/agent-loop@workspace:^, @athena/agent-loop@workspace:packages/agent-loop":
   version: 0.0.0-use.local
   resolution: "@athena/agent-loop@workspace:packages/agent-loop"
   dependencies:
@@ -67,7 +67,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@athena/persist-jsonl@workspace:packages/persist-jsonl":
+"@athena/persist-jsonl@npm:0.0.0, @athena/persist-jsonl@workspace:packages/persist-jsonl":
   version: 0.0.0-use.local
   resolution: "@athena/persist-jsonl@workspace:packages/persist-jsonl"
   dependencies:
@@ -692,7 +692,61 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@yesimbot/athena-runtime@workspace:^, @yesimbot/athena-runtime@workspace:packages/athena-runtime":
+"@yesimbot/athena-cli@workspace:packages/athena-cli":
+  version: 0.0.0-use.local
+  resolution: "@yesimbot/athena-cli@workspace:packages/athena-cli"
+  dependencies:
+    "@yesimbot/athena-config": "npm:0.0.0"
+    "@yesimbot/athena-runtime-api": "npm:0.0.0"
+    "@yesimbot/athena-runtime-manager": "npm:0.0.0"
+  bin:
+    athena: ./lib/bin.js
+  languageName: unknown
+  linkType: soft
+
+"@yesimbot/athena-config@npm:0.0.0, @yesimbot/athena-config@workspace:packages/athena-config":
+  version: 0.0.0-use.local
+  resolution: "@yesimbot/athena-config@workspace:packages/athena-config"
+  dependencies:
+    yaml: "npm:^2.9.0"
+    zod: "npm:^3.25.76"
+  languageName: unknown
+  linkType: soft
+
+"@yesimbot/athena-console@npm:0.0.0, @yesimbot/athena-console@workspace:packages/athena-console":
+  version: 0.0.0-use.local
+  resolution: "@yesimbot/athena-console@workspace:packages/athena-console"
+  languageName: unknown
+  linkType: soft
+
+"@yesimbot/athena-runtime-api@npm:0.0.0, @yesimbot/athena-runtime-api@workspace:packages/athena-runtime-api":
+  version: 0.0.0-use.local
+  resolution: "@yesimbot/athena-runtime-api@workspace:packages/athena-runtime-api"
+  dependencies:
+    "@yesimbot/athena-console": "npm:0.0.0"
+    "@yesimbot/athena-runtime-manager": "npm:0.0.0"
+  languageName: unknown
+  linkType: soft
+
+"@yesimbot/athena-runtime-manager@npm:0.0.0, @yesimbot/athena-runtime-manager@workspace:packages/athena-runtime-manager":
+  version: 0.0.0-use.local
+  resolution: "@yesimbot/athena-runtime-manager@workspace:packages/athena-runtime-manager"
+  dependencies:
+    "@athena/agent": "npm:0.0.0"
+    "@athena/agent-loop": "npm:0.0.0"
+    "@athena/persist-jsonl": "npm:0.0.0"
+    "@athena/prompt": "npm:0.0.0"
+    "@athena/session": "npm:0.0.0"
+    "@athena/tools": "npm:0.0.0"
+    "@yesimbot/athena-config": "npm:0.0.0"
+    "@yesimbot/athena-runtime": "npm:0.0.0"
+    ai: "npm:^7.0.0"
+    cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
+  languageName: unknown
+  linkType: soft
+
+"@yesimbot/athena-runtime@npm:0.0.0, @yesimbot/athena-runtime@workspace:^, @yesimbot/athena-runtime@workspace:packages/athena-runtime":
   version: 0.0.0-use.local
   resolution: "@yesimbot/athena-runtime@workspace:packages/athena-runtime"
   dependencies:

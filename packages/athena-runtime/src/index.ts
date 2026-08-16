@@ -9,6 +9,7 @@ export * from "./life/index.js";
 export * from "./life/types.js";
 export * from "./media-store/index.js";
 export * from "./memory/index.js";
+export * from "./mode-pipeline/index.js";
 export * from "./model-provider/index.js";
 export * from "./mode/index.js";
 export * from "./mode/types.js";

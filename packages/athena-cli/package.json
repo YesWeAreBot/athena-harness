@@ -1,0 +1,30 @@
+{
+  "name": "@yesimbot/athena-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "athena": "./lib/bin.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf lib tsconfig.tsbuildinfo",
+    "lint": "oxlint src",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@yesimbot/athena-config": "0.0.0",
+    "@yesimbot/athena-runtime-api": "0.0.0",
+    "@yesimbot/athena-runtime-manager": "0.0.0"
+  }
+}

@@ -1,6 +1,6 @@
 # Athena Runtime Application Layer Design
 
-**Status:** Proposed
+**Status:** Proposed, with first vertical slice implemented
 **Date:** 2026-08-16
 **Scope:** User-facing runtime layer above `@yesimbot/athena-runtime` and the canonical `@athena/*` core.
 
@@ -395,3 +395,21 @@ athena log follow
 3. Management API.
 4. Web console.
 5. Migrate one real Mode and one real Body.
+
+## 17. First Vertical Slice
+
+Implemented in this pass:
+
+- `packages/athena-config`: zod schema, YAML/JSON loading, env substitution.
+- `packages/athena-runtime-manager`: Cordis bootstrap, builtin pipeline/body registration, Life reconciliation.
+- `packages/athena-runtime-api`: management endpoints and static console serving.
+- `packages/athena-console`: lightweight browser dashboard.
+- `packages/athena-cli`: `init`, `validate`, `start`, and `life:list`.
+- `athena-runtime/src/mode-pipeline`: Trigger -> Context -> Execute -> Interpret -> Effects -> Continuation runner.
+
+Still missing:
+
+- Mode/Body package manifest loader with dynamic package installation.
+- Real product Mode migration.
+- Full Life/Body/model/delivery management API.
+- Console authentication and editing of configured resources.
