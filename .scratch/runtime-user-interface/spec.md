@@ -111,12 +111,12 @@ The runtime treats Modes and Bodies as plugins with stronger contracts, not as s
 
 ## 5. Ownership Summary
 
-| Entity | Owns | Does not own |
-| --- | --- | --- |
-| Life | identity, Life memory, Session, Body attachment, Mode selection | execution, platform, model |
-| Mode | trigger, context, execution, interpretation, effects, continuation | Life identity, real platform connections |
-| Body | real connection, Percept, actuator, state | Mode narrative, model execution |
-| Runtime | package loading, config, Life reconciliation, plugin lifecycle | product logic |
+| Entity  | Owns                                                               | Does not own                             |
+| ------- | ------------------------------------------------------------------ | ---------------------------------------- |
+| Life    | identity, Life memory, Session, Body attachment, Mode selection    | execution, platform, model               |
+| Mode    | trigger, context, execution, interpretation, effects, continuation | Life identity, real platform connections |
+| Body    | real connection, Percept, actuator, state                          | Mode narrative, model execution          |
+| Runtime | package loading, config, Life reconciliation, plugin lifecycle     | product logic                            |
 
 ## 6. Mode Pipeline
 

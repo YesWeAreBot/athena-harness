@@ -2,12 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { createId } from "../internal.js";
-import type {
-  ModeDeliveryKind,
-  ModeDeliveryProvider,
-  ModeDeliveryReceipt,
-  ModeDeliverySchedule,
-} from "../mode/types.js";
+import type { ModeDeliveryKind, ModeDeliveryProvider, ModeDeliveryReceipt, ModeDeliverySchedule } from "../mode/types.js";
 
 export type PendingDeliveryStatus = "pending" | "delivered" | "cancelled" | "failed";
 
