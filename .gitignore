@@ -173,8 +173,6 @@ yarn-error.log
 
 # Add here any additional files/directories you want to ignore in your project
 
-.agents/
-.claude/
+!.agents/skills/
+!.claude/skills/
 lib/
-
-skills-lock.json
