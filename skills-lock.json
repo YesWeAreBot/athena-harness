@@ -43,12 +43,6 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "bce096b49db40761adb1d5348f064c303fc152e4e50fc3fd81b79df8b6cf137f"
     },
-    "migrate-to-shoehorn": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/misc/migrate-to-shoehorn/SKILL.md",
-      "computedHash": "6397731ced114f3657aa88b55ed13d1344a56d77ca449c568e3200c21740fa99"
-    },
     "research": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -84,12 +78,6 @@
       "sourceType": "github",
       "skillPath": "skills/productivity/to-questionnaire/SKILL.md",
       "computedHash": "d8938509f3400d9977343e11e876fc6e1982b0b9c133a2f2e9d3d730a67a103e"
-    },
-    "wayfinder": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/wayfinder/SKILL.md",
-      "computedHash": "f343ecf46157cb645a5494644418308ad95391e9fc696faa47ae5a412bf5f6e4"
     },
     "writing-for-agents": {
       "source": "mattpocock/skills",

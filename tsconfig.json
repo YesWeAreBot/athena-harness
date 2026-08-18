@@ -1,7 +1,3 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "noEmit": true
-  },
-  "include": ["packages/athena-runtime/src", "packages/athena-runtime/test"]
+  "extends": "./tsconfig.base.json"
 }
