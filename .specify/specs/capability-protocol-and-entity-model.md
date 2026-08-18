@@ -4,7 +4,9 @@
 
 **Created**: 2026-08-17
 
-**Status**: Draft
+**Status**: ~~Draft~~ **SUPERSEDED**
+
+> ⚠️ **This spec is fully superseded.** See `spirit-pulse-medium-domain-model.md` (conceptual model), `satori-capability-architecture.md` (IM implementation), and `naming-and-package-architecture.md` (final naming and package design). Retained for historical reference only.
 
 **Input**: User description: "Domain modeling session for Athena Harness framework. Establish core entity model (Life, Mode, Agent, Capability Protocol, Adapter) replacing the previous Body-based design. Define how a digital life discovers, inhabits, and acts through abstract capability interfaces — platform-agnostic, supporting IM, 3D worlds, expression systems, and physical embodiments."
 

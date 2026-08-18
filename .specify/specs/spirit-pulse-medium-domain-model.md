@@ -4,11 +4,20 @@
 
 **Created**: 2026-08-18
 
-**Status**: Draft
+**Status**: Draft → **Conceptual foundation** (naming and implementation details refined by later specs)
 
-> **⚠️ Naming Caveat**: "Spirit", "Pulse", "Medium" are **provisional working terms** used throughout this document for conceptual clarity. They are NOT finalized names. The three-primitive structural model (identity / survival-strategy / world-interface) is the design decision; the specific terminology remains open for discussion.
+> **⚠️ Naming Resolution**: The provisional terms in this document have been finalized in `naming-and-package-architecture.md` (D-20):
+> - **Spirit → Life** | **Pulse → Cortex** | **Medium → Nerve**
+> - **Life Config → Instance** | **Pulse Preset → Cortex Preset**
+>
+> **⚠️ Implementation Updates**: Several implementation details in this document have been refined by later specs:
+> - **Sense Queue / pull-based perception → SUPERSEDED** by D-05/D-28: Events are push-based via Cordis. Cortex self-manages buffering internally. See `satori-capability-architecture.md`.
+> - **Medium as framework class → NOT NEEDED for IM**: Satori Adapter + Bot inside MessageService isolation fulfills Nerve responsibilities. See `satori-capability-architecture.md` D-01 revised.
+> - **Capability registration → Capability packages** with isolation domains (D-27). Cortex injects `message`, not `satori`. See `naming-and-package-architecture.md`.
+>
+> The **conceptual model** (three primitives, their relationships, three-layer tools, composition examples) remains the authoritative reference. Read naming as updated above.
 
-**Input**: Domain modeling session for Athena Harness. Establish a first-principles entity model (Spirit, Pulse, Medium) for a native digital life framework, replacing all prior Body/Mode/Capability-Protocol designs. Define how a digital existence persists identity, operates through a survival strategy, and interfaces with the world through media — platform-agnostic, supporting IM, 3D worlds, expression systems, and physical embodiments.
+**Input**: Domain modeling session for Athena Harness. Establish a first-principles entity model (Life, Cortex, Nerve) for a native digital life framework, replacing all prior Body/Mode/Capability-Protocol designs. Define how a digital existence persists identity, operates through a survival strategy, and interfaces with the world through nerves — platform-agnostic, supporting IM, 3D worlds, expression systems, and physical embodiments.
 
 ## Design Philosophy
 
@@ -100,7 +109,7 @@ Each Medium provides:
 
 **Not mutually exclusive**: A digital life exists in ALL its active Media simultaneously. Pulse faces the confluence of all Media, not one at a time.
 
-**Pull-based perception**: Media maintain sense queues. Pulse drains them at its own rhythm. Chat Pulse drains immediately; World Pulse drains on its heartbeat schedule; Narrative Pulse drains after debounce.
+**~~Pull-based perception~~** (**SUPERSEDED** — see D-05/D-28): Events are push-based via Cordis. Cortex subscribes to events and self-manages consumption strategy (immediate for Chat, buffered for World, debounced for Interlude).
 
 **Cordis mapping**: Medium = a plugin providing services (structured capabilities + tool registrations). Hot-installable and hot-removable via Cordis plugin lifecycle.
 
@@ -154,7 +163,7 @@ Spirit  ←→  Pulse  ←→  Medium(s)
 ```
 
 - **Spirit → Pulse**: Spirit activates a Pulse. Pulse references Spirit for persona continuity.
-- **Pulse → Medium**: Pulse declares what structured capabilities it needs. Pulse collects tools from Medium(s). Pulse drains Medium sense queues.
+- **Pulse → Medium**: Pulse declares what structured capabilities it needs. Pulse collects tools from Medium(s). Pulse subscribes to Medium events via Cordis event system.
 - **Spirit → Medium**: Indirect. Spirit does not interact with Medium directly; everything is mediated by Pulse.
 
 ### Composition Examples
@@ -174,14 +183,14 @@ Spirit  ←→  Pulse  ←→  Medium(s)
 When multiple Media are active, Pulse must integrate their perceptions into a unified "moment of consciousness."
 
 ```
-     ┌──── Medium A (IM) ─── sense queue ──┐
-     │                                      │
-Pulse│──── Medium B (World) ── sense queue ──┼──→ Integration → Cognition → Enactment
-     │                                      │         ↑
-     └──── Medium C (Live2D) ─ sense queue ──┘         │
-                                                  Rhythm control
-                                                (when to produce next
-                                                  consciousness moment)
+     ┌──── Nerve A (IM) ─── Cordis events ──┐
+     │                                       │
+Cortex──── Nerve B (World) ── Cordis events ──┼──→ Integration → Cognition → Enactment
+     │                                       │         ↑
+     └──── Nerve C (Live2D) ── Cordis events ─┘         │
+                                                   Rhythm control
+                                                 (Cortex-internal buffer
+                                                   determines when to act)
 ```
 
 **Integration strategy is Pulse-internal:**
@@ -234,12 +243,12 @@ The Medium:
 
 **Why this priority**: Without Media, existence has no contact with the world.
 
-**Independent Test**: Install a mock IM Medium, verify it registers structured capabilities and passthrough tools into the Cordis context, and confirm events flow into the sense queue.
+**Independent Test**: Install a mock IM Nerve, verify it registers structured capabilities and passthrough tools into the Cordis context, and confirm events are emitted via Cordis event system.
 
 **Acceptance Scenarios**:
 
 1. **Given** a Cordis context with Athena Runtime, **When** a OneBot Medium plugin is installed, **Then** the `messaging` structured capability is available and passthrough tools (poke, set_card, etc.) are registered in the tool pool.
-2. **Given** an installed IM Medium receiving platform events, **When** a message arrives, **Then** it is converted to unified event format and placed in the sense queue (not pushed to Pulse).
+2. **Given** an installed IM Nerve receiving platform events, **When** a message arrives, **Then** it is emitted as a Cordis event (push-based) available to Cortex via `ctx.on('message', ...)`.
 3. **Given** a Medium providing passthrough tools, **When** Pulse assembles an Agent, **Then** those tools are included in the LLM tool set with self-describing schemas.
 4. **Given** two Media providing the same structured capability (e.g., OneBot IM + Discord IM), **When** Pulse queries for `messaging`, **Then** both are discoverable and independently addressable.
 
@@ -252,7 +261,7 @@ As a Pulse developer, I want to implement a complete survival strategy by defini
 The Pulse:
 - Declares required structured capabilities (e.g., `requires: [messaging]`)
 - Defines product-semantic tools (Layer 2) that call structured capabilities internally
-- Controls when to drain sense queues (rhythm)
+- Subscribes to Nerve events via Cordis event system (consumption strategy is Cortex-internal)
 - Assembles context for LLM calls (integration + prompt)
 - Interprets LLM output and dispatches actions (enactment)
 
@@ -264,7 +273,7 @@ The Pulse:
 
 1. **Given** a Chat Pulse declaring `requires: [messaging]`, **When** installed in a context where an IM Medium is present, **Then** Pulse successfully activates and begins its rhythm.
 2. **Given** a Chat Pulse, **When** IM Medium receives a message, **Then** Pulse drains it immediately, assembles context, calls LLM with product-semantic tools, and dispatches the response through `messaging.send()`.
-3. **Given** a World Pulse with a heartbeat rhythm, **When** multiple IM events arrive between heartbeats, **Then** events accumulate in the sense queue and are drained together at next heartbeat.
+3. **Given** a World Cortex with a heartbeat rhythm, **When** multiple IM events arrive between heartbeats, **Then** events are received via `ctx.on` and buffered internally by Cortex until next heartbeat.
 4. **Given** a Pulse declaring `requires: [messaging]`, **When** installed in a context with NO messaging Medium, **Then** activation fails with a clear error.
 5. **Given** a Pulse that defines product-semantic tools and a Medium that registers passthrough tools, **When** Agent is assembled, **Then** LLM sees both tool sets (Layer 2 + Layer 3).
 
@@ -328,7 +337,7 @@ As a deployer running multiple AI personas, I want two or more Spirits to share 
 
 **Acceptance Scenarios**:
 
-1. **Given** two Spirits both subscribing to the same IM Medium, **When** a message arrives, **Then** both receive the event independently (each in their own sense queue).
+1. **Given** two Lives both subscribing to the same IM Nerve, **When** a message arrives, **Then** both receive the event independently (Cordis event propagation).
 2. **Given** two Spirits sharing an IM Medium, **When** Alice's Pulse sends a message, **Then** the message is attributed correctly.
 3. **Given** a deployment wanting isolated routing (Alice=channel A, Bob=channel B), **When** configuring subscriptions, **Then** each Spirit filters at the subscription boundary.
 
@@ -352,8 +361,8 @@ As a deployer running multiple AI personas, I want two or more Spirits to share 
 - **FR-002**: System MUST enforce at most one active Pulse per Spirit at any time.
 - **FR-003**: Pulse MUST declare required and optional structured capabilities; framework MUST validate availability at activation time.
 - **FR-004**: Medium MUST be hot-installable and hot-removable at runtime via Cordis plugin lifecycle.
-- **FR-005**: Event delivery from Medium to Pulse MUST be pull-based. Medium maintains sense queues; Pulse controls drain rhythm.
-- **FR-006**: Event drain within a Pulse MUST be serialized by default (no concurrent cognition invocations unless Pulse explicitly opts in).
+- **FR-005**: ~~Event delivery from Medium to Pulse MUST be pull-based.~~ **SUPERSEDED by D-05/D-28**: Event delivery is push-based via Cordis events. Cortex self-manages consumption strategy (buffering, aggregation, triggering). Framework provides no sense queue abstraction.
+- **FR-006**: Event processing within a Cortex MUST be serialized by default (no concurrent cognition invocations unless Cortex explicitly opts in).
 - **FR-007**: Medium MUST expose both structured capabilities (programmatic, for Pulse code) and passthrough tools (self-describing, for LLM).
 - **FR-008**: Pulse MUST define product-semantic tools (Layer 2) that internally call structured capabilities. LLM never directly invokes raw structured capabilities.
 - **FR-009**: Passthrough tools from Medium MUST be includable in Agent's tool set without Pulse understanding their semantics.
@@ -370,9 +379,9 @@ As a deployer running multiple AI personas, I want two or more Spirits to share 
 
 - **Spirit**: Persistent identity. Owns persona (character definition), accumulated memory (experience sediment), and self-model (current-state awareness). Exists within a Cordis child context (isolate). One Spirit per identity; survives process restarts and Pulse changes.
 
-- **Pulse**: Complete survival strategy — rhythm, integration, cognition, enactment, continuation. Creates and manages internal Agents. Subscribes to Medium sense queues. Acts through structured capabilities. Defines product-semantic tools. One active Pulse per Spirit; not dynamically switchable. Published as independent packages.
+- **Cortex** (was Pulse): Complete survival strategy — rhythm, integration, cognition, enactment, continuation. Creates and manages internal Agents. Subscribes to Cordis events from Nerves. Acts through structured capabilities. Defines product-semantic tools. One active Cortex per Life; not dynamically switchable. Published as independent packages.
 
-- **Medium**: Cordis plugin bridging a concrete platform/world to the framework. Provides structured capabilities (for Pulse code), passthrough tools (for LLM), sense queues (perception), and presence state. Hot-installable/removable. Multiple Media coexist simultaneously.
+- **Nerve** (was Medium): Cordis plugin bridging a concrete platform/world to the framework. Provides structured capabilities (for Cortex code), passthrough tools (for LLM), Cordis events (perception), and presence state. Hot-installable/removable. Multiple Nerves coexist simultaneously.
 
 - **Structured Capability**: An abstract interface for a category of interaction (e.g., messaging, world-state, audio). Defined by Medium, consumed by Pulse code. Provides the programmatic API that Pulse's deterministic logic depends on.
 
@@ -380,7 +389,7 @@ As a deployer running multiple AI personas, I want two or more Spirits to share 
 
 - **Product-Semantic Tool**: A tool defined by Pulse representing a product-meaningful action ("send_message", "check_phone", "wait"). Implementation calls structured capabilities. This is what LLM primarily interacts with.
 
-- **Sense Queue**: A per-Medium, pull-based event buffer. Medium writes; Pulse reads at its own rhythm. Guarantees ordering. Serializes delivery unless Pulse opts into parallelism.
+- **~~Sense Queue~~** (**SUPERSEDED**): No longer a framework entity. Events are push-based via Cordis. Cortex self-manages internal buffering. See D-05, D-28.
 
 - **Unified Event Envelope**: The minimal protocol for events flowing from Medium to Pulse: kind, source, timestamp, content (unified rich-text), and raw (platform-original, optional).
 
@@ -431,7 +440,7 @@ As a deployer running multiple AI personas, I want two or more Spirits to share 
 
 6. **No lowest-common-denominator platform abstraction.** Each Medium exposes its platform's FULL capabilities as passthrough tools. LLM generalizes across platforms at runtime. Rationale: traditional bot-framework unification (80 platform methods → 20 universal methods) loses 80% of capability. Our consumer (LLM) doesn't need compile-time type safety; it needs discoverability and self-description.
 
-7. **Pull-based perception, not push-based.** Medium maintains sense queues; Pulse pulls at own rhythm. Rationale: push-based forces World/Interlude to reimplement buffering; causes concurrent-delivery bugs; prevents Pulse from controlling its own consciousness rhythm.
+7. **~~Pull-based perception, not push-based~~** (**SUPERSEDED by D-05/D-28**). Events are push-based via Cordis event system. Cortex self-manages buffering internally. Original rationale (prevent concurrent-delivery bugs, Cortex controls rhythm) is still achieved — but through Cortex-internal buffer design, not a framework-imposed queue.
 
 8. **Multiple Media are simultaneous, not mutually exclusive.** A digital life exists in ALL its active Media at once. Rationale: humans simultaneously perceive through multiple senses. A bot can simultaneously exist in chat + minecraft + have a webcam. The Pulse integrates multi-source perceptions into unified awareness.
 
@@ -460,5 +469,5 @@ As a deployer running multiple AI personas, I want two or more Spirits to share 
 ## Superseded Designs
 
 This spec supersedes:
-- `.specify/specs/capability-protocol-and-entity-model.md` (2026-08-17) — the Capability Protocol + Body rejection + Mode-as-unit design. Key decisions preserved (no Body/string-ID, no Harness Core layer, pull-based events, Agent is internal) but entity model and tool model are fundamentally revised.
+- `.specify/specs/capability-protocol-and-entity-model.md` (2026-08-17) — the Capability Protocol + Body rejection + Mode-as-unit design. Key decisions preserved (no Body/string-ID, no Harness Core layer, push-based events via Cordis, Agent is internal) but entity model and tool model are fundamentally revised.
 - All code in `packages/athena-runtime/src/body/` and `packages/athena-runtime/src/life/` — the BodyRegistry/LifeRegistry implementation.
