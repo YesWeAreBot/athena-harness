@@ -1,0 +1,278 @@
+import * as h from "@satorijs/element";
+import { Event, List, Login, Methods, SendOptions, Status, User } from "@satorijs/protocol";
+import { Context, Service } from "cordis";
+import { clone, Dict, isNonNullable, pick } from "cosmokit";
+import { ExtractParams } from "path-to-regexp-typed";
+
+import { InternalRouteCallback, InternalRouter } from "./internal";
+import { MessageEncoder } from "./message";
+import { defineAccessor, Session } from "./session";
+
+/* eslint-enable @typescript-eslint/no-unused-vars */
+
+const eventAliases = [
+  ["message-created", "message"],
+  ["guild-removed", "guild-deleted"],
+  ["guild-member-removed", "guild-member-deleted"],
+];
+
+export interface Bot extends Methods {
+  userId: string;
+  selfId: string;
+  internal: any;
+}
+
+export abstract class Bot<T = any> {
+  static reusable = true;
+  static MessageEncoder?: new (bot: Bot, channelId: string, referrer?: any, options?: SendOptions) => MessageEncoder;
+
+  public [Service.tracker] = {
+    associate: "bot",
+    property: "ctx",
+  };
+
+  public sn: number;
+  public user?: User;
+  public platform?: string;
+  public features: string[];
+  public hidden = false;
+  public error: any;
+  public callbacks: Dict<Function> = {};
+
+  public _internalRouter: InternalRouter;
+
+  // Same as `this.ctx`, but with a more specific type.
+  protected context: Context;
+  protected _status: Status = Status.OFFLINE;
+
+  constructor(
+    public ctx: Context,
+    public config: T,
+    public adapterName: string,
+  ) {
+    this.sn = ++ctx.satori._loginSeq;
+    this.internal = null;
+    this._internalRouter = new InternalRouter(ctx);
+    this.context = ctx;
+    ctx.bots.push(this);
+    this.platform = adapterName;
+
+    this.features = Object.entries(Methods)
+      .filter(([, value]) => this[value.name])
+      .map(([key]) => key);
+
+    ctx.on("interaction/button", (session) => {
+      const cb = this.callbacks[session.event.button!.id];
+      if (cb) cb(session);
+    });
+  }
+
+  *[Service.init]() {
+    yield () => this.dispose();
+    this.dispatchLoginEvent("login-added");
+    return this.start();
+  }
+
+  getInternalUrl(path: string, init?: ConstructorParameters<typeof URLSearchParams>[0], slash?: boolean) {
+    let search = new URLSearchParams(init).toString();
+    if (search) search = "?" + search;
+    return `internal${slash ? "/" : ":"}${this.platform}/${this.selfId}${path}${search}`;
+  }
+
+  defineInternalRoute<P extends string>(path: P, callback: InternalRouteCallback<ExtractParams<P>>) {
+    return this._internalRouter.define(path, callback);
+  }
+
+  update(login: Login) {
+    // make sure `status` is the last property to be assigned
+    // so that `login-updated` event can be dispatched after all properties are updated
+    const { sn, status, ...rest } = login;
+    Object.assign(this, rest);
+    this.status = status;
+  }
+
+  dispose() {
+    const index = this.ctx.bots.findIndex((bot) => bot.sid === this.sid);
+    if (index >= 0) {
+      this.ctx.bots.splice(index, 1);
+      this.dispatchLoginEvent("login-removed");
+    }
+    return this.stop();
+  }
+
+  private dispatchLoginEvent(type: string) {
+    const session = this.session();
+    session.type = type;
+    session.event.login = this.toJSON();
+    this.dispatch(session);
+  }
+
+  get status() {
+    return this._status;
+  }
+
+  set status(value) {
+    if (value === this._status) return;
+    this._status = value;
+    if (this.ctx.bots?.some((bot) => bot.sid === this.sid)) {
+      this.dispatchLoginEvent("login-updated");
+    }
+  }
+
+  get isActive() {
+    return this._status !== Status.OFFLINE && this._status !== Status.DISCONNECT;
+  }
+
+  online() {
+    this.status = Status.ONLINE;
+    this.error = undefined;
+  }
+
+  offline(error?: Error) {
+    this.status = Status.OFFLINE;
+    this.error = error;
+  }
+
+  async connect(): Promise<void> {}
+  async disconnect(): Promise<void> {}
+
+  async start() {
+    if (this.isActive) return;
+    this.status = Status.CONNECT;
+    try {
+      await this.context.parallel("bot-connect", this);
+      await this.connect();
+    } catch (error: any) {
+      this.offline(error);
+    }
+  }
+
+  async stop() {
+    if (!this.isActive) return;
+    this.status = Status.DISCONNECT;
+    try {
+      await this.context.parallel("bot-disconnect", this);
+      await this.disconnect();
+    } catch (error) {
+      this.context.emit(this.ctx, "internal/error", error);
+    } finally {
+      this.offline();
+    }
+  }
+
+  get sid() {
+    return `${this.platform}:${this.selfId}`;
+  }
+
+  session(event: Partial<Event> = {}): Session {
+    return new Session(this, event);
+  }
+
+  dispatch(session: Session) {
+    let events = [session.type];
+    for (const aliases of eventAliases) {
+      if (aliases.includes(session.type)) {
+        events = aliases;
+        session.type = aliases[0];
+        break;
+      }
+    }
+    this.context.emit("internal/session", session);
+    if (session.type === "internal") {
+      this.context.emit(session.event._type, session.event._data, session.bot);
+      return;
+    }
+    for (const event of events) {
+      this.context.emit(session, event as any, session);
+    }
+  }
+
+  async createMessage(channelId: string, content: h.Fragment, referrer?: any, options?: SendOptions) {
+    const { MessageEncoder } = this.constructor as typeof Bot;
+    return new MessageEncoder!(this, channelId, referrer, options).send(content);
+  }
+
+  async sendMessage(channelId: string, content: h.Fragment, referrer?: any, options?: SendOptions) {
+    const messages = await this.createMessage(channelId, content, referrer, options);
+    return messages.map((message) => message.id).filter(isNonNullable);
+  }
+
+  async sendPrivateMessage(userId: string, content: h.Fragment, guildId?: string, options?: SendOptions) {
+    const { id } = await this.createDirectChannel(userId, guildId ?? options?.session?.guildId);
+    return this.sendMessage(id, content, null, options);
+  }
+
+  async createUpload(...blobs: Blob[]): Promise<string[]> {
+    const ids: string[] = [];
+    for (const blob of blobs) {
+      const id = Math.random().toString(36).slice(2);
+      const headers = new Headers();
+      // encode `file.name` into `content-disposition` header
+      if (typeof blob["name"] === "string") {
+        headers.set("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(blob["name"])}`);
+      }
+      this.ctx.satori._tempStore[id] = new Response(blob);
+      ids.push(id);
+    }
+    const ctx = this.ctx;
+    const dispose = this.ctx.effect(function* () {
+      yield () => {
+        for (const id of ids) {
+          delete ctx.satori._tempStore[id];
+        }
+      };
+      const timer = setTimeout(dispose, 600000);
+      yield () => clearTimeout(timer);
+    }, "bot.createUpload()");
+    return ids.map((id) => this.getInternalUrl(`/_tmp/${id}`));
+  }
+
+  async supports(name: string, session: Partial<Session> = {}) {
+    return !!this[Methods[name]?.name];
+  }
+
+  async checkPermission(name: string, session: Partial<Session>) {
+    if (name.startsWith("bot.")) {
+      return this.supports(name.slice(4), session);
+    }
+  }
+
+  toJSON(): Login {
+    return clone({
+      ...pick(this, ["sn", "user", "platform", "status", "hidden", "features"]),
+      adapter: this.adapterName,
+    });
+  }
+
+  async getLogin() {
+    return this.toJSON();
+  }
+}
+
+const iterableMethods = ["getMessage", "getReaction", "getFriend", "getGuild", "getGuildMember", "getGuildRole", "getChannel"];
+
+for (const name of iterableMethods) {
+  Bot.prototype[name + "Iter"] = function (this: Bot, ...args: any[]) {
+    let list: List<any>;
+    if (!this[name + "List"]) throw new Error(`not implemented: ${name}List`);
+    const getList = async () => {
+      list = await this[name + "List"](...args, list?.next);
+      // `bot.getMessageList()` returns messages in ascending order
+      if (name === "getMessage") list.data.reverse();
+    };
+    return {
+      async next() {
+        if (list?.data.length) return { done: false, value: list.data.shift() };
+        if (list && !list?.next) return { done: true, value: undefined };
+        await getList();
+        return this.next();
+      },
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+    };
+  };
+}
+
+defineAccessor(Bot.prototype, "selfId", ["user", "id"]);
+defineAccessor(Bot.prototype, "userId", ["user", "id"]);

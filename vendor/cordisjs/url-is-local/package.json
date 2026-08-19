@@ -1,0 +1,7 @@
+{
+  "name": "@cordisjs/url-is-local",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts"
+}
