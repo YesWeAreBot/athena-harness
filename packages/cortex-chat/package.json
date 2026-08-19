@@ -1,0 +1,23 @@
+{
+  "name": "@athena-ai/cortex-chat",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./lib/index.cjs",
+  "types": "./lib/index.d.ts",
+  "peerDependencies": {
+    "@athena-ai/capability-message": "workspace:*",
+    "@athena-ai/core": "workspace:*",
+    "cordis": "^4.0.0-rc.8"
+  },
+  "cordis": {
+    "service": {
+      "implements": [
+        "cortex"
+      ],
+      "required": [
+        "life",
+        "message"
+      ]
+    }
+  }
+}

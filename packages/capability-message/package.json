@@ -1,0 +1,26 @@
+{
+  "name": "@athena-ai/capability-message",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./lib/index.cjs",
+  "types": "./lib/index.d.ts",
+  "dependencies": {
+    "@satorijs/core": "workspace:*",
+    "@satorijs/element": "workspace:*",
+    "@satorijs/protocol": "workspace:*",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "cordis": "^4.0.0-rc.8"
+  },
+  "cordis": {
+    "service": {
+      "implements": [
+        "message"
+      ],
+      "required": [
+        "life"
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@athena-ai/core",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./lib/index.cjs",
+  "types": "./lib/index.d.ts",
+  "dependencies": {
+    "cordis": "^4.0.0-rc.8"
+  },
+  "cordis": {
+    "service": {
+      "implements": [
+        "life"
+      ]
+    }
+  }
+}
