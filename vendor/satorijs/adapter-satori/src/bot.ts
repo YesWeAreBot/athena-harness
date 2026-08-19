@@ -55,7 +55,6 @@ function createInternal(bot: SatoriBot, prefix = "") {
   });
 }
 
-@Inject("logger", true, { name: "satori" })
 export class SatoriBot extends Bot<Universal.Login> {
   declare adapter: SatoriAdapter<this>;
 
@@ -64,7 +63,8 @@ export class SatoriBot extends Bot<Universal.Login> {
   constructor(ctx: Context, config: Universal.Login) {
     super(ctx, config, config.adapter);
     Object.assign(this, omit(config, ["sn", "adapter"]));
-
+    ctx.intercept("logger", { name: "satori" })
+    
     this.defineInternalRoute("/*path", async ({ method, params, query, headers, body }) => {
       return await this._request(
         method as any,

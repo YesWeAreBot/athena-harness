@@ -1,5 +1,4 @@
-import { HTTP } from "@cordisjs/plugin-http";
-import {} from "@cordisjs/plugin-logger";
+import { Http } from "@cordisjs/plugin-http";
 import { Bot, Context, Inject, Universal } from "@satorijs/core";
 import z from "schemastery";
 
@@ -17,24 +16,23 @@ interface GetAppAccessTokenResult {
 }
 
 @Inject("http")
-@Inject("logger", true, { name: "qq" })
+@Inject("satori")
+@Inject("server")
 export class QQBot<T extends QQBot.Config = QQBot.Config> extends Bot<T> {
   static MessageEncoder = QQMessageEncoder;
-  static inject = {
-    optional: ["server"],
-  };
 
   public guildBot: QQGuildBot;
   public adapter?: HttpServer | WsClient;
 
   internal: GroupInternal;
-  http: HTTP;
+  http: Http;
 
   private _token: string;
   private _timer: NodeJS.Timeout;
 
   constructor(ctx: Context, config: T) {
     super(ctx, config, "qq");
+    ctx.intercept("logger", { name: "qq" });
     let baseUrl = config.baseUrl;
     if (config.sandbox) {
       baseUrl = baseUrl.replace(/^(https?:\/\/)/, "$1sandbox.");

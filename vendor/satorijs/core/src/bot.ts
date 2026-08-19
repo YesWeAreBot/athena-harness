@@ -154,7 +154,8 @@ export abstract class Bot<T = any> {
       await this.context.parallel("bot-disconnect", this);
       await this.disconnect();
     } catch (error) {
-      this.context.emit(this.ctx, "internal/error", error);
+      // this.context.emit(this.ctx, "internal/error", error);
+      this.ctx.logger.error(error);
     } finally {
       this.offline();
     }

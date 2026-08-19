@@ -1,11 +1,11 @@
-import { HTTP } from "@cordisjs/plugin-http";
+import { Http } from "@cordisjs/plugin-http";
 import { Bot, Context, Session, Universal } from "@satorijs/core";
 import { at, audio, file, image, parse, text, transform, unescape, video } from "@satorijs/element";
 
 import { QQBot } from "./bot";
 import * as QQ from "./types";
 
-export async function downloadFile(http: HTTP, url: string) {
+export async function downloadFile(http: Http, url: string) {
   const response = await http(url);
   const data = await response.arrayBuffer();
   const type = response.headers.get("content-type") ?? "application/octet-stream";

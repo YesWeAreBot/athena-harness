@@ -9,6 +9,7 @@
     "sourceMap": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "strictBindCallApply": true
-  }
+    "strictBindCallApply": true,
+    "types": ["node"]
+  },
 }

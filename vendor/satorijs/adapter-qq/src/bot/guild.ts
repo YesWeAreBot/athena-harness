@@ -1,4 +1,4 @@
-import { HTTP } from "@cordisjs/plugin-http";
+import { Http } from "@cordisjs/plugin-http";
 import { Bot, Context, Universal } from "@satorijs/core";
 
 import { QQBot } from ".";
@@ -17,7 +17,7 @@ export class QQGuildBot extends Bot {
   declare parent: QQBot;
   hidden = true;
   public internal: GuildInternal;
-  public http: HTTP;
+  public http: Http;
   static MessageEncoder = QQGuildMessageEncoder;
 
   constructor(ctx: Context, config: QQGuildBot.Config) {
