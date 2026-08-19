@@ -176,3 +176,5 @@ yarn-error.log
 !.agents/skills/
 !.claude/skills/
 lib/
+
+tsconfig.temp.json
