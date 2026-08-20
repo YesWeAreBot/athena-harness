@@ -35,7 +35,7 @@ export class SandboxMessenger extends MessageEncoder<SandboxBot> {
     const content = await transformAsync(this.buffer.trim(), this.rules);
     const session = this.bot.session(this.session.event);
     session.messageId = Math.random().toString(36).slice(2);
-    this.bot.config.client.send({
+    this.bot.config.sink.send({
       type: "sandbox/message",
       body: {
         id: session.messageId,

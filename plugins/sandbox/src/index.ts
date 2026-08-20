@@ -3,22 +3,17 @@ import { extname } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
+import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
 import type {} from "@cordisjs/plugin-server";
 import type { Client } from "@cordisjs/plugin-webui";
-import { Universal } from "@satorijs/core";
-import type { Context, Fiber } from "cordis";
-import type { Dict } from "cosmokit";
+import { type Context, Service } from "cordis";
 import z from "schemastery";
 
-import { SandboxBot } from "./bot";
-import type { DeleteMessagePayload, Message, ResponsePayload, SendMessagePayload } from "./shared";
+import type { DeleteMessagePayload, LifeListPayload, ResponsePayload, SendMessagePayload } from "./shared";
 
 export { SandboxBot } from "./bot";
 export { SandboxMessenger } from "./message";
 export * from "./shared";
-
-export const name = "sandbox";
-export const inject = ["webui", "satori"];
 
 /** Login id used by the harness inside every sandbox platform. */
 export const SELF_ID = "athena";
@@ -65,126 +60,213 @@ const MIME_TYPES: Record<string, string> = {
   ".webp": "image/webp",
 };
 
-interface BotHandle {
-  /** The WebUI client that owns this virtual platform. */
-  client: Client;
-  /** Fiber of the `SandboxBot` plugin, disposed when the client goes away. */
-  fiber: Fiber;
-  /** Resolves once the bot has been registered with Satori. */
-  bot: Promise<SandboxBot>;
-}
+/** Marker used to tunnel retractions through the Nerve's `dispatch` method. */
+const DELETE_PREFIX = "__delete:";
 
-export function apply(ctx: Context, config: Config) {
-  ctx.webui.addEntry({
-    baseUrl: import.meta.url,
-    source: "../client/index.ts",
-    manifest: "../dist/manifest.json",
-    routes: ["/sandbox"],
-  });
+/**
+ * Sandbox Hub: the global service that owns the WebUI page and the browser
+ * WebSocket protocol.
+ *
+ * The Hub holds no Satori state of its own. Each Life installs a
+ * `@athena-ai/sandbox-nerve` inside its isolated group; the Nerve registers
+ * here under a `lifeId`, and the Hub routes every browser frame to the Nerve
+ * the frame names. That keeps one sandbox page able to drive many Lives
+ * without their Satori domains colliding.
+ */
+export default class SandboxHub extends Service<Config> implements SandboxHubService {
+  public static readonly name = "sandbox";
+  public static readonly inject = ["webui"];
+  public static readonly Config = Config;
 
-  /**
-   * Base url handed to bots so the messenger can rewrite `file:` resources.
-   * Only populated while the optional file server is mounted.
-   */
-  let fileBase: string | undefined;
+  private _nerves = new Map<string, SandboxNerveHandle>();
+  /** `clientId` → `lifeId` → platforms the tab has driven, for teardown. */
+  private _tabs = new Map<string, Map<string, Set<string>>>();
+  private _fileBase: string | undefined;
 
-  const handles: Dict<BotHandle> = Object.create(null);
+  /** Base url of the file server, surfaced to Nerves via the service. */
+  get fileBase(): string | undefined {
+    return this._fileBase;
+  }
 
-  /**
-   * One bot per virtual platform. The page generates its platform id once and
-   * keeps it in local storage, so reconnecting the same tab reuses the bot.
-   */
-  const ensureBot = (platform: string, client: Client): BotHandle => {
-    const existing = handles[platform];
-    if (existing) return existing;
-    const fiber = ctx.plugin(SandboxBot, {
-      platform,
-      selfId: SELF_ID,
-      selfName: SELF_NAME,
-      client,
-      fileBase,
-    });
-    const bot = (async () => {
-      await fiber;
-      const bot = ctx.satori.bots[`${platform}:${SELF_ID}`];
-      if (!bot) throw new Error(`sandbox bot was not registered for platform ${platform}`);
-      return bot as SandboxBot;
-    })();
-    return (handles[platform] = { client, fiber, bot });
-  };
+  constructor(
+    ctx: Context,
+    public config: Config,
+  ) {
+    super(ctx, "sandbox");
+  }
 
-  const createEvent = (userId: string, channelId: string): Partial<Universal.Event> => {
-    const isDirect = channelId === "@" + userId;
-    return {
-      user: { id: userId, name: userId },
-      channel: {
-        id: channelId,
-        type: isDirect ? Universal.Channel.Type.DIRECT : Universal.Channel.Type.TEXT,
-      },
-      guild: isDirect ? undefined : { id: channelId },
-      timestamp: Date.now(),
-    };
-  };
+  // ---------------------------------------------------------------------------
+  // SandboxHubService implementation
+  // ---------------------------------------------------------------------------
 
-  // `ctx.webui.listeners` is a plain dictionary and is not fiber-scoped, so the
-  // keys have to be reclaimed by hand when this plugin unloads.
-  const listen = <T>(type: string, listener: (this: Client, body: T) => unknown) => {
-    ctx.effect(
-      () => {
-        ctx.webui.listeners[type] = listener;
-        return () => {
-          delete ctx.webui.listeners[type];
-        };
-      },
-      `webui.listeners[${JSON.stringify(type)}]`,
-    );
-  };
-
-  listen("sandbox/send-message", async function (body: SendMessagePayload) {
-    const { platform, user, channel, content, quote } = body;
-    const bot = await ensureBot(platform, this).bot;
-    const id = Math.random().toString(36).slice(2);
-    this.send({
-      type: "sandbox/message",
-      body: { id, content, user, channel, platform, quote } satisfies Message,
-    });
-    const session = bot.session(createEvent(user, channel));
-    session.type = "message";
-    // `content` resets `event.message`, so it has to be assigned first.
-    session.content = content;
-    session.messageId = id;
-    if (quote) session.quote = { id: quote.id, content: quote.content };
-    bot.dispatch(session);
-  });
-
-  listen("sandbox/delete-message", async function (body: DeleteMessagePayload) {
-    const { platform, user, channel, messageId } = body;
-    const bot = await ensureBot(platform, this).bot;
-    const session = bot.session(createEvent(user, channel));
-    session.type = "message-deleted";
-    session.messageId = messageId;
-    bot.dispatch(session);
-  });
-
-  listen("sandbox/response", async function (body: ResponsePayload) {
-    const handle = handles[body.platform];
-    if (!handle) return;
-    const bot = await handle.bot;
-    bot.settle(body.nonce, body.data);
-  });
-
-  // `webui/connection` fires on both connect and disconnect; only a disconnect
-  // has already removed the client from the registry.
-  ctx.on("webui/connection", (client) => {
-    if (ctx.webui.clients[client.id]) return;
-    for (const [platform, handle] of Object.entries(handles)) {
-      if (handle.client !== client) continue;
-      delete handles[platform];
-      handle.fiber.dispose();
+  register(lifeId: string, nerve: SandboxNerveHandle): () => void {
+    if (this._nerves.has(lifeId)) {
+      throw new Error(`Sandbox: Life already registered: ${lifeId}`);
     }
-  });
+    this._nerves.set(lifeId, nerve);
+    this._broadcastLifeList();
+    return () => {
+      this._nerves.delete(lifeId);
+      this._broadcastLifeList();
+    };
+  }
 
-  if (config.fileServer.enabled) {
+  lives(): { id: string; meta: SandboxNerveHandle["meta"] }[] {
+    return [...this._nerves.entries()].map(([id, n]) => ({ id, meta: n.meta }));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Service lifecycle
+  // ---------------------------------------------------------------------------
+
+  *[Service.init]() {
+    const ctx = this.ctx;
+
+    ctx.webui.addEntry({
+      baseUrl: import.meta.url,
+      source: "../client/index.ts",
+      manifest: "../dist/manifest.json",
+      routes: ["/sandbox"],
+    });
+
+    this._setupListeners();
+    this._setupFileServer();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: WebSocket listeners
+  // ---------------------------------------------------------------------------
+
+  private _setupListeners() {
+    const ctx = this.ctx;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+
+    const listen = <T>(type: string, listener: (this: Client, body: T) => unknown) => {
+      ctx.effect(
+        () => {
+          ctx.webui.listeners[type] = listener;
+          return () => {
+            delete ctx.webui.listeners[type];
+          };
+        },
+        `webui.listeners[${JSON.stringify(type)}]`,
+      );
+    };
+
+    /**
+     * Build a sink that stamps `lifeId` on every frame the Nerve emits, so the
+     * page can route replies back to the right conversation.
+     */
+    const sinkFor = (client: Client, lifeId: string): MessageSink => ({
+      send: (frame) =>
+        client.send({
+          type: frame.type,
+          body: { ...(frame.body as object), lifeId },
+        } as never),
+    });
+
+    const nerveFor = (lifeId: string): SandboxNerveHandle => {
+      const nerve = self._nerves.get(lifeId);
+      if (!nerve) {
+        throw new Error(`[sandbox] no Life registered as '${lifeId}'. ` + "Install @athena-ai/sandbox-nerve inside the Life's group.");
+      }
+      return nerve;
+    };
+
+    /** Route a browser frame to the Nerve it names, remembering the tab. */
+    const forward = async (client: Client, lifeId: string, platform: string, payload: Omit<SandboxDispatchPayload, "clientId" | "platform" | "sink">) => {
+      const nerve = nerveFor(lifeId);
+      self._trackTab(client.id, lifeId, platform);
+      await nerve.dispatch({
+        ...payload,
+        clientId: client.id,
+        platform,
+        sink: sinkFor(client, lifeId),
+      });
+    };
+
+    listen("sandbox/send-message", async function (body: SendMessagePayload) {
+      const { lifeId, platform, user, channel, content, quote } = body;
+      await forward(this, lifeId, platform, { user, channel, content, quote });
+    });
+
+    listen("sandbox/delete-message", async function (body: DeleteMessagePayload) {
+      const { lifeId, platform, user, channel, messageId } = body;
+      await forward(this, lifeId, platform, { user, channel, content: `${DELETE_PREFIX}${messageId}` });
+    });
+
+    listen("sandbox/response", async function (body: ResponsePayload) {
+      const { lifeId, platform, nonce, data } = body;
+      await nerveFor(lifeId).request("settle", { platform, nonce, data });
+    });
+
+    // `webui/connection` fires on connect and disconnect alike; a connecting
+    // client is still in the registry, so use that to tell them apart.
+    ctx.on("webui/connection", (client) => {
+      if (ctx.webui.clients[client.id]) {
+        client.send({ type: "sandbox/life-list", body: self._lifeListPayload() });
+        return;
+      }
+      void self._releaseTab(client.id);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: Tab bookkeeping
+  // ---------------------------------------------------------------------------
+
+  private _trackTab(clientId: string, lifeId: string, platform: string) {
+    let byLife = this._tabs.get(clientId);
+    if (!byLife) this._tabs.set(clientId, (byLife = new Map()));
+    let platforms = byLife.get(lifeId);
+    if (!platforms) byLife.set(lifeId, (platforms = new Set()));
+    platforms.add(platform);
+  }
+
+  /** Tell every Nerve this tab talked to that its bots can go away. */
+  private async _releaseTab(clientId: string) {
+    const byLife = this._tabs.get(clientId);
+    if (!byLife) return;
+    this._tabs.delete(clientId);
+    for (const [lifeId, platforms] of byLife) {
+      const nerve = this._nerves.get(lifeId);
+      if (!nerve) continue;
+      for (const platform of platforms) {
+        await nerve.release({ clientId, platform });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: Broadcast helpers
+  // ---------------------------------------------------------------------------
+
+  private _lifeListPayload(): LifeListPayload {
+    return {
+      lives: this.lives().map(({ id, meta }) => ({
+        id,
+        name: meta.name,
+        description: meta.description,
+      })),
+    };
+  }
+
+  private _broadcastLifeList() {
+    const payload = this._lifeListPayload();
+    for (const client of Object.values(this.ctx.webui.clients)) {
+      client.send({ type: "sandbox/life-list", body: payload });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: File server
+  // ---------------------------------------------------------------------------
+
+  private _setupFileServer() {
+    if (!this.config.fileServer.enabled) return;
+    const ctx = this.ctx;
+
     ctx.inject(["server"], (ctx) => {
       ctx.server.get(FILE_ROUTE, async (req, res) => {
         const url = req.query.get("url");
@@ -194,15 +276,13 @@ export function apply(ctx: Context, config: Config) {
           return;
         }
         res.headers.set("content-type", MIME_TYPES[extname(url).toLowerCase()] ?? "application/octet-stream");
-        // `Readable.toWeb` yields a web stream typed against Node's own globals;
-        // the server accepts it as a `BodyInit`.
         res.body = Readable.toWeb(createReadStream(fileURLToPath(url))) as ReadableStream<Uint8Array>;
       });
 
-      fileBase = ctx.server.baseUrl + FILE_ROUTE;
+      this._fileBase = ctx.server.baseUrl + FILE_ROUTE;
       ctx.effect(
         () => () => {
-          fileBase = undefined;
+          this._fileBase = undefined;
         },
         "sandbox.fileBase",
       );

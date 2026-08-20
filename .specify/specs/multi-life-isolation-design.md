@@ -310,3 +310,59 @@ This is a design choice in cordis v4, not a bug. Mixin/accessor are designed to 
 ### Cordis proxy identity caveat
 
 Cordis wraps service instances in Proxy for context rebinding. This means `serviceA === serviceB` can be `false` even when they represent the same underlying object. Code that stores service references must compare by `.name` (or other stable identifier), not by identity. This affects `Life.bind()` disposer logic.
+
+---
+
+## §7. Sandbox Multi-Life Architecture
+
+**Problem**: The sandbox plugin registers a unique WebUI page (`/sandbox`) and WebSocket listeners globally. When multiple Life groups each install it, routes collide and bot domains conflict.
+
+**Solution**: Split into Hub (global) + Nerve (per-Life).
+
+```
+Root Context
+├── SandboxHub (inject: ['webui'], provides: 'sandbox')
+│   ├── Registers /sandbox page (once)
+│   ├── WebSocket listeners: sandbox/send-message, sandbox/response, sandbox/delete-message
+│   ├── Life registry: Map<lifeId, SandboxNerveHandle>
+│   └── Routes by lifeId → nerve.dispatch(payload with sink)
+│
+├── Alice Group (isolate: { life, cortex, message, satori })
+│   └── SandboxNerve (inject: ['sandbox', 'satori', 'life'])
+│       ├── Registers with Hub as lifeId='alice'
+│       └── Creates SandboxBot in local ctx.satori
+│
+└── Bob Group (isolate: { life, cortex, message, satori })
+    └── SandboxNerve (inject: ['sandbox', 'satori', 'life'])
+        ├── Registers with Hub as lifeId='bob'
+        └── Creates SandboxBot in local ctx.satori
+```
+
+### app.yml template (updated)
+
+```yaml
+# Root (prelude or top-level)
+- name: '@athena-ai/plugin-sandbox'  # Hub — global, provides 'sandbox'
+
+# Per-Life group
+- name: '@cordisjs/plugin-group'
+  label: Alice
+  isolate: { life: true, cortex: true, message: true, satori: true }
+  config:
+    - name: '@athena-ai/plugin-life'
+      config: { persona: { name: Alice, description: '...', traits: {} } }
+    - name: '@athena-ai/capability-message'
+    - name: '@athena-ai/cortex-chat'
+    - name: '@athena-ai/sandbox-nerve'   # Per-Life bridge to sandbox Hub
+    - name: '@athena-ai/adapter-onebot'
+      config: { ... }
+```
+
+### Decisions recorded
+
+| # | Decision | Rationale |
+|---|---|---|
+| M-27 | Sandbox split into Hub (root, provides `'sandbox'`) + Nerve (per-group, injects `['sandbox', 'satori', 'life']`) | Hub owns global WebUI page; Nerve owns per-Life SandboxBots in isolated Satori domain |
+| M-28 | All `sandbox/*` wire frames carry `lifeId` field | Single WebSocket multiplexes multiple Lives; frontend routes by lifeId |
+| M-29 | Hub passes `MessageSink` in dispatch payload for reply transport | Nerve/Bot don't depend on WebUI internals; Hub auto-stamps lifeId on replies |
+| M-30 | `sandbox` service is NOT isolated in group config | Hub is global; Nerve reaches it via normal inject from root |

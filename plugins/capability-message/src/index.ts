@@ -11,6 +11,19 @@ declare module "cordis" {
   }
 }
 
+/**
+ * Cordis wraps values passed through event hooks in traced proxies so that
+ * `.ctx` follows the receiver. `Symbol.for("cordis.original")` is the proxy's
+ * escape hatch back to the underlying object.
+ */
+const ORIGINAL = Symbol.for("cordis.original");
+
+/** Unwrap a cordis traced proxy, returning the object itself if untraced. */
+function unwrap<T extends object>(value: T | undefined): T | undefined {
+  if (!value) return value;
+  return ((value as Dict)[ORIGINAL as unknown as string] as T) ?? value;
+}
+
 export interface Config {}
 
 export default class MessageService extends Service<Config> {
@@ -34,9 +47,22 @@ export default class MessageService extends Service<Config> {
     // enclosing group entry so that sibling adapters share this domain.
     ctx.plugin(Satori);
 
-    // Inject [Context.filter] on all sessions for scope isolation
+    // Every `Session` dispatched by Satori is broadcast on the *global*
+    // `internal/session` bus, so every MessageService in the process sees it.
+    // Each instance must decide whether the session belongs to its own domain
+    // and, if so, restrict delivery to hooks in the matching `message` isolate.
+    //
+    // The session handed to a hook is a cordis *traced proxy*: `Session` and
+    // `Bot` both declare `[Service.tracker] = { property: "ctx" }`, which makes
+    // `session.bot.ctx` resolve to the *receiving* context rather than the
+    // context that owns the bot. Comparing against it would make every
+    // instance claim every session (last writer wins). Unwrap to the original
+    // object first so we read the bot's real context.
     const messageSymbol = ctx[Context.isolate]["message"] as symbol;
+    const satoriSymbol = ctx[Context.isolate]["satori"] as symbol;
     ctx.on("internal/session", (session: Session) => {
+      const bot = unwrap(session.bot);
+      if (!bot || bot.ctx[Context.isolate]["satori"] !== satoriSymbol) return;
       session[Context.filter] = (hookCtx: Context) => {
         return hookCtx[Context.isolate]["message"] === messageSymbol;
       };

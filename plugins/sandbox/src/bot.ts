@@ -1,4 +1,4 @@
-import type { Client } from "@cordisjs/plugin-webui";
+import type { MessageSink } from "@athena-ai/protocol";
 import { Bot, MessageEncoder, Universal } from "@satorijs/core";
 import type { Context } from "cordis";
 import { Time } from "cosmokit";
@@ -13,8 +13,8 @@ export namespace SandboxBot {
     selfId: string;
     /** Display name of the harness login inside the sandbox. */
     selfName: string;
-    /** The WebUI client this bot talks to. */
-    client: Client;
+    /** Abstract transport for sending frames to the frontend. */
+    sink: MessageSink;
     /**
      * Base url used to rewrite outgoing `file:` resources into something the
      * browser can actually load. Undefined when the file server is disabled.
@@ -91,7 +91,7 @@ export class SandboxBot extends Bot<SandboxBot.Config> {
         reject(new Error(`sandbox request timed out: ${method}`));
       }, REQUEST_TIMEOUT);
       this._pending.set(nonce, { settle: resolve, fail: reject, timer });
-      this.config.client.send({ type: "sandbox/request", body: { method, data, nonce } });
+      this.config.sink.send({ type: "sandbox/request", body: { method, data, nonce } });
     });
     // Library boundary: the page implements the Satori read APIs and there is
     // no schema to validate its replies against, so trust the protocol shape.

@@ -152,6 +152,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@athena-ai/sandbox-nerve@workspace:plugins/sandbox-nerve":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/sandbox-nerve@workspace:plugins/sandbox-nerve"
+  dependencies:
+    cosmokit: "npm:^1.8.1"
+  peerDependencies:
+    "@athena-ai/plugin-sandbox": "workspace:*"
+    "@athena-ai/protocol": "workspace:*"
+    "@satorijs/core": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
 "@babel/helper-string-parser@npm:^7.29.7":
   version: 7.29.7
   resolution: "@babel/helper-string-parser@npm:7.29.7"

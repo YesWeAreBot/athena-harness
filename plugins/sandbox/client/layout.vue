@@ -1,6 +1,16 @@
 <template>
   <k-layout class="page-sandbox" menu="sandbox.page">
     <aside class="page-sidebar">
+      <!-- Life selector (shown when multiple Lives are available) -->
+      <div v-if="config.lives.length > 1" class="life-selector">
+        <el-select v-model="config.selectedLife" placeholder="选择 Life" size="small">
+          <el-option v-for="life in config.lives" :key="life.id" :label="life.name" :value="life.id" />
+        </el-select>
+      </div>
+      <div v-else-if="config.lives.length === 1" class="life-selector life-single">
+        <span class="life-badge">{{ config.lives[0].name }}</span>
+      </div>
+
       <div class="card-header k-tab-menu-item" @click="createUser">添加用户</div>
       <div class="user-container">
         <el-scrollbar>
@@ -21,7 +31,7 @@
         <k-empty v-if="!users.length">
           <div>点击「添加用户」开始体验</div>
         </k-empty>
-        <div class="chat-panel" v-else :key="channel">
+        <div class="chat-panel" v-else :key="currentMessageKey">
           <virtual-list :data="messages" #="item" pinned>
             <chat-message :data="item"></chat-message>
           </virtual-list>
@@ -46,7 +56,7 @@ import { computed, ref } from "vue";
 import type { Message } from "../src/shared";
 import ChatInput from "./input.vue";
 import ChatMessage from "./message.vue";
-import { channel, config, MAX_USERS, panelTypes, send, users, words } from "./utils";
+import { channel, config, currentMessageKey, MAX_USERS, messageKey, panelTypes, send, users, words } from "./utils";
 
 const ctx = useContext();
 
@@ -54,7 +64,7 @@ const input = ref("");
 const offset = ref(0);
 const quote = ref<Message>();
 
-const messages = computed(() => config.value.messages[channel.value] ?? []);
+const messages = computed(() => config.value.messages[currentMessageKey.value] ?? []);
 
 const userMap = computed(() => {
   return Object.fromEntries(users.value.map((name) => [name, { name }]));
@@ -78,12 +88,14 @@ function createUser() {
     config.value.index %= MAX_USERS;
   } while (users.value.includes(name));
   config.value.user = name;
-  config.value.messages["@" + name] = [];
+  const key = messageKey(config.value.selectedLife, "@" + name);
+  config.value.messages[key] = [];
 }
 
 function removeUser(name: string) {
   const index = users.value.indexOf(name);
-  delete config.value.messages["@" + name];
+  const key = messageKey(config.value.selectedLife, "@" + name);
+  delete config.value.messages[key];
   if (config.value.user === name) {
     config.value.user = users.value[index] || "";
   }
@@ -112,6 +124,7 @@ function onKeydown(event: KeyboardEvent) {
 function sendMessage(content: string) {
   offset.value = 0;
   send(ctx, "sandbox/send-message", {
+    lifeId: config.value.selectedLife,
     platform: config.value.platform,
     user: config.value.user,
     channel: channel.value,
@@ -123,14 +136,16 @@ function sendMessage(content: string) {
 
 function deleteMessage(data: Message) {
   send(ctx, "sandbox/delete-message", {
+    lifeId: data.lifeId || config.value.selectedLife,
     platform: data.platform,
     user: data.user,
     channel: data.channel,
     messageId: data.id,
   });
-  const list = config.value.messages[data.channel];
+  const key = messageKey(data.lifeId || config.value.selectedLife, data.channel);
+  const list = config.value.messages[key];
   if (list) {
-    config.value.messages[data.channel] = list.filter((item) => item.id !== data.id);
+    config.value.messages[key] = list.filter((item) => item.id !== data.id);
   }
 }
 
@@ -143,7 +158,7 @@ ctx.client.action.action("sandbox.message.quote", {
 });
 
 ctx.client.action.action("sandbox.page.clear", {
-  action: () => (config.value.messages[channel.value] = []),
+  action: () => (config.value.messages[currentMessageKey.value] = []),
 });
 </script>
 
@@ -154,6 +169,25 @@ ctx.client.action.action("sandbox.page.clear", {
   .page-sidebar {
     display: flex;
     flex-direction: column;
+  }
+
+  .life-selector {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--k-color-divider);
+
+    .el-select {
+      width: 100%;
+    }
+  }
+
+  .life-single {
+    text-align: center;
+
+    .life-badge {
+      display: inline-block;
+      font-weight: 600;
+      color: var(--primary);
+    }
   }
 
   .chat-panel {

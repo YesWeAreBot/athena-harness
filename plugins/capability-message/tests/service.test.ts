@@ -1,4 +1,4 @@
-import type { Bot, Session } from "@satorijs/core";
+import { Bot, type Session, Universal } from "@satorijs/core";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
@@ -9,6 +9,42 @@ function createDomain() {
   const ctx = new Context();
   const inner = ctx.isolate("satori").isolate("bots");
   return { ctx, inner };
+}
+
+/** A minimal real `Bot`, so `session.bot.ctx` reflects a genuine domain. */
+class StubBot extends Bot<{ platform: string }> {
+  static reusable = true;
+  static inject = ["satori"];
+
+  constructor(ctx: Context, config: { platform: string }) {
+    super(ctx, config, "stub");
+    this.platform = config.platform;
+    this.selfId = "self";
+    this.user = { id: "self", name: "self" };
+  }
+
+  async connect() {
+    this.online();
+  }
+}
+
+/**
+ * Install a bot in `domain` and let it dispatch one message, returning the
+ * session every `internal/session` listener saw.
+ */
+async function dispatch(domain: Context, platform: string): Promise<Session> {
+  await domain.plugin(StubBot, { platform });
+  const bot = domain.satori.bots[`${platform}:self`];
+  const session = bot.session({
+    user: { id: "u1", name: "u1" },
+    channel: { id: "@u1", type: Universal.Channel.Type.DIRECT },
+    timestamp: Date.now(),
+  });
+  session.type = "message";
+  session.content = "hello";
+  session.messageId = "m1";
+  bot.dispatch(session);
+  return session;
 }
 
 describe("MessageService", () => {
@@ -64,31 +100,33 @@ describe("MessageService", () => {
     expect(ctx.message.bots[0].sid).toBe("fake:1");
   });
 
-  it("Context.filter is injected on sessions via internal/session", async () => {
-    const ctx = new Context();
-    await ctx.plugin(MessageService, {});
-    // Simulate a session dispatch on the context the service was plugged into
-    const mockSession: Record<symbol | string, unknown> = {};
-    ctx.emit("internal/session", mockSession);
-    expect(typeof mockSession[Context.filter]).toBe("function");
-  });
-
-  it("session filter passes for contexts sharing the message isolate", async () => {
+  it("claims a session dispatched by a bot in its own satori domain", async () => {
     const { ctx, inner } = createDomain();
     await inner.plugin(MessageService, {});
-    const mockSession: Record<symbol | string, unknown> = {};
-    inner.emit("internal/session", mockSession);
-    const filter = mockSession[Context.filter] as (ctx: Context) => boolean;
+    const session = await dispatch(inner, "own");
+
+    const filter = session[Context.filter];
+    expect(typeof filter).toBe("function");
     // The outer ctx shares the same message symbol — message is not isolated here
-    expect(filter(ctx)).toBe(true);
+    expect(filter!.call(session, ctx)).toBe(true);
+    expect(filter!.call(session, ctx.isolate("message"))).toBe(false);
   });
 
-  it("session filter rejects contexts in a different message isolate", async () => {
-    const { ctx, inner } = createDomain();
-    await inner.plugin(MessageService, {});
-    const mockSession: Record<symbol | string, unknown> = {};
-    inner.emit("internal/session", mockSession);
-    const filter = mockSession[Context.filter] as (ctx: Context) => boolean;
-    expect(filter(ctx.isolate("message"))).toBe(false);
+  it("ignores a session dispatched by a bot from another satori domain", async () => {
+    // Regression: `internal/session` is a global bus, and both `Session` and
+    // `Bot` are cordis traced proxies whose `.ctx` follows the receiver. A
+    // MessageService that trusted `session.bot.ctx` claimed every session, so
+    // the last one installed hijacked every other Life's messages.
+    const root = new Context();
+    const alice = root.isolate("satori").isolate("bots").isolate("message");
+    const bob = root.isolate("satori").isolate("bots").isolate("message");
+    await alice.plugin(MessageService, {});
+    await bob.plugin(MessageService, {});
+
+    const session = await dispatch(alice, "alice");
+    const filter = session[Context.filter];
+    expect(typeof filter).toBe("function");
+    expect(filter!.call(session, alice)).toBe(true);
+    expect(filter!.call(session, bob)).toBe(false);
   });
 });

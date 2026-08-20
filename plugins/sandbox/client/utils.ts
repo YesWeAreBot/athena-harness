@@ -1,7 +1,7 @@
 import { type Context, type Dict, useStorage } from "@cordisjs/client";
 import { computed } from "vue";
 
-import type { Message, RequestPayload } from "../src/shared";
+import type { LifeListPayload, Message, RequestPayload } from "../src/shared";
 
 declare module "@cordisjs/client" {
   interface ActionContext {
@@ -13,6 +13,7 @@ declare module "cordis" {
   interface Events {
     "sandbox/message"(body: Message): void;
     "sandbox/request"(body: RequestPayload): void;
+    "sandbox/life-list"(body: LifeListPayload): void;
   }
 }
 
@@ -28,6 +29,12 @@ export const panelTypes = {
   guild: "群聊模式",
 };
 
+export interface LifeEntry {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 export interface SandboxConfig {
   /** Virtual platform id — one per browser, persisted in local storage. */
   platform: string;
@@ -35,28 +42,48 @@ export interface SandboxConfig {
   user: string;
   /** Cursor into `words`, used to name the next user. */
   index: number;
-  /** Chat log per channel id. */
+  /** Currently selected Life id. */
+  selectedLife: string;
+  /** Available Lives from Hub. */
+  lives: LifeEntry[];
+  /**
+   * Chat log keyed by `${lifeId}/${channel}`.
+   * Falls back to just `channel` when lifeId is empty (legacy single-life).
+   */
   messages: Dict<Message[]>;
   panelType: keyof typeof panelTypes;
 }
 
-export const config = useStorage<SandboxConfig>("sandbox", 1.2, () => ({
+export const config = useStorage<SandboxConfig>("sandbox", 1.3, () => ({
   platform: "sandbox:" + Math.random().toString(36).slice(2),
   user: "",
   index: 0,
+  selectedLife: "",
+  lives: [],
   messages: {},
   panelType: "private",
 }));
+
+/** Composite key for message storage: includes lifeId when available. */
+export function messageKey(lifeId: string, channelId: string): string {
+  return lifeId ? `${lifeId}/${channelId}` : channelId;
+}
 
 export const channel = computed(() => {
   if (config.value.panelType === "guild") return GUILD_CHANNEL;
   return "@" + config.value.user;
 });
 
+/** Current message key (lifeId + channel). */
+export const currentMessageKey = computed(() => {
+  return messageKey(config.value.selectedLife, channel.value);
+});
+
 export const users = computed(() => {
+  const prefix = config.value.selectedLife ? `${config.value.selectedLife}/@` : "@";
   return Object.keys(config.value.messages)
-    .filter((key) => key.startsWith("@"))
-    .map((key) => key.slice(1));
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => key.slice(prefix.length));
 });
 
 export function send(ctx: Context, type: string, body: unknown) {
@@ -73,12 +100,14 @@ type ApiHandler = (data: Record<string, string>) => unknown;
 
 const api: Dict<ApiHandler> = {
   deleteMessage({ messageId, channelId }) {
-    const messages = config.value.messages[channelId];
+    const key = messageKey(config.value.selectedLife, channelId);
+    const messages = config.value.messages[key];
     if (!messages) return;
-    config.value.messages[channelId] = messages.filter((message) => message.id !== messageId);
+    config.value.messages[key] = messages.filter((message) => message.id !== messageId);
   },
   getMessage({ messageId, channelId }) {
-    const message = config.value.messages[channelId]?.find((item) => item.id === messageId);
+    const key = messageKey(config.value.selectedLife, channelId);
+    const message = config.value.messages[key]?.find((item) => item.id === messageId);
     if (!message) return;
     return {
       id: message.id,
@@ -107,17 +136,27 @@ const api: Dict<ApiHandler> = {
   },
 };
 
-/** Wire the page to the harness: inbound bubbles and inbound API calls. */
+/** Wire the page to the harness: inbound bubbles, life-list, and inbound API calls. */
 export function connectSandbox(ctx: Context) {
   ctx.on("sandbox/message", (message) => {
     if (message.platform !== config.value.platform) return;
-    (config.value.messages[message.channel] ||= []).push(message);
+    const key = messageKey(message.lifeId || "", message.channel);
+    (config.value.messages[key] ||= []).push(message);
   });
 
-  ctx.on("sandbox/request", ({ method, data, nonce }) => {
+  ctx.on("sandbox/life-list", (payload) => {
+    config.value.lives = payload.lives;
+    // Auto-select first life if none selected or selected was removed
+    if ((!config.value.selectedLife || !payload.lives.some((l) => l.id === config.value.selectedLife)) && payload.lives.length > 0) {
+      config.value.selectedLife = payload.lives[0].id;
+    }
+  });
+
+  ctx.on("sandbox/request", ({ lifeId, method, data, nonce }) => {
     const handler = api[method];
     if (!handler) console.warn("[sandbox] unimplemented api: %s", method);
     send(ctx, "sandbox/response", {
+      lifeId: lifeId || config.value.selectedLife,
       platform: config.value.platform,
       nonce,
       data: handler?.(data),

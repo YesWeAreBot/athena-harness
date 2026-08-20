@@ -1,0 +1,36 @@
+{
+  "name": "@athena-ai/sandbox-nerve",
+  "version": "0.0.1",
+  "description": "Per-Life sandbox nerve that bridges the Hub to a Life's isolated Satori domain",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.cjs",
+  "module": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "cosmokit": "^1.8.1"
+  },
+  "peerDependencies": {
+    "@athena-ai/plugin-sandbox": "workspace:*",
+    "@athena-ai/protocol": "workspace:*",
+    "@satorijs/core": "workspace:*",
+    "cordis": "^4.0.0-rc.8"
+  },
+  "cordis": {
+    "service": {
+      "required": [
+        "sandbox",
+        "satori",
+        "life"
+      ]
+    }
+  }
+}
