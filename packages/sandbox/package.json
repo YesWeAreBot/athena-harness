@@ -1,0 +1,64 @@
+{
+  "name": "@athena-ai/plugin-sandbox",
+  "version": "0.0.1",
+  "description": "WebUI sandbox for driving Athena conversations from the browser",
+  "license": "MIT",
+  "files": [
+    "lib",
+    "dist",
+    "src",
+    "client"
+  ],
+  "type": "module",
+  "main": "lib/index.cjs",
+  "module": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@satorijs/core": "workspace:*",
+    "@satorijs/element": "workspace:*",
+    "@satorijs/protocol": "workspace:*",
+    "cosmokit": "^1.8.1",
+    "schemastery": "^3.18.0"
+  },
+  "devDependencies": {
+    "@cordisjs/client": "^0.8.2",
+    "@cordisjs/plugin-server": "^1.7.0",
+    "@cordisjs/plugin-webui": "^0.8.2",
+    "@vueuse/core": "^14.3.0",
+    "cordis": "^4.0.0-rc.8",
+    "vue": "^3.5.33"
+  },
+  "peerDependencies": {
+    "@cordisjs/plugin-server": "^1.7.0",
+    "@cordisjs/plugin-webui": "^0.8.2",
+    "cordis": "^4.0.0-rc.8"
+  },
+  "peerDependenciesMeta": {
+    "@cordisjs/plugin-server": {
+      "optional": true
+    }
+  },
+  "cordis": {
+    "public": [
+      "dist"
+    ],
+    "description": {
+      "en": "Chat with the harness from a virtual sandbox platform in the browser",
+      "zh": "在浏览器中通过虚拟沙盒平台与本体对话"
+    },
+    "service": {
+      "required": [
+        "webui",
+        "message"
+      ]
+    }
+  }
+}

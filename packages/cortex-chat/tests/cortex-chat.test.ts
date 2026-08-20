@@ -1,9 +1,9 @@
-import { MessageService } from "@athena-ai/capability-message";
+import MessageService from "@athena-ai/capability-message";
 import { Life } from "@athena-ai/core";
 import { Context } from "cordis";
 import { describe, it, expect } from "vitest";
 
-import { CortexChat } from "../src/cortex-chat";
+import CortexChat from "../src/index.js";
 
 describe("CortexChat", () => {
   it("activates when both life and message are available", async () => {

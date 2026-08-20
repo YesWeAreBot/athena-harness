@@ -14,6 +14,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "ai": "^7.0.0",
     "schemastery": "^3.18.0"
   },
   "devDependencies": {

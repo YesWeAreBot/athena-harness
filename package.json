@@ -10,14 +10,16 @@
   "type": "module",
   "scripts": {
     "build": "yakumo build",
+    "clean": "yakumo clean",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "prepare": "husky",
-    "test": "yarn yakumo vitest"
+    "test": "yakumo vitest"
   },
   "devDependencies": {
+    "@cordisjs/client": "^0.8.2",
     "@types/node": "^22.20.1",
     "bumpp": "^12.2.1",
     "esbuild": "^0.28.0",
