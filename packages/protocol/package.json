@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/core",
+  "name": "@athena-ai/protocol",
   "version": "0.0.1",
   "type": "module",
   "main": "./lib/index.cjs",

@@ -1,5 +1,5 @@
 import MessageService from "@athena-ai/capability-message";
-import { Life } from "@athena-ai/core";
+import { Life } from "@athena-ai/plugin-life";
 import { Context } from "cordis";
 import { describe, it, expect } from "vitest";
 
@@ -34,7 +34,7 @@ describe("CortexChat", () => {
     expect(ctx.get("cortex")).toBeUndefined();
   });
 
-  it("registers as the active cortex in Life", async () => {
+  it("binds as the active cortex in Life", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },

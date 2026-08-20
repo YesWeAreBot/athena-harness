@@ -1,6 +1,5 @@
+import type { LifeService, MemoryProvider, MemoryEntry, Persona } from "@athena-ai/protocol";
 import { Context, Service } from "cordis";
-
-import type { LifeService, MemoryProvider, MemoryEntry, Persona } from "./types";
 
 // In-memory stub for v1
 class MemoryStub implements MemoryProvider {
@@ -33,18 +32,17 @@ export class Life extends Service implements LifeService {
     this.memory = new MemoryStub();
   }
 
-  registerCortex(cortex: Service): void {
+  bind(cortex: Service): () => void {
     if (this._cortex) {
-      throw new Error(`Only one Cortex per Life. Current: ${this._cortex.name}, ` + `attempted: ${cortex.name}`);
+      throw new Error(`Only one Cortex per Life. Current: ${this._cortex.name}, attempted: ${cortex.name}`);
     }
     this._cortex = cortex;
-  }
-
-  unregisterCortex(cortex: Service): void {
-    // Compare by name — cordis proxies mean `this` identity varies across contexts
-    if (this._cortex && this._cortex.name === cortex.name) {
-      this._cortex = null;
-    }
+    const name = cortex.name;
+    return () => {
+      if (this._cortex && this._cortex.name === name) {
+        this._cortex = null;
+      }
+    };
   }
 
   private _resolvePersona(input: string | Persona): Persona {

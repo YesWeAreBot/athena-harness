@@ -27,6 +27,5 @@ export interface MemoryProvider {
 export interface LifeService {
   readonly persona: Persona;
   readonly memory: MemoryProvider;
-  registerCortex(cortex: Service): void;
-  unregisterCortex(cortex: Service): void;
+  bind(cortex: Service): () => void;
 }

@@ -1,12 +1,9 @@
-import type { Life } from "./life";
+import { Context } from "cordis";
 
-export { Life } from "./life";
-export { Cortex } from "./cortex";
-export { Life as default } from "./life";
-export type { Persona, MemoryProvider, MemoryEntry, SearchOptions, LifeService } from "./types";
+// @athena-ai/core — prelude plugin
+// Installed globally via cordis.yml prelude.
+// Future: pre-processing hooks, global middleware, shared utilities.
 
-declare module "cordis" {
-  interface Context {
-    life: Life;
-  }
+export function apply(_ctx: Context) {
+  // Placeholder for future prelude logic
 }

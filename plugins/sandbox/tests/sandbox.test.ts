@@ -40,6 +40,7 @@ class FakeWebUI {
 async function setup() {
   const ctx = new Context();
   const webui = new FakeWebUI();
+  ctx.provide("webui");
   ctx.set("webui", webui);
 
   // Mirrors the runtime arrangement: the persona group owns the satori isolate.
@@ -86,7 +87,7 @@ describe("sandbox plugin", () => {
     expect(echo?.body).toMatchObject({ content: "hello", user: "Alice", channel: "@Alice", platform: PLATFORM });
 
     expect(sessions).toHaveLength(1);
-    expect(sessions[0].type).toBe("message");
+    expect(sessions[0].type).toBe("message-created");
     expect(sessions[0].content).toBe("hello");
     expect(sessions[0].userId).toBe("Alice");
     expect(sessions[0].isDirect).toBe(true);

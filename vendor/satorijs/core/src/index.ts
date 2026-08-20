@@ -132,7 +132,6 @@ export class Satori extends Service {
 
   constructor(ctx: Context) {
     super(ctx, "satori");
-    ctx.mixin("satori", ["bots", "component"]);
 
     defineProperty(this.bots, Service.tracker, {});
 

@@ -1,5 +1,5 @@
 import type {} from "@athena-ai/capability-message";
-import { Cortex } from "@athena-ai/core";
+import { Cortex } from "@athena-ai/protocol";
 import { Session } from "@satorijs/core";
 import { Context } from "cordis";
 

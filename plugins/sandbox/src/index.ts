@@ -106,7 +106,7 @@ export function apply(ctx: Context, config: Config) {
     });
     const bot = (async () => {
       await fiber;
-      const bot = ctx.bots[`${platform}:${SELF_ID}`];
+      const bot = ctx.satori.bots[`${platform}:${SELF_ID}`];
       if (!bot) throw new Error(`sandbox bot was not registered for platform ${platform}`);
       return bot as SandboxBot;
     })();

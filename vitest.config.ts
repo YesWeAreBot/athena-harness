@@ -6,9 +6,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@athena-ai/core": resolve(__dirname, "packages/core/src/index.ts"),
-      "@athena-ai/capability-message": resolve(__dirname, "packages/capability-message/src/index.ts"),
-      "@athena-ai/cortex-chat": resolve(__dirname, "packages/cortex-chat/src/index.ts"),
-      "@athena-ai/plugin-sandbox": resolve(__dirname, "packages/sandbox/src/index.ts"),
+      "@athena-ai/protocol": resolve(__dirname, "packages/protocol/src/index.ts"),
+      "@athena-ai/capability-message": resolve(__dirname, "plugins/capability-message/src/index.ts"),
+      "@athena-ai/cortex-chat": resolve(__dirname, "plugins/cortex-chat/src/index.ts"),
+      "@athena-ai/plugin-sandbox": resolve(__dirname, "plugins/sandbox/src/index.ts"),
     },
   },
   test: {

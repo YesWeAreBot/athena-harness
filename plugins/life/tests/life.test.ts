@@ -5,7 +5,6 @@ import { Life } from "../src/life";
 
 // Helper to access internal _cortex field for testing
 function getCortex(life: Life): Service | null {
-  // eslint-disable-next-line -- test-only access to private field
   return Reflect.get(life, "_cortex") as Service | null;
 }
 
@@ -19,47 +18,51 @@ describe("Life", () => {
     expect(ctx.life.persona.name).toBe("Alice");
   });
 
-  it("registerCortex stores reference", async () => {
+  it("bind stores cortex reference", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
     const mockCortex = { name: "test-cortex" } as unknown as Service;
-    ctx.life.registerCortex(mockCortex);
+    ctx.life.bind(mockCortex);
     expect(getCortex(ctx.life)).toBe(mockCortex);
   });
 
-  it("throws on second registerCortex", async () => {
+  it("bind throws on second cortex", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
     const cortex1 = { name: "cortex-1" } as unknown as Service;
     const cortex2 = { name: "cortex-2" } as unknown as Service;
-    ctx.life.registerCortex(cortex1);
-    expect(() => ctx.life.registerCortex(cortex2)).toThrow("Only one Cortex per Life");
+    ctx.life.bind(cortex1);
+    expect(() => ctx.life.bind(cortex2)).toThrow("Only one Cortex per Life");
   });
 
-  it("unregisterCortex clears reference", async () => {
+  it("bind returns disposer that clears reference", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
     const cortex = { name: "test-cortex" } as unknown as Service;
-    ctx.life.registerCortex(cortex);
-    ctx.life.unregisterCortex(cortex);
+    const unbind = ctx.life.bind(cortex);
+    unbind();
     expect(getCortex(ctx.life)).toBeNull();
   });
 
-  it("unregisterCortex ignores wrong reference", async () => {
+  it("disposer ignores if already rebound", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
     const cortex1 = { name: "cortex-1" } as unknown as Service;
     const cortex2 = { name: "cortex-2" } as unknown as Service;
-    ctx.life.registerCortex(cortex1);
-    ctx.life.unregisterCortex(cortex2); // wrong ref, should not clear
-    expect(getCortex(ctx.life)).toBe(cortex1);
+    const unbind1 = ctx.life.bind(cortex1);
+    // Manually clear and rebind (simulating hot-reload)
+    unbind1();
+    ctx.life.bind(cortex2);
+    // Old disposer should not clear new binding
+    unbind1();
+    expect(getCortex(ctx.life)).toBe(cortex2);
   });
 });

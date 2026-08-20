@@ -75,7 +75,7 @@ export class QQBot<T extends QQBot.Config = QQBot.Config> extends Bot<T> {
   async stop() {
     clearTimeout(this._timer);
     if (this.guildBot) {
-      delete this.ctx.bots[this.guildBot.sid];
+      delete this.ctx.satori.bots[this.guildBot.sid];
     }
     await super.stop();
   }

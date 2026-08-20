@@ -1,0 +1,40 @@
+{
+  "name": "@athena-ai/cortex-chat",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./lib/index.cjs",
+  "module": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "ai": "^7.0.0",
+    "schemastery": "^3.18.0"
+  },
+  "devDependencies": {
+    "cordis": "^4.0.0-rc.8"
+  },
+  "peerDependencies": {
+    "@athena-ai/capability-message": "workspace:*",
+    "@athena-ai/plugin-life": "workspace:*",
+    "@athena-ai/protocol": "workspace:*",
+    "cordis": "^4.0.0-rc.8"
+  },
+  "cordis": {
+    "service": {
+      "implements": [
+        "cortex"
+      ],
+      "required": [
+        "life",
+        "message"
+      ]
+    }
+  }
+}

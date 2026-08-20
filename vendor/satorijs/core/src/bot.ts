@@ -54,7 +54,7 @@ export abstract class Bot<T = any> {
     this.internal = null;
     this._internalRouter = new InternalRouter(ctx);
     this.context = ctx;
-    ctx.bots.push(this);
+    ctx.satori.bots.push(this);
     this.platform = adapterName;
 
     this.features = Object.entries(Methods)
@@ -92,9 +92,9 @@ export abstract class Bot<T = any> {
   }
 
   dispose() {
-    const index = this.ctx.bots.findIndex((bot) => bot.sid === this.sid);
+    const index = this.ctx.satori.bots.findIndex((bot) => bot.sid === this.sid);
     if (index >= 0) {
-      this.ctx.bots.splice(index, 1);
+      this.ctx.satori.bots.splice(index, 1);
       this.dispatchLoginEvent("login-removed");
     }
     return this.stop();
@@ -114,7 +114,7 @@ export abstract class Bot<T = any> {
   set status(value) {
     if (value === this._status) return;
     this._status = value;
-    if (this.ctx.bots?.some((bot) => bot.sid === this.sid)) {
+    if (this.ctx.satori?.bots?.some((bot) => bot.sid === this.sid)) {
       this.dispatchLoginEvent("login-updated");
     }
   }

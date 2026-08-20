@@ -55,7 +55,7 @@ describe("MessageService", () => {
     const fakeBot = { sid: "fake:1", isActive: true } as unknown as Bot;
     function fakeAdapter(adapterCtx: Context) {
       // Sibling entries resolve the capability's satori through the group isolate
-      adapterCtx.bots.push(fakeBot);
+      adapterCtx.satori.bots.push(fakeBot);
     }
     fakeAdapter.inject = ["satori"];
     await inner.plugin(fakeAdapter);

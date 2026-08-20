@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/cortex-chat",
+  "name": "@athena-ai/plugin-life",
   "version": "0.0.1",
   "type": "module",
   "main": "./lib/index.cjs",
@@ -14,25 +14,15 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "ai": "^7.0.0",
-    "schemastery": "^3.18.0"
-  },
-  "devDependencies": {
-    "cordis": "^4.0.0-rc.8"
+    "@athena-ai/protocol": "workspace:*"
   },
   "peerDependencies": {
-    "@athena-ai/capability-message": "workspace:*",
-    "@athena-ai/core": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
   "cordis": {
     "service": {
       "implements": [
-        "cortex"
-      ],
-      "required": [
-        "life",
-        "message"
+        "life"
       ]
     }
   }

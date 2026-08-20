@@ -8,7 +8,7 @@ export abstract class Cortex extends Service {
   }
 
   *[Service.init]() {
-    this.ctx.life.registerCortex(this);
-    yield () => this.ctx.life.unregisterCortex(this);
+    const unbind = this.ctx.life.bind(this);
+    yield unbind;
   }
 }
