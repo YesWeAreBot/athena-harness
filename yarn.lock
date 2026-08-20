@@ -52,23 +52,34 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@athena-ai/adapter-onebot@workspace:plugins/adapter-onebot":
+"@athena-ai/adapter-onebot@workspace:vendor/satorijs/adapter-onebot":
   version: 0.0.0-use.local
-  resolution: "@athena-ai/adapter-onebot@workspace:plugins/adapter-onebot"
+  resolution: "@athena-ai/adapter-onebot@workspace:vendor/satorijs/adapter-onebot"
   dependencies:
+    "@cordisjs/plugin-http": "npm:^1.5.0"
+    "@cordisjs/plugin-server": "npm:^1.7.0"
     "@satorijs/core": "workspace:*"
-    "@satorijs/element": "workspace:*"
-    "@satorijs/protocol": "workspace:*"
-    cosmokit: "npm:^1.8.1"
+    cordis: "npm:^4.0.0-rc.8"
     qface: "npm:^1.4.1"
     schemastery: "npm:^3.18.0"
   peerDependencies:
     "@cordisjs/plugin-http": ^1.5.0
     "@cordisjs/plugin-server": ^1.7.0
-    cordis: ^4.0.0-rc.3
-  peerDependenciesMeta:
-    "@cordisjs/plugin-server":
-      optional: true
+    "@satorijs/core": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
+"@athena-ai/ai@workspace:packages/ai":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/ai@workspace:packages/ai"
+  dependencies:
+    ai: "npm:^7.0.0"
+    cordis: "npm:^4.0.0-rc.8"
+    schemastery: "npm:^3.18.0"
+    zod: "npm:^3.25.76"
+  peerDependencies:
+    cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
 
@@ -76,21 +87,24 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@athena-ai/capability-message@workspace:plugins/capability-message"
   dependencies:
+    "@athena-ai/core": "workspace:*"
     "@satorijs/core": "workspace:*"
     "@satorijs/element": "workspace:*"
     "@satorijs/protocol": "workspace:*"
     cordis: "npm:^4.0.0-rc.8"
-    schemastery: "npm:^3.18.0"
   peerDependencies:
+    "@athena-ai/core": "workspace:*"
     cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
 
-"@athena-ai/core@workspace:packages/core":
+"@athena-ai/core@workspace:*, @athena-ai/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@athena-ai/core@workspace:packages/core"
   dependencies:
     cordis: "npm:^4.0.0-rc.8"
+    cosmokit: "npm:^1.8.1"
+    schemastery: "npm:^3.18.0"
   languageName: unknown
   linkType: soft
 
@@ -98,11 +112,13 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@athena-ai/cortex-chat@workspace:plugins/cortex-chat"
   dependencies:
+    "@athena-ai/core": "workspace:*"
     ai: "npm:^7.0.0"
     cordis: "npm:^4.0.0-rc.8"
-    schemastery: "npm:^3.18.0"
+    zod: "npm:^3.25.76"
   peerDependencies:
     "@athena-ai/capability-message": "workspace:*"
+    "@athena-ai/core": "workspace:*"
     "@athena-ai/plugin-life": "workspace:*"
     "@athena-ai/protocol": "workspace:*"
     cordis: ^4.0.0-rc.8
@@ -119,10 +135,26 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@athena-ai/plugin-message-store@workspace:plugins/message-store":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/plugin-message-store@workspace:plugins/message-store"
+  dependencies:
+    "@athena-ai/core": "workspace:*"
+    "@satorijs/core": "workspace:*"
+    "@satorijs/element": "workspace:*"
+    "@satorijs/protocol": "workspace:*"
+    cordis: "npm:^4.0.0-rc.8"
+  peerDependencies:
+    "@athena-ai/core": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
 "@athena-ai/plugin-sandbox@workspace:plugins/sandbox":
   version: 0.0.0-use.local
   resolution: "@athena-ai/plugin-sandbox@workspace:plugins/sandbox"
   dependencies:
+    "@athena-ai/core": "workspace:*"
     "@cordisjs/client": "npm:^0.8.2"
     "@cordisjs/plugin-server": "npm:^1.7.0"
     "@cordisjs/plugin-webui": "npm:^0.8.2"
@@ -131,16 +163,12 @@ __metadata:
     "@satorijs/protocol": "workspace:*"
     "@vueuse/core": "npm:^14.3.0"
     cordis: "npm:^4.0.0-rc.8"
-    cosmokit: "npm:^1.8.1"
-    schemastery: "npm:^3.18.0"
     vue: "npm:^3.5.33"
   peerDependencies:
+    "@athena-ai/core": "workspace:*"
     "@cordisjs/plugin-server": ^1.7.0
     "@cordisjs/plugin-webui": ^0.8.2
     cordis: ^4.0.0-rc.8
-  peerDependenciesMeta:
-    "@cordisjs/plugin-server":
-      optional: true
   languageName: unknown
   linkType: soft
 
@@ -149,14 +177,14 @@ __metadata:
   resolution: "@athena-ai/protocol@workspace:packages/protocol"
   dependencies:
     cordis: "npm:^4.0.0-rc.8"
+  peerDependencies:
+    cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
 
 "@athena-ai/sandbox-nerve@workspace:plugins/sandbox-nerve":
   version: 0.0.0-use.local
   resolution: "@athena-ai/sandbox-nerve@workspace:plugins/sandbox-nerve"
-  dependencies:
-    cosmokit: "npm:^1.8.1"
   peerDependencies:
     "@athena-ai/plugin-sandbox": "workspace:*"
     "@athena-ai/protocol": "workspace:*"
@@ -292,7 +320,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cordisjs/plugin-http@npm:^1.3.0":
+"@cordisjs/plugin-http@npm:^1.3.0, @cordisjs/plugin-http@npm:^1.5.0":
   version: 1.5.1
   resolution: "@cordisjs/plugin-http@npm:1.5.1"
   dependencies:
@@ -5405,5 +5433,12 @@ __metadata:
   version: 2.2.0
   resolution: "yoctocolors@npm:2.2.0"
   checksum: 10c0/ca179aa83401aa0711f268fda38145a44c828e612a5f5265439efb5796cd63c46ca6b786bae3b74c75440a48518c36b5b23cba7fbb76ea8af5a9f85f830a5754
+  languageName: node
+  linkType: hard
+
+"zod@npm:^3.25.76":
+  version: 3.25.76
+  resolution: "zod@npm:3.25.76"
+  checksum: 10c0/5718ec35e3c40b600316c5b4c5e4976f7fee68151bc8f8d90ec18a469be9571f072e1bbaace10f1e85cf8892ea12d90821b200e980ab46916a6166a4260a983c
   languageName: node
   linkType: hard

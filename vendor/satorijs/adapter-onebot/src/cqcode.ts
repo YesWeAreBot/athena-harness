@@ -1,5 +1,4 @@
-import { escape, h, Element } from "@satorijs/core";
-import type { Dict } from "cosmokit";
+import { escape, h, Element, Dict } from "@satorijs/core";
 
 export function CQCode(type: string, attrs: Dict<string>) {
   if (type === "text") return attrs.content;

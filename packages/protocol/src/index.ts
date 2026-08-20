@@ -1,9 +1,5 @@
-export { Cortex } from "./cortex";
-export type { Persona, MemoryProvider, MemoryEntry, SearchOptions, LifeService } from "./types";
-export type { MessageSink, SandboxDispatchPayload, SandboxNerveHandle, SandboxHubService } from "./sandbox";
-
-import type { SandboxHubService } from "./sandbox";
-import type { LifeService } from "./types";
+import type { SandboxHubService } from "./sandbox.js";
+import type { LifeService } from "./types.js";
 
 declare module "cordis" {
   interface Context {
@@ -11,3 +7,7 @@ declare module "cordis" {
     sandbox: SandboxHubService;
   }
 }
+
+export { Cortex } from "./cortex.js";
+export type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "./sandbox.js";
+export type { LifeService, MemoryEntry, MemoryProvider, Persona, SearchOptions } from "./types.js";

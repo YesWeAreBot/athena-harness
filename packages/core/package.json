@@ -14,6 +14,8 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "cordis": "^4.0.0-rc.8"
+    "cordis": "^4.0.0-rc.8",
+    "cosmokit": "^1.8.1",
+    "schemastery": "^3.18.0"
   }
 }

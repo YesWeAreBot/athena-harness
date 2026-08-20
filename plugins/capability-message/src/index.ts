@@ -1,9 +1,8 @@
-import { Satori, Bot, Session } from "@satorijs/core";
+import { Schema } from "@athena-ai/core";
+import { Satori, Bot, Session, Dict } from "@satorijs/core";
 import type { Fragment } from "@satorijs/element";
 import type { Message, SendOptions } from "@satorijs/protocol";
 import { Context, Service } from "cordis";
-import type { Dict } from "cosmokit";
-import z from "schemastery";
 
 declare module "cordis" {
   interface Context {
@@ -27,7 +26,7 @@ function unwrap<T extends object>(value: T | undefined): T | undefined {
 export interface Config {}
 
 export default class MessageService extends Service<Config> {
-  public static readonly Config: z<Config> = z.object({});
+  public static readonly Config: Schema<Config> = Schema.object({});
 
   /**
    * The context this service was constructed with.

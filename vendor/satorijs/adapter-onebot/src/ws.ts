@@ -1,7 +1,6 @@
 import type {} from "@cordisjs/plugin-http";
 import type { Server } from "@cordisjs/plugin-server";
 import { WsClient } from "@satorijs/core";
-import { WebSocket } from "@satorijs/protocol";
 import { Context } from "cordis";
 
 import type { OneBotBot } from "./bot";

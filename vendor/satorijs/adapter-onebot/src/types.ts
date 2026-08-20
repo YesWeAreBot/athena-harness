@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
-import { camelize, Dict } from "cosmokit";
+import { camelize, Dict } from "@satorijs/core";
 
 import type { OneBotBot } from "./bot";
 import type { CQCode } from "./cqcode";

@@ -1,7 +1,6 @@
 import type { MessageSink } from "@athena-ai/protocol";
-import { Bot, MessageEncoder, Universal } from "@satorijs/core";
+import { Bot, MessageEncoder, Time, Universal } from "@satorijs/core";
 import type { Context } from "cordis";
-import { Time } from "cosmokit";
 
 import { SandboxMessenger } from "./message";
 

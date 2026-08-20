@@ -3,11 +3,11 @@ import { extname } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
+import { Schema } from "@athena-ai/core";
 import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
 import type {} from "@cordisjs/plugin-server";
 import type { Client } from "@cordisjs/plugin-webui";
 import { type Context, Service } from "cordis";
-import z from "schemastery";
 
 import type { DeleteMessagePayload, LifeListPayload, ResponsePayload, SendMessagePayload } from "./shared";
 
@@ -29,10 +29,9 @@ export interface Config {
   };
 }
 
-export const Config: z<Config> = z.object({
-  fileServer: z.object({
-    enabled: z
-      .boolean()
+export const Config: Schema<Config> = Schema.object({
+  fileServer: Schema.object({
+    enabled: Schema.boolean()
       .default(false)
       .description(
         "Serve local files referenced by `file:` urls. This exposes arbitrary files " +
@@ -131,6 +130,7 @@ export default class SandboxHub extends Service<Config> implements SandboxHubSer
 
     this._setupListeners();
     this._setupFileServer();
+    yield;
   }
 
   // ---------------------------------------------------------------------------

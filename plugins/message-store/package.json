@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/cortex-chat",
+  "name": "@athena-ai/plugin-message-store",
   "version": "0.0.1",
   "type": "module",
   "main": "./lib/index.cjs",
@@ -14,28 +14,25 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "ai": "^7.0.0",
-    "zod": "^3.25.76"
+    "@satorijs/core": "workspace:*",
+    "@satorijs/element": "workspace:*",
+    "@satorijs/protocol": "workspace:*"
   },
   "devDependencies": {
     "@athena-ai/core": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
   "peerDependencies": {
-    "@athena-ai/capability-message": "workspace:*",
     "@athena-ai/core": "workspace:*",
-    "@athena-ai/plugin-life": "workspace:*",
-    "@athena-ai/protocol": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
   "cordis": {
     "service": {
       "implements": [
-        "cortex"
+        "message"
       ],
       "required": [
-        "life",
-        "message"
+        "life"
       ]
     }
   }

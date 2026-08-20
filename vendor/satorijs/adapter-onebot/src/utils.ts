@@ -1,13 +1,12 @@
-import { h, Element, Universal, Session, transform, at, image as hImage } from "@satorijs/core";
-import { hyphenate, omit } from "cosmokit";
+import { at, h, image as hImage, omit, transform, Universal } from "@satorijs/core";
 import * as qface from "qface";
 
 import type { OneBotBot } from "./bot";
 import { CQCode } from "./cqcode";
 import * as OneBot from "./types";
 
-export { CQCode };
 export * from "./types";
+export { CQCode };
 
 export const decodeUser = (user: OneBot.AccountInfo): Universal.User => ({
   id: user.tiny_id || user.user_id.toString(),

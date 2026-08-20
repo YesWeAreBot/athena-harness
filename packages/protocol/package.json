@@ -13,7 +13,10 @@
     },
     "./package.json": "./package.json"
   },
-  "dependencies": {
+  "devDependencies": {
+    "cordis": "^4.0.0-rc.8"
+  },
+  "peerDependencies": {
     "cordis": "^4.0.0-rc.8"
   }
 }

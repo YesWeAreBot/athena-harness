@@ -1,8 +1,7 @@
 import { SandboxBot, SELF_ID } from "@athena-ai/plugin-sandbox";
 import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
-import { Universal } from "@satorijs/core";
+import { Dict, Universal } from "@satorijs/core";
 import type { Context, Fiber } from "cordis";
-import type { Dict } from "cosmokit";
 
 interface BotHandle {
   fiber: Fiber;

@@ -1,5 +1,4 @@
-import { Element, h, MessageEncoder, transformAsync, type Transform } from "@satorijs/core";
-import type { Dict } from "cosmokit";
+import { Dict, Element, h, MessageEncoder, transformAsync, type Transform } from "@satorijs/core";
 
 import type { SandboxBot } from "./bot";
 

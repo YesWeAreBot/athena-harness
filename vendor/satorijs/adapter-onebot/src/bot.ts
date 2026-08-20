@@ -1,11 +1,11 @@
 import { Bot, MessageEncoder, Session, Universal, WsClientConfig } from "@satorijs/core";
 import { Context } from "cordis";
-import z from "schemastery";
+import Schema from "schemastery";
 
 import type { OneBotHttpServer } from "./http";
 import { OneBotMessageEncoder, PRIVATE_PFX } from "./message";
 import * as OneBot from "./types";
-import { adaptMessage, decodeUser, decodeGuildMember, adaptGuild, adaptChannel, dispatchSession } from "./utils";
+import { adaptChannel, adaptGuild, adaptMessage, decodeGuildMember, decodeUser, dispatchSession } from "./utils";
 import type { OneBotWsClient } from "./ws";
 
 export class OneBotBot<T extends OneBotBot.Config = OneBotBot.Config> extends Bot<T> {
@@ -219,10 +219,10 @@ export namespace OneBotBot {
     token?: string;
   }
 
-  export const BaseConfig: z<BaseConfig> = z.object({
-    selfId: z.string().description("机器人的账号。").required(),
-    token: z.string().role("secret").description("发送信息时用于验证的字段，应与 OneBot 的 access_token 保持一致。"),
-    protocol: z.union(["http", "ws", "ws-reverse"]).description("选择要使用的协议。").default("ws-reverse"),
+  export const BaseConfig: Schema<BaseConfig> = Schema.object({
+    selfId: Schema.string().description("机器人的账号。").required(),
+    token: Schema.string().role("secret").description("发送信息时用于验证的字段，应与 OneBot 的 access_token 保持一致。"),
+    protocol: Schema.union(["http", "ws", "ws-reverse"]).description("选择要使用的协议。").default("ws-reverse"),
   });
 
   export interface WsOptions extends WsClientConfig {
@@ -231,14 +231,12 @@ export namespace OneBotBot {
     responseTimeout?: number;
   }
 
-  export const WsOptions: z<WsOptions> = z.intersect([
-    z
-      .object({
-        protocol: z.const("ws").required(),
-        endpoint: z.string().role("link").description("要连接的服务器地址。").default("ws://127.0.0.1:6700"),
-        responseTimeout: z.natural().role("ms").description("等待响应的时间。").default(60000),
-      })
-      .description("连接设置"),
+  export const WsOptions: Schema<WsOptions> = Schema.intersect([
+    Schema.object({
+      protocol: Schema.const("ws").required(),
+      endpoint: Schema.string().role("link").description("要连接的服务器地址。").default("ws://127.0.0.1:6700"),
+      responseTimeout: Schema.natural().role("ms").description("等待响应的时间。").default(60000),
+    }).description("连接设置"),
     WsClientConfig,
   ]);
 
@@ -248,13 +246,11 @@ export namespace OneBotBot {
     responseTimeout?: number;
   }
 
-  export const WsReverseOptions: z<WsReverseOptions> = z
-    .object({
-      protocol: z.const("ws-reverse").required(),
-      path: z.string().description("服务器监听的路径。").default("/onebot"),
-      responseTimeout: z.natural().role("ms").description("等待响应的时间。").default(60000),
-    })
-    .description("连接设置");
+  export const WsReverseOptions: Schema<WsReverseOptions> = Schema.object({
+    protocol: Schema.const("ws-reverse").required(),
+    path: Schema.string().description("服务器监听的路径。").default("/onebot"),
+    responseTimeout: Schema.natural().role("ms").description("等待响应的时间。").default(60000),
+  }).description("连接设置");
 
   export interface HttpOptions {
     protocol: "http";
@@ -263,24 +259,20 @@ export namespace OneBotBot {
     secret?: string;
   }
 
-  export const HttpOptions: z<HttpOptions> = z
-    .object({
-      protocol: z.const("http").required(),
-      endpoint: z.string().role("link").description("要连接的服务器地址。"),
-      path: z.string().description("服务器监听的路径。").default("/onebot"),
-      secret: z.string().description("接收事件推送时用于验证的字段。").role("secret"),
-    })
-    .description("连接设置");
+  export const HttpOptions: Schema<HttpOptions> = Schema.object({
+    protocol: Schema.const("http").required(),
+    endpoint: Schema.string().role("link").description("要连接的服务器地址。"),
+    path: Schema.string().description("服务器监听的路径。").default("/onebot"),
+    secret: Schema.string().description("接收事件推送时用于验证的字段。").role("secret"),
+  }).description("连接设置");
 
   export interface AdvancedConfig {
     splitMixedContent?: boolean;
   }
 
-  export const AdvancedConfig: z<AdvancedConfig> = z
-    .object({
-      splitMixedContent: z.boolean().description("是否自动在混合内容间插入空格。").default(true),
-    })
-    .description("高级设置");
+  export const AdvancedConfig: Schema<AdvancedConfig> = Schema.object({
+    splitMixedContent: Schema.boolean().description("是否自动在混合内容间插入空格。").default(true),
+  }).description("高级设置");
 
   /** Flat config type for internal use — all protocol-specific fields optional */
   export interface Config extends WsClientConfig {
@@ -295,13 +287,13 @@ export namespace OneBotBot {
   }
 
   /** Schema uses intersect + union for protocol-discriminated UI */
-  export const Config: z<Config> = z.intersect([
+  export const Config: Schema<Config> = Schema.intersect([
     BaseConfig,
-    z.union([HttpOptions, WsOptions, WsReverseOptions]),
-    z.object({
+    Schema.union([HttpOptions, WsOptions, WsReverseOptions]),
+    Schema.object({
       advanced: AdvancedConfig,
     }),
-  ]) as unknown as z<Config>;
+  ]) as Schema<Config>;
 }
 
 export { dispatchSession };

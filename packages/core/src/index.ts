@@ -7,3 +7,7 @@ import { Context } from "cordis";
 export function apply(_ctx: Context) {
   // Placeholder for future prelude logic
 }
+
+export * from "cordis";
+export * from "cosmokit";
+export { default as Schema } from "schemastery";

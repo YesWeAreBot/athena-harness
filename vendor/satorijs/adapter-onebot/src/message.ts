@@ -1,7 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { h, MessageEncoder, Universal, Element } from "@satorijs/core";
-import { Dict, pick } from "cosmokit";
+import { Dict, Element, MessageEncoder, pick, Universal } from "@satorijs/core";
 
 import type { OneBotBot } from "./bot";
 import { CQCode } from "./cqcode";

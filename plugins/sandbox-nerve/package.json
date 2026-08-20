@@ -15,9 +15,6 @@
     },
     "./package.json": "./package.json"
   },
-  "dependencies": {
-    "cosmokit": "^1.8.1"
-  },
   "peerDependencies": {
     "@athena-ai/plugin-sandbox": "workspace:*",
     "@athena-ai/protocol": "workspace:*",

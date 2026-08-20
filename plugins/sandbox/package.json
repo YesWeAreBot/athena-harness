@@ -24,11 +24,10 @@
   "dependencies": {
     "@satorijs/core": "workspace:*",
     "@satorijs/element": "workspace:*",
-    "@satorijs/protocol": "workspace:*",
-    "cosmokit": "^1.8.1",
-    "schemastery": "^3.18.0"
+    "@satorijs/protocol": "workspace:*"
   },
   "devDependencies": {
+    "@athena-ai/core": "workspace:*",
     "@cordisjs/client": "^0.8.2",
     "@cordisjs/plugin-server": "^1.7.0",
     "@cordisjs/plugin-webui": "^0.8.2",
@@ -37,14 +36,10 @@
     "vue": "^3.5.33"
   },
   "peerDependencies": {
+    "@athena-ai/core": "workspace:*",
     "@cordisjs/plugin-server": "^1.7.0",
     "@cordisjs/plugin-webui": "^0.8.2",
     "cordis": "^4.0.0-rc.8"
-  },
-  "peerDependenciesMeta": {
-    "@cordisjs/plugin-server": {
-      "optional": true
-    }
   },
   "cordis": {
     "public": [

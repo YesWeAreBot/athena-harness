@@ -21,22 +21,20 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@satorijs/core": "workspace:*",
-    "@satorijs/element": "workspace:*",
-    "@satorijs/protocol": "workspace:*",
-    "cosmokit": "^1.8.1",
     "qface": "^1.4.1",
     "schemastery": "^3.18.0"
+  },
+  "devDependencies": {
+    "@cordisjs/plugin-http": "^1.5.0",
+    "@cordisjs/plugin-server": "^1.7.0",
+    "@satorijs/core": "workspace:*",
+    "cordis": "^4.0.0-rc.8"
   },
   "peerDependencies": {
     "@cordisjs/plugin-http": "^1.5.0",
     "@cordisjs/plugin-server": "^1.7.0",
-    "cordis": "^4.0.0-rc.3"
-  },
-  "peerDependenciesMeta": {
-    "@cordisjs/plugin-server": {
-      "optional": true
-    }
+    "@satorijs/core": "workspace:*",
+    "cordis": "^4.0.0-rc.8"
   },
   "cordis": {
     "service": {
