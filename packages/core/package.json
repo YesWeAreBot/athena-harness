@@ -3,7 +3,16 @@
   "version": "0.0.1",
   "type": "module",
   "main": "./lib/index.cjs",
+  "module": "./lib/index.js",
   "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
   "dependencies": {
     "cordis": "^4.0.0-rc.8"
   },

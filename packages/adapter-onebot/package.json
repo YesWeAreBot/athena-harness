@@ -1,0 +1,49 @@
+{
+  "name": "@athena-ai/adapter-onebot",
+  "version": "0.0.1",
+  "description": "OneBot Adapter for Satori v5",
+  "license": "MIT",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "type": "module",
+  "main": "lib/index.cjs",
+  "module": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs",
+      "types": "./lib/index.d.ts"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@satorijs/core": "workspace:*",
+    "@satorijs/element": "workspace:*",
+    "@satorijs/protocol": "workspace:*",
+    "cosmokit": "^1.8.1",
+    "qface": "^1.4.1",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "@cordisjs/plugin-http": "^1.5.0",
+    "@cordisjs/plugin-server": "^1.7.0",
+    "cordis": "^4.0.0-rc.3"
+  },
+  "peerDependenciesMeta": {
+    "@cordisjs/plugin-server": {
+      "optional": true
+    }
+  },
+  "cordis": {
+    "service": {
+      "required": [
+        "message",
+        "life"
+      ]
+    }
+  }
+}

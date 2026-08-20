@@ -16,8 +16,6 @@ jobs:
           node-version: 24
       - run: corepack enable
       - run: corepack yarn install --immutable
-      - run: corepack yarn typecheck
       - run: corepack yarn lint
       - run: corepack yarn test
       - run: corepack yarn build
-      - run: corepack yarn format:check

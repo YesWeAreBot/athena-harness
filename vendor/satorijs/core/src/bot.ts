@@ -67,10 +67,10 @@ export abstract class Bot<T = any> {
     });
   }
 
-  *[Service.init]() {
+  async *[Service.init]() {
     yield () => this.dispose();
     this.dispatchLoginEvent("login-added");
-    return this.start();
+    await this.start();
   }
 
   getInternalUrl(path: string, init?: ConstructorParameters<typeof URLSearchParams>[0], slash?: boolean) {
