@@ -8,14 +8,15 @@
 
 ## 编号体系
 
-| 前缀                           | 含义                          | 范围                       | 来源 spec                                       |
-| ------------------------------ | ----------------------------- | -------------------------- | ----------------------------------------------- |
-| `D-01`~`D-08`                  | Satori / Capability 架构决策  | 已修订多次                 | `satori-capability-architecture.md`             |
-| `D-09`~`D-19`                  | 技术选型与工具模型            | —                          | `technology-selection-and-tool-architecture.md` |
-| `D-20`~~`D-23`, `D-26`~~`D-32` | 命名与包架构                  | `D-24` / `D-25` **不存在** | `naming-and-package-architecture.md`            |
-| `M-01`~`M-20`                  | capability-message 实现决策   | 部分被修订                 | `capability-message-design.md`                  |
-| `M-21`~`M-30`                  | 多 Life 隔离与 Sandbox 拆分   | —                          | `multi-life-isolation-design.md`                |
-| `FR-xxx`                       | 功能需求（多条已 SUPERSEDED） | —                          | `spirit-pulse-medium-domain-model.md`           |
+| 前缀                           | 含义                            | 范围                       | 来源 spec                                       |
+| ------------------------------ | ------------------------------- | -------------------------- | ----------------------------------------------- |
+| `D-01`~`D-08`                  | Satori / Capability 架构决策    | 已修订多次                 | `satori-capability-architecture.md`             |
+| `D-09`~`D-19`                  | 技术选型与工具模型              | —                          | `technology-selection-and-tool-architecture.md` |
+| `D-20`~~`D-23`, `D-26`~~`D-32` | 命名与包架构                    | `D-24` / `D-25` **不存在** | `naming-and-package-architecture.md`            |
+| `D-33`~`D-36`                  | AI Service 与 Provider Registry | —                          | `model-service-design.md`                       |
+| `M-01`~`M-20`                  | capability-message 实现决策     | 部分被修订                 | `capability-message-design.md`                  |
+| `M-21`~`M-30`                  | 多 Life 隔离与 Sandbox 拆分     | —                          | `multi-life-isolation-design.md`                |
+| `FR-xxx`                       | 功能需求（多条已 SUPERSEDED）   | —                          | `spirit-pulse-medium-domain-model.md`           |
 
 > `D-24` 与 `D-25` 在任何 spec 中都不存在 —— 编号跳过，不是遗漏文档。
 
@@ -49,19 +50,19 @@
 
 来源：`.specify/specs/technology-selection-and-tool-architecture.md`
 
-| #        | 决策                                                                            | 分类          | 状态                                            | 详见                                                                               |
-| -------- | ------------------------------------------------------------------------------- | ------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **D-09** | LLM 层直接用 **AI SDK v7**，不做 wrapper                                        | Tech Stack    | 🔸 `ModelService` 已实现但未接线；Cortex 未集成 | [05](../05-lessons-learned.md) §6.2、[06](../06-progress-and-roadmap.md) Phase 2-A |
-| **D-10** | **Cordis v4**（`^4.0.0-rc.8`）作为组合基座                                      | Tech Stack    | ✅ 已实现                                       | [A](./A-cordis-primer.md)                                                          |
-| **D-11** | 从 git main 分支 **vendor Satori v5 alpha**                                     | Tech Stack    | ✅ 已实现                                       | [B](./B-satori-primer.md) §5、§6                                                   |
-| **D-12** | IM 连通经 **Satori Protocol 桥接到 Koishi** 实例                                | Tech Stack    | ⏸️ 未验证（`adapter-satori` 已 vendored）       | [B](./B-satori-primer.md) §8.1                                                     |
-| **D-13** | Athena Runtime **不是**独立产品；harness core 作为其内部依赖嵌入                | Architecture  | ⏸️ 未落地                                       | —                                                                                  |
-| **D-14** | **无 tool context 注入** —— LLM 通过参数寻址目标                                | Tool Model    | ⏸️ 待 Phase 2-C 验证                            | [01](../01-design-philosophy.md) §6、[05](../05-lessons-learned.md) §9             |
-| **D-15** | Tool 通过注册时所在的 Cordis context 访问 service，不通过注入参数或闭包捕获实例 | Tool Model    | ⏸️ 待 Phase 2-A                                 | [04](../04-patterns-and-recipes.md) §5.2                                           |
-| **D-16** | **`ctx.tools`** 作为 Tool Registry Service（register / discover / execute）     | Tool Model    | ❌ 未开始                                       | [02](../02-architecture.md) §9.3、[06](../06-progress-and-roadmap.md) Phase 2-A    |
-| **D-17** | Life Config —— per-Life 声明式装配 YAML                                         | Configuration | 🔸 被 D-21 改名为 **Instance**；文件加载未实现  | [02](../02-architecture.md) §10                                                    |
-| **D-18** | Tool 隔离由 **Cordis context tree** 天然提供，无需额外机制                      | Configuration | ⏸️ 待 Phase 2-A                                 | [02](../02-architecture.md) §9.3                                                   |
-| **D-19** | Cortex 内部策略切换（**Preset**）—— **延后**                                    | Future        | ⏸️ 延后                                         | [01](../01-design-philosophy.md) §2.2                                              |
+| #        | 决策                                                                            | 分类          | 状态                                           | 详见                                                                               |
+| -------- | ------------------------------------------------------------------------------- | ------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **D-09** | LLM 层直接用 **AI SDK v7**，不做 wrapper                                        | Tech Stack    | 🔸 `AIService` 已实现并接线；Cortex 侧未集成   | [05](../05-lessons-learned.md) §6.2、[06](../06-progress-and-roadmap.md) Phase 2-A |
+| **D-10** | **Cordis v4**（`^4.0.0-rc.8`）作为组合基座                                      | Tech Stack    | ✅ 已实现                                      | [A](./A-cordis-primer.md)                                                          |
+| **D-11** | 从 git main 分支 **vendor Satori v5 alpha**                                     | Tech Stack    | ✅ 已实现                                      | [B](./B-satori-primer.md) §5、§6                                                   |
+| **D-12** | IM 连通经 **Satori Protocol 桥接到 Koishi** 实例                                | Tech Stack    | ⏸️ 未验证（`adapter-satori` 已 vendored）      | [B](./B-satori-primer.md) §8.1                                                     |
+| **D-13** | Athena Runtime **不是**独立产品；harness core 作为其内部依赖嵌入                | Architecture  | ⏸️ 未落地                                      | —                                                                                  |
+| **D-14** | **无 tool context 注入** —— LLM 通过参数寻址目标                                | Tool Model    | ⏸️ 待 Phase 2-C 验证                           | [01](../01-design-philosophy.md) §6、[05](../05-lessons-learned.md) §9             |
+| **D-15** | Tool 通过注册时所在的 Cordis context 访问 service，不通过注入参数或闭包捕获实例 | Tool Model    | ⏸️ 待 Phase 2-A                                | [04](../04-patterns-and-recipes.md) §5.2                                           |
+| **D-16** | **`ctx.tools`** 作为 Tool Registry Service（register / discover / execute）     | Tool Model    | ❌ 未开始                                      | [02](../02-architecture.md) §9.3、[06](../06-progress-and-roadmap.md) Phase 2-A    |
+| **D-17** | Life Config —— per-Life 声明式装配 YAML                                         | Configuration | 🔸 被 D-21 改名为 **Instance**；文件加载未实现 | [02](../02-architecture.md) §10                                                    |
+| **D-18** | Tool 隔离由 **Cordis context tree** 天然提供，无需额外机制                      | Configuration | ⏸️ 待 Phase 2-A                                | [02](../02-architecture.md) §9.3                                                   |
+| **D-19** | Cortex 内部策略切换（**Preset**）—— **延后**                                    | Future        | ⏸️ 延后                                        | [01](../01-design-philosophy.md) §2.2                                              |
 
 ---
 
@@ -136,6 +137,19 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 | **D-30** | **Nerve 契约 = Capability 贡献者** —— 向 Capability service 注册实例；IM Nerve 注册 Bot 进 `ctx.message` 的域；经 Cordis 事件发射领域事件                          | ✅ 已实现（`sandbox-nerve` 为参考）                              | [04](../04-patterns-and-recipes.md) §4                                 |
 | **D-31** | **包目录布局** —— `packages/`（库）/ `plugins/`（运行时单元）/ `vendor/`（上游快照）                                                                               | ✅ 已实现                                                        | [02](../02-architecture.md) §2、[03](../03-code-conventions.md) §5     |
 | **D-32** | **依赖图** —— `core` → `protocol` → `life` / `cortex-*`；`capability-*` 依赖 vendor；Cortex 双 inject                                                              | ✅ 已实现（有小偏差，见 [06](../06-progress-and-roadmap.md) §2） | [02](../02-architecture.md) §2.2                                       |
+
+---
+
+## D-33 ~ D-36 · AI Service 与 Provider Registry
+
+来源：`.specify/specs/model-service-design.md`
+
+| #        | 决策                                                                                                                                                                                      | 状态                                         | 详见                                                                   |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
+| **D-33** | **AIService 是全局单例** —— provide key `'ai'`（`ctx.model` 已被 cordis database 生态占用）；**不进**隔离集合，因为模型是无状态共享资源，且 ProviderV4 天然跨模态                         | ✅ 已实现（`@athena-ai/ai`）                 | [02](../02-architecture.md) §9、[04](../04-patterns-and-recipes.md) §5 |
+| **D-34** | **Provider 插件前端配置只放 `id` / `apiKey` / `baseURL`** —— headers、per-provider/per-model defaults、模型声明、aliases、groups 全部下沉到 `models.yml`；Provider 插件不知道它存在       | ✅ 已实现（`provider-openai` / `-deepseek`） | [02](../02-architecture.md) §9、[04](../04-patterns-and-recipes.md) §5 |
+| **D-35** | **`candidates()` 统一入口 + `.group()` 显式方法** —— Group 只做模型排序 + 断路器，**不**包装 `streamText` / `generateText`；重试/failover 循环由 Cortex 自己写（与 D-28 push-based 同理） | ✅ 已实现（含断路器与三种策略）              | [04](../04-patterns-and-recipes.md) §5                                 |
+| **D-36** | **反对运行时 npm 安装、不自建动态 Schema 前端** —— 供应链安全 + 离线可用 + ROI 不足                                                                                                       | ✅ 设计确立                                  | `.specify/specs/model-service-design.md` §12                           |
 
 ---
 
@@ -238,6 +252,7 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 | `naming-and-package-architecture.md`            | ✅ 有效                | 命名与包架构的权威来源                                                         |
 | `capability-message-design.md`                  | ⚠️ 多处被修订          | M-01 / M-05 / M-15 / M-17 / M-18 / M-20 已变更；Part XI 的 core 边界描述已过时 |
 | `multi-life-isolation-design.md`                | ✅ 有效（最新）        | 隔离机制的权威来源；含根因分析                                                 |
+| `model-service-design.md`                       | ✅ 有效（最新）        | AI Service / Provider Registry 的权威来源；Phase 2-A 已落地                    |
 | `spirit-pulse-medium-domain-model.md`           | 🔸 概念有效，实现废弃  | 命名按迁移表翻译；FR-005 / Sense Queue 已废弃                                  |
 | `capability-protocol-and-entity-model.md`       | ❌ **整篇 SUPERSEDED** | 仅作演进记录                                                                   |
 
@@ -257,7 +272,7 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 
 ## 新增决策的规矩
 
-1. **编号连续** —— 从 `D-33` / `M-31` 继续，**不要**复用 `D-24` / `D-25`（历史跳号，保持跳过）
+1. **编号连续** —— 从 `D-37` / `M-31` 继续，**不要**复用 `D-24` / `D-25`（历史跳号，保持跳过）
 2. **写进 `.specify/specs/`** —— 新建 spec 或追加到最相关的现有 spec，含理由与替代方案
 3. **在本索引登记** —— 一行摘要 + 状态 + 指向 `docs/` 的链接
 4. **修订旧决策时**：

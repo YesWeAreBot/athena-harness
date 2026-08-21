@@ -1,6 +1,7 @@
 {
-  "name": "@athena-ai/cortex-chat",
+  "name": "@athena-ai/ai",
   "version": "0.0.1",
+  "description": "AI provider registry and model resolver for Athena Harness",
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./lib/index.js",
@@ -13,25 +14,27 @@
     },
     "./package.json": "./package.json"
   },
+  "dependencies": {
+    "@ai-sdk/provider": "^4.0.7",
+    "ai": "^7.0.70",
+    "schemastery": "^3.18.0",
+    "yaml": "^2.9.0",
+    "zod": "^3.25.76"
+  },
   "devDependencies": {
-    "@athena-ai/core": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
   "peerDependencies": {
-    "@athena-ai/capability-message": "workspace:*",
-    "@athena-ai/core": "workspace:*",
-    "@athena-ai/plugin-life": "workspace:*",
-    "@athena-ai/protocol": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
   "cordis": {
+    "description": {
+      "en": "AI provider registry and model resolver",
+      "zh": "AI 提供商注册表与模型解析器"
+    },
     "service": {
       "implements": [
-        "cortex"
-      ],
-      "required": [
-        "life",
-        "message"
+        "ai"
       ]
     }
   }

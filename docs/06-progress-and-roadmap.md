@@ -14,7 +14,7 @@
 | --------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | `@athena-ai/core`     | ✅ 完成（有意最小化） | 空 `apply()` + 重导出 cordis / cosmokit / schemastery                                                                                                                                                                                                          | M-23      |
 | `@athena-ai/protocol` | ✅ 完成               | `Persona` / `LifeService` / `MemoryProvider` / `SearchOptions` / `MemoryEntry`；Sandbox 契约（`MessageSink` / `SandboxDispatchPayload` / `SandboxNerveHandle` / `SandboxHubService`）；`Cortex` abstract class；`declare module "cordis"`（`life`、`sandbox`） | M-22      |
-| `@athena-ai/ai`       | 🔸 部分（未接线）     | ModelService：provider 注册/注销、chat & embedding 模型解析、alias、defaults、JSON config 加载与告警收集（~567 行）。**未注册为 cordis Service**                                                                                                               | D-09      |
+| `@athena-ai/ai`       | ✅ 完成               | `AIService`（provides `ai`，root 级全局单例）：Provider Registry、`models.yml` 加载与校验、六个模态的解析、`defaultSettingsMiddleware` 注入、`candidates()` / `ModelGroup` / 断路器 / 三种策略、`default()` / `metadata()` / `list()`                          | D-33~D-35 |
 
 ### 1.2 plugins/
 
@@ -25,20 +25,20 @@
 | `@athena-ai/cortex-chat`                           | 🔸 骨架     | 继承 `Cortex`、`inject: ["life","message"]`、订阅 `message`、echo 回复（`[persona.name] Echo: content`）。**无 LLM、无 willingness、无缓冲**                                                               | D-29                  |
 | `@athena-ai/plugin-sandbox`                        | ✅ 完成     | SandboxHub：`/sandbox` WebUI 页面、`/sandbox/file` 文件服务器（含 MIME 表）、WS 监听器、`register` / `lives` / `fileBase`、按 lifeId 路由、Vue 前端（layout / message / input / content / render / icons） | M-27~M-30             |
 | `@athena-ai/sandbox-nerve`                         | ✅ 完成     | per-Life Nerve：向 Hub 注册、懒创建 `SandboxBot`、`dispatch` / `request` / `release`、`ctx.effect` 清理、message-deleted 隧道                                                                              | M-27~M-29             |
-| message-store（`plugins/message-store`）           | ❌ 空壳     | 只有 package.json + tsconfig.json，`src/` 为空                                                                                                                                                             | —                     |
+| `@athena-ai/provider-openai`                       | ✅ 完成     | `createOpenAI()` → `ctx.ai.register(config.id, provider)`；`reusable`（官方 key + 内部网关可共存）；`ctx.effect` 注销                                                                                      | D-34                  |
+| `@athena-ai/provider-deepseek`                     | ✅ 完成     | 同上，`createDeepSeek()`                                                                                                                                                                                   | D-34                  |
+| `@athena-ai/plugin-message-store`                  | ❌ 占位     | `src/index.ts` 只有 `export {}` + 说明注释（占位以免 tsc 报 "No inputs were found"）；Phase 3 消息持久化用                                                                                                 | —                     |
 
 ### 1.3 providers/
 
-**这是一个未在 workspaces 中登记的目录**，内容是**尚未迁移的 YesImBot Koishi 插件**。
+**这是一个未在 workspaces 中登记的目录**，内容是**尚未迁移的 YesImBot Koishi 插件**，保留作对照参考。`vitest.config.ts` 已 `exclude: ["providers/**"]`。
 
-| 包                                           | 目录                  | 状态      | 问题                                                                                                          |
-| -------------------------------------------- | --------------------- | --------- | ------------------------------------------------------------------------------------------------------------- |
-| `@yesimbot/koishi-plugin-provider-openai`    | `providers/openai`    | ❌ 未迁移 | `import { Context, Schema } from "koishi"`；`ctx.yesimbot.model.register(...)`；依赖 `koishi-plugin-yesimbot` |
-| `@yesimbot/koishi-plugin-provider-anthropic` | `providers/anthropic` | ❌ 未迁移 | 同上                                                                                                          |
-| provider-google                              | `providers/google`    | ❌ 未迁移 | 同上（无测试）                                                                                                |
-| provider-deepseek                            | `providers/deepseek`  | ❌ 未迁移 | 同上（无测试）                                                                                                |
-
-`providers/*` 不在 `package.json` 的 `workspaces`（`packages/*`、`plugins/*`、`vendor/*/*`）中，因此其依赖（`@ai-sdk/openai`、`@ai-sdk/anthropic`）未被安装，测试直接失败。
+| 包                                           | 目录                  | 状态                                     | 备注                                              |
+| -------------------------------------------- | --------------------- | ---------------------------------------- | ------------------------------------------------- |
+| `@yesimbot/koishi-plugin-provider-openai`    | `providers/openai`    | ⏹️ 已被 `plugins/provider-openai` 取代   | 旧设计把模型表/format/webSearch 塞进前端表单      |
+| `@yesimbot/koishi-plugin-provider-anthropic` | `providers/anthropic` | ❌ 未迁移                                | 需要时按 `provider-openai` 模板照抄即可（~30 行） |
+| provider-google                              | `providers/google`    | ❌ 未迁移                                | 同上                                              |
+| provider-deepseek                            | `providers/deepseek`  | ⏹️ 已被 `plugins/provider-deepseek` 取代 | —                                                 |
 
 ### 1.4 vendor/
 
@@ -54,36 +54,40 @@
 
 ### 1.5 尚未开始
 
-| 项                                                                    | 说明                                            | 对应 spec |
-| --------------------------------------------------------------------- | ----------------------------------------------- | --------- |
-| `ctx.tools` Tool Registry                                             | 无对应 package                                  | D-16      |
-| Hook Protocol 契约                                                    | `protocol` 中无 `Events` 声明                   | D-23      |
-| AI SDK 集成到 Cortex                                                  | cortex-chat 中无 `generateText` / `streamText`  | D-09      |
-| Memory 持久化                                                         | 仅 `MemoryStub`                                 | FR-008    |
-| Persona 文件加载                                                      | `_resolvePersona` 对 string 输入直接抛错        | D-17      |
-| `cortex-world` / `cortex-interlude`                                   | 无对应 package                                  | —         |
-| `capability-minecraft` / `capability-audio` / `capability-expression` | 无对应 package                                  | D-07      |
-| `instances/` / `personas/` / `cordis.yml` / `app.yml`                 | 仓库中不存在（部署配置在外部 boilerplate 仓库） | M-19      |
-| Layer 3 tool 注册机制                                                 | 延后设计                                        | D-08      |
-| Execution Record（可观测性）                                          | 未设计                                          | —         |
+| 项                                                                    | 说明                                                                  | 对应 spec |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------- | --------- |
+| `ctx.tools` Tool Registry                                             | 无对应 package                                                        | D-16      |
+| Hook Protocol 契约                                                    | `protocol` 中无 `Events` 声明                                         | D-23      |
+| AI SDK 集成到 Cortex                                                  | cortex-chat 中无 `generateText` / `streamText`（`ctx.ai` 本身已可用） | D-09      |
+| Memory 持久化                                                         | 仅 `MemoryStub`                                                       | FR-008    |
+| Persona 文件加载                                                      | `_resolvePersona` 对 string 输入直接抛错                              | D-17      |
+| `cortex-world` / `cortex-interlude`                                   | 无对应 package                                                        | —         |
+| `capability-minecraft` / `capability-audio` / `capability-expression` | 无对应 package                                                        | D-07      |
+| `instances/` / `personas/` / `cordis.yml` / `app.yml`                 | 仓库中不存在（部署配置在外部 boilerplate 仓库）                       | M-19      |
+| Layer 3 tool 注册机制                                                 | 延后设计                                                              | D-08      |
+| Execution Record（可观测性）                                          | 未设计                                                                | —         |
 
 ### 1.6 测试现状
 
-`npx vitest run` 结果：**7 个测试文件通过（52 个测试），2 个失败**。
+`npx vitest run` 结果：**13 个测试文件全部通过（121 个测试）**。
 
-| 测试文件                                           | 状态                                         |
-| -------------------------------------------------- | -------------------------------------------- |
-| `packages/protocol/tests/cortex.test.ts`           | ✅                                           |
-| `packages/protocol/tests/sandbox.test.ts`          | ✅                                           |
-| `plugins/life/tests/life.test.ts`                  | ✅ 5 个用例                                  |
-| `plugins/capability-message/tests/service.test.ts` | ✅ 8 个用例（含隔离与事件归属）              |
-| `plugins/cortex-chat/tests/cortex-chat.test.ts`    | ✅ 4 个用例                                  |
-| `plugins/sandbox/tests/sandbox.test.ts`            | ✅                                           |
-| `plugins/sandbox-nerve/tests/nerve.test.ts`        | ✅                                           |
-| `providers/openai/tests/index.test.ts`             | ❌ `Cannot find package '@ai-sdk/openai'`    |
-| `providers/anthropic/tests/index.test.ts`          | ❌ `Cannot find package '@ai-sdk/anthropic'` |
+| 测试文件                                           | 状态                                                                 |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| `packages/ai/tests/config.spec.ts`                 | ✅ 16 个用例（`models.yml` 加载 / 校验 / 降级）                      |
+| `packages/ai/tests/service.spec.ts`                | ✅ 24 个用例（注册、各模态解析、alias/defaults、strict、middleware） |
+| `packages/ai/tests/group.spec.ts`                  | ✅ 16 个用例（断路器、candidates 三路径、三种策略、降级行为）        |
+| `packages/ai/tests/integration.spec.ts`            | ✅ 7 个用例（真实 provider 插件 + models.yml 端到端，无网络）        |
+| `packages/protocol/tests/cortex.spec.ts`           | ✅                                                                   |
+| `packages/protocol/tests/sandbox.spec.ts`          | ✅                                                                   |
+| `plugins/life/tests/life.spec.ts`                  | ✅ 5 个用例                                                          |
+| `plugins/capability-message/tests/service.spec.ts` | ✅ 8 个用例（含隔离与事件归属）                                      |
+| `plugins/cortex-chat/tests/cortex-chat.spec.ts`    | ✅ 4 个用例                                                          |
+| `plugins/sandbox/tests/sandbox.spec.ts`            | ✅                                                                   |
+| `plugins/sandbox-nerve/tests/nerve.spec.ts`        | ✅                                                                   |
+| `plugins/provider-openai/tests/provider.spec.ts`   | ✅ 4 个用例（注册、注销、多实例、ID 重复失败）                       |
+| `plugins/provider-deepseek/tests/provider.spec.ts` | ✅ 2 个用例                                                          |
 
-`yarn test`（经 yakumo-vitest）只拾取到 `@satorijs/protocol` 一个文件 —— yakumo 的 workspace 作用域与 vitest 的文件发现不一致。**这是一个需要修的 tooling 缺口**：`yarn test` 当前不会跑 athena 自己的测试。
+`yarn test`（经 yakumo-vitest）只拾取到 `@satorijs/protocol` 一个文件 —— yakumo 的 workspace 作用域与 vitest 的文件发现不一致。**这是一个需要修的 tooling 缺口**：`yarn test` 当前不会跑 athena 自己的测试，验证改动请用 `npx vitest run`。
 
 无覆盖率数据（未配置 coverage）。
 
@@ -104,58 +108,11 @@
 | 7   | Spirit / Pulse / Medium 命名                                                                                                       | Life / Cortex / Nerve                                                                                                  | **spec 已废弃**（D-20）                                                             |
 | 8   | `capability-protocol-and-entity-model.md` 整篇                                                                                     | 整篇 SUPERSEDED                                                                                                        | 仅作历史参考                                                                        |
 | 9   | `ctx.satori` / `ctx.bots` 可用（原 Satori 行为）                                                                                   | `ctx.bots` 不存在（mixin 已移除）                                                                                      | **代码为准**（M-21 / M-26）                                                         |
-| 10  | `ctx.ai` 服务可用（`packages/ai` 的 `declare module`）                                                                             | `ModelService` 不 `extends Service`，无 provide key → `ctx.ai` 实际未注册                                              | **实现缺陷**，见 §3                                                                 |
+| 10  | `ctx.ai` 服务可用（`packages/ai` 的 `declare module`）                                                                             | ✅ 已修复 —— `AIService extends Service` + `super(ctx, "ai")`                                                          | **已解决**（D-33，见 §3 已修复表）                                                  |
 
 ---
 
 ## 3. 已确认的缺陷（优先修复）
-
-### P0-1 · 包名与目录错位
-
-`plugins/capability-message`（含 MessageService 实现）与 `plugins/message-store`（空壳）的 **package name 互换了**：
-
-```
-@athena-ai/plugin-message-store   ←  plugins/capability-message   ❌ 应为 @athena-ai/capability-message
-@athena-ai/capability-message     ←  plugins/message-store        ❌ 应为 @athena-ai/plugin-message-store
-```
-
-**影响**：任何对 `@athena-ai/capability-message` 的真实模块解析都会命中空壳包。测试之所以通过，是因为 `vitest.config.ts` 的 alias 直接指向 `plugins/capability-message/src/index.ts`，绕过了包解析。构建产物与运行时部署会失败。
-
-**附带问题**：两个 package.json 的 `cordis.service` 都写了 `"required": ["life"]`。capability 不应依赖 `life`（违反 M-17 与依赖倒置）—— 应删除。
-
-**git 证据**：`plugins/capability-message/package.json` 的改名是**未提交的工作区改动** —— HEAD 中是正确的 `@athena-ai/capability-message`：
-
-```console
-$ git diff plugins/capability-message/package.json
--  "name": "@athena-ai/capability-message",
-+  "name": "@athena-ai/plugin-message-store",
-```
-
-而 `plugins/message-store/` 整个目录是**未跟踪的新增**（`git status` 显示 `?? plugins/message-store/`）。合理推断：新建 message-store 时复制了 capability-message 的 package.json，随后把原包改名，方向弄反了。修复只需还原两个 `name`。
-
-**修复**：交换两个 `name` 字段；从 capability-message 的 `cordis.service` 中移除 `required: ["life"]`。
-
-### P0-2 · `ModelService` 未注册为 cordis Service
-
-```typescript
-// packages/ai/src/index.ts
-declare module "cordis" {
-  interface Context {
-    ai: ModelService;      // ← 声明了
-  }
-}
-
-export class ModelService {  // ← 但不 extends Service，无 provide key
-  constructor(ctx: Context, config: ModelServiceConfig) {
-    this.ctx = ctx;          // 手工存 ctx，未调 super(ctx, "ai")
-  }
-  *[Service.init]() { ... }   // 有 init generator
-}
-```
-
-**影响**：`ctx.ai` 永远是 `undefined`。任何 Cortex 都无法解析模型 → AI 能力完全不可用。
-
-**修复**：`class ModelService extends Service<ModelServiceConfig>` + `super(ctx, "ai")`，移除手工 `ctx` / `config` 字段。
 
 ### P1-1 · `yarn test` 不跑项目测试
 
@@ -165,27 +122,29 @@ export class ModelService {  // ← 但不 extends Service，无 provide key
 
 **修复**：调查 yakumo-vitest 的包发现逻辑，或改 `test` script 为直接 `vitest run`。
 
-### P1-2 · `providers/*` 未迁移且未登记
+### P1-2 · `providers/*` 未迁移（部分）
 
-四个 provider 包仍是 Koishi 插件（`import from "koishi"`、`ctx.yesimbot.model`），且不在 workspaces 中 → 依赖未安装 → 2 个测试文件失败。
+`providers/anthropic`、`providers/google` 仍是 Koishi 插件（`import from "koishi"`、`ctx.yesimbot.model`），且不在 workspaces 中。`vitest.config.ts` 已 `exclude: ["providers/**"]`，不影响测试。
 
-**修复**：见 Phase 2-A。短期可先从 vitest 的 `exclude` 中排除 `providers/**` 以恢复绿色。
+**修复**：按 `plugins/provider-openai` 模板重建（约 30 行），然后删掉 `providers/`。
 
-### P2-1 · Logger 名残留 YesImBot
-
-`packages/ai/src/index.ts` 用 `ctx.logger("yesimbot.model")`。应为 `"athena.model"`。
-
-### P2-2 · vitest alias 缺项
-
-`vitest.config.ts` 缺 `@athena-ai/plugin-life`（靠 workspace symlink 侥幸生效）与 `@athena-ai/ai`。新增包时容易踩。
-
-### P2-3 · `legacy/` 未清理
+### P2-1 · `legacy/` 未清理
 
 `legacy/` 含 10 个被取代的包（`harness-core`、`athena-runtime`、`agent`、`agent-loop`、`session`、`tools`、`prompt`、`persist-jsonl`、`onebot-body`）。已在 git 历史中保留，可考虑删除以减少 AI agent 与新贡献者的误读风险。
 
-### P2-4 · `packages/ai/src/index.ts` 未通过 oxfmt
+### P2-2 · `plugins/message-store` 是纯占位
 
-`yarn format:check` 报该文件有格式问题（全仓库唯一一个）。因该目录整体未被 git 跟踪（`?? packages/ai/`），可能有人正在改动，未擅自格式化。接手时先跑 `yarn format`。
+`src/index.ts` 只有 `export {}`，仅为让 tsc 有输入（否则 `yarn build` 报 "No inputs were found"）。package.json 仍带 satori 依赖。Phase 3 动它之前，它是死重量。
+
+### 已修复（保留记录）
+
+| 编号 | 问题                                                         | 结果                                                                                                                                |
+| ---- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| P0-1 | capability-message / message-store 包名互换                  | ✅ `name` 已还原；capability-message 的 `cordis.service.required: ["life"]` 已删；message-store 的伪 `implements: ["message"]` 已删 |
+| P0-2 | `ModelService` 未 `extends Service`，`ctx.ai` 永远 undefined | ✅ `packages/ai` 已按 `.specify/specs/model-service-design.md` 重写为 `AIService extends Service`（provide key `ai`）               |
+| P2-x | Logger 名残留 `yesimbot.model`                               | ✅ 随重写消失，现为 `ctx.logger("ai")`                                                                                              |
+| P2-x | vitest alias 缺项                                            | ✅ 已不适用 —— `vitest.config.ts` 不用 alias，测试走相对路径引 src                                                                  |
+| P2-x | `packages/ai/src/index.ts` 未过 oxfmt                        | ✅ 随重写消失，`yarn format` 全绿                                                                                                   |
 
 ---
 
@@ -205,7 +164,7 @@ export class ModelService {  // ← 但不 extends Service，无 provide key
 - [x] `@athena-ai/cortex-chat`：Cortex 骨架（echo）
 - [x] Sandbox Hub + Nerve：无需真实 IM 即可验证对话链路
 - [x] Multi-Life 隔离机制（`{ life, cortex, message, satori }`）验证
-- [x] `@athena-ai/ai`：ModelService 逻辑主体
+- [x] `@athena-ai/ai`：早期 `ModelService` 逻辑主体（Phase 2-A 已按 D-33~D-35 整体重写为 `AIService`）
 
 **验收状态**：52 个测试通过；多 Life 隔离的根因分析与方案已落地（`multi-life-isolation-design.md` 标记 Approved / Implemented）。
 
@@ -221,21 +180,17 @@ export class ModelService {  // ← 但不 extends Service，无 provide key
 
 任务：
 
-1. **修 P0-1（包名错位）与 P0-2（ModelService 未注册）** —— 阻塞其余一切
-2. **`ModelService` 接线为 cordis Service**
-   - `extends Service<ModelServiceConfig>` + `super(ctx, "ai")`
-   - logger 改 `"athena.model"`
-   - 补 `packages/ai/tests/` —— provider 注册/注销、模型解析、alias、defaults、config 告警
-   - `vitest.config.ts` 补 `@athena-ai/ai` alias
-3. **迁移 `providers/*` 到 athena**
-   - 登记 `providers/*` 进 `workspaces`
-   - 改名 `@athena-ai/provider-<name>`
-   - `import from "koishi"` → `cordis` + `@athena-ai/core`（`Schema`）
-   - `ctx.yesimbot.model.register(...)` → `ctx.ai.register(...)`
-   - `inject: ["yesimbot"]` → `inject: ["ai"]`
-   - `ctx.on("ready")` / `ctx.on("dispose")` → `*[Service.init]()` + `yield dispose`
-   - 至少让 deepseek + openai 两个可用
-4. **新建 `@athena-ai/plugin-tools`（`ctx.tools`）**
+1. ~~**修 P0-1（包名错位）与 P0-2（ModelService 未注册）**~~ —— ✅ 完成
+2. ~~**`AIService` 接线为 cordis Service**~~ —— ✅ 完成（`.specify/specs/model-service-design.md`）
+   - `AIService extends Service<AIServiceConfig>` + `super(ctx, "ai")`，root 级全局单例（**不进**隔离集合）
+   - `models.yml` 加载与校验；六个模态的 resolve；`defaultSettingsMiddleware` 注入 per-provider / per-model defaults
+   - `candidates()` / `group()` / `ModelGroup` / 断路器 / `failover`·`round-robin`·`random`
+   - `packages/ai/tests/` 63 个用例（config 16 / service 24 / group 16 / integration 7）
+3. ~~**Provider 插件**~~ —— ✅ `plugins/provider-openai`、`plugins/provider-deepseek`（各带测试）
+   - `reusable = true`；Config 只有 `id` / `apiKey` / `baseURL`
+   - `createXxx()` → `ctx.ai.register(config.id, provider)` → `ctx.effect(() => dispose)`
+   - 剩余：`anthropic` / `google` 按同模板补（见 P1-2）
+4. **新建 `@athena-ai/plugin-tools`（`ctx.tools`）** —— ⬜ 未开始
    - `register(definition): () => void`
    - `available(): ToolDefinition[]` —— 沿 context 链向上遍历（local → life → global）
    - `execute(call, options?): Promise<ToolResult>` —— 统一执行入口，为将来的 guard/hook 留位
@@ -244,12 +199,13 @@ export class ModelService {  // ← 但不 extends Service，无 provide key
 
 **验收标准**：
 
-- [ ] `yarn workspaces list` 中无包名/目录错位
-- [ ] `ctx.ai` 在安装 `@athena-ai/ai` 后可用，`ctx.ai.resolveChatModel(id)` 返回可用的 AI SDK `LanguageModel`
-- [ ] 至少两个 provider 以 athena 形态注册成功，`listChatModels()` 返回其模型
+- [x] `yarn workspaces list` 中无包名/目录错位
+- [x] `ctx.ai` 在安装 `@athena-ai/ai` 后可用，`ctx.ai.language(id)` 返回可用的 AI SDK `LanguageModelV4`
+- [x] 至少两个 provider 以 athena 形态注册成功，`ctx.ai.providers()` / `list()` 返回其内容
+- [x] `ctx.ai.candidates("main")` 返回按策略排序、已跳过断路器的 `Candidate[]`
 - [ ] `ctx.tools.available()` 的作用域行为有测试覆盖（含 sibling group 不可见）
 - [ ] `yarn test` 能跑到全部 athena 测试且全绿（P1-1 修复）
-- [ ] 一个最小脚本能完成：`new Context()` → 装 ai + provider → `resolveChatModel` → `generateText` 返回文本
+- [ ] 一个最小脚本能完成：`new Context()` → 装 ai + provider → `ctx.ai.language()` → `generateText` 返回真实文本（需真实 API key，尚未做端到端）
 
 #### Phase 2-B · Hook 契约
 
@@ -281,7 +237,7 @@ export class ModelService {  // ← 但不 extends Service，无 provide key
 1. **Rhythm** —— willingness engine：被 @、关键词、频率抑制等信号 → 分数；超阈值开聚合窗口
 2. **缓冲** —— per-channel 队列 + 聚合窗口定时器 + per-channel 串行锁
 3. **Integration** —— 组装 persona + 最近消息 + memory 检索结果
-4. **Cognition** —— `generateText` 多步 tool-loop；模型来自 `ctx.ai.resolveChatModel(config.model)`
+4. **Cognition** —— `generateText` 多步 tool-loop；模型来自 `ctx.ai.candidates(config.model)`，failover 循环写在 Cortex 里
 5. **Layer 2 tools** —— `send_message`、`wait`（"不回复"是一等决策）
 6. **Layer 3 tools** —— spread `ctx.tools.available()`
 7. **Enactment** —— 通过 `ctx.message.createMessage` 派发；无输出时静默

@@ -93,17 +93,19 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 
 ### 2.1 当前包清单
 
-| 包                              | 路径                         | 提供的 Service | 角色                                                                                                               |
-| ------------------------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `@athena-ai/core`               | `packages/core`              | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                       |
-| `@athena-ai/protocol`           | `packages/protocol`          | —              | 类型（Persona / LifeService / MemoryProvider / Sandbox 契约）+ `Cortex` abstract class + `declare module "cordis"` |
-| `@athena-ai/ai`                 | `packages/ai`                | `ai`（声明）   | ModelService：provider 注册、模型发现与解析                                                                        |
-| `@athena-ai/plugin-life`        | `plugins/life`               | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                        |
-| `@athena-ai/capability-message` | `plugins/capability-message` | `message`      | MessageService：安装 Satori、bots 代理、发送便捷方法、事件作用域过滤                                               |
-| `@athena-ai/cortex-chat`        | `plugins/cortex-chat`        | `cortex`       | Reactive Cortex（当前为 echo 骨架）                                                                                |
-| `@athena-ai/plugin-sandbox`     | `plugins/sandbox`            | `sandbox`      | 全局 SandboxHub：WebUI 页面、文件服务器、WS 路由                                                                   |
-| `@athena-ai/sandbox-nerve`      | `plugins/sandbox-nerve`      | —              | per-Life Nerve：注册 Hub、创建 SandboxBot                                                                          |
-| `@athena-ai/message-store`      | `plugins/message-store`      | —              | 空壳，未开始                                                                                                       |
+| 包                                | 路径                         | 提供的 Service | 角色                                                                                                               |
+| --------------------------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `@athena-ai/core`                 | `packages/core`              | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                       |
+| `@athena-ai/protocol`             | `packages/protocol`          | —              | 类型（Persona / LifeService / MemoryProvider / Sandbox 契约）+ `Cortex` abstract class + `declare module "cordis"` |
+| `@athena-ai/ai`                   | `packages/ai`                | `ai`           | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                   |
+| `@athena-ai/plugin-life`          | `plugins/life`               | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                        |
+| `@athena-ai/capability-message`   | `plugins/capability-message` | `message`      | MessageService：安装 Satori、bots 代理、发送便捷方法、事件作用域过滤                                               |
+| `@athena-ai/cortex-chat`          | `plugins/cortex-chat`        | `cortex`       | Reactive Cortex（当前为 echo 骨架）                                                                                |
+| `@athena-ai/plugin-sandbox`       | `plugins/sandbox`            | `sandbox`      | 全局 SandboxHub：WebUI 页面、文件服务器、WS 路由                                                                   |
+| `@athena-ai/sandbox-nerve`        | `plugins/sandbox-nerve`      | —              | per-Life Nerve：注册 Hub、创建 SandboxBot                                                                          |
+| `@athena-ai/provider-openai`      | `plugins/provider-openai`    | —              | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                |
+| `@athena-ai/provider-deepseek`    | `plugins/provider-deepseek`  | —              | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                              |
+| `@athena-ai/plugin-message-store` | `plugins/message-store`      | —              | 占位，未开始（Phase 3 消息持久化）                                                                                 |
 
 ### 2.2 依赖方向
 
@@ -132,7 +134,9 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
         ↑
 @athena-ai/sandbox-nerve（inject: ['sandbox', 'satori', 'life']，per-Life）
 
-@athena-ai/ai（ModelService；独立，未来被 Cortex 消费）
+@athena-ai/ai（provides 'ai'，root 级全局单例）
+        ↑
+@athena-ai/provider-*（inject: ['ai']；createXxx() → ctx.ai.register(id, provider)）
 ```
 
 ### 2.3 铁律
@@ -155,8 +159,9 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 | Cortex 插件     | `@athena-ai/cortex-<name>`     | `athena-cortex-<name>`     | `@scope/athena-cortex-<name>`     |
 | Nerve 插件      | `@athena-ai/nerve-<name>`      | `athena-nerve-<name>`      | `@scope/athena-nerve-<name>`      |
 | 通用插件        | `@athena-ai/plugin-<name>`     | `athena-plugin-<name>`     | `@scope/athena-plugin-<name>`     |
+| Provider 插件   | `@athena-ai/provider-<name>`   | `athena-provider-<name>`   | `@scope/athena-provider-<name>`   |
 
-理由：Cortex 和 Nerve 是本身携带类型信息的领域概念，不需要冗余的 `plugin-` 前缀。不属于 Cortex/Nerve 分类的通用插件（memory、scheduler）用 `plugin-` 前缀，与 Cordis/Koishi 生态约定一致。纯库包（core、protocol、ai）无前缀。
+理由：Cortex 和 Nerve 是本身携带类型信息的领域概念，不需要冗余的 `plugin-` 前缀。Provider 插件同理 —— 它只向 `ctx.ai` 注册一个 AI SDK provider，是独立的一类角色。不属于上述分类的通用插件（memory、scheduler）用 `plugin-` 前缀，与 Cordis/Koishi 生态约定一致。纯库包（core、protocol、ai）无前缀。
 
 ---
 
@@ -431,6 +436,8 @@ Nerve    ──implements──►  Capability（提供具体实现）
 
 枚举是**开放**的（可加新 key），但每个 key 一旦确立就**稳定**。
 
+> `'ai'`（`AIService`）、`'sandbox'`（SandboxHub）、`'life'`、`'cortex'` 也是 provide key，但**不是** capability token —— capability 描述"与世界交互的一个维度"，这几个是基础设施。区别在于：capability 有 Nerve 实现它，基础设施没有。
+
 ### 6.2 Cortex 契约
 
 - Cortex **是**一个 Cordis Service，通过 `ctx.plugin(CortexChat, config)` 安装
@@ -602,53 +609,105 @@ Sandbox 展示了非 IM 平台如何接入：它不是 Satori adapter，而是�
 
 ## 9. AI 基础设施集成点
 
-### 9.1 ModelService（`packages/ai`）
+### 9.1 AIService（`packages/ai`，provides `ai`）
 
-`ModelService` 负责 provider 注册与模型解析，从 JSON 配置文件加载模型定义：
+`AIService` 是 **root 级全局单例**，不进 `{ life, cortex, message, satori }` 隔离集合 —— 模型是无状态共享资源，且 AI SDK 的 `ProviderV4` 天然跨模态（D-33）。
+
+职责三分：
+
+| 层                | 内容                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| Provider Registry | `Map<id, ProviderV4>`，由 `provider-*` 插件在 `apply()` 中注册，fiber dispose 时注销                      |
+| 模型知识          | `models.yml`：模型声明与元数据、aliases、per-modality defaults、groups、per-provider/per-model 调用默认值 |
+| 解析              | 拼装两者，返回**已注入默认参数的 AI SDK 原生模型**                                                        |
 
 ```typescript
-class ModelService {
-  constructor(ctx: Context, config: ModelServiceConfig);
-  *[Service.init](): Generator; // 加载 models config，刷新模型表
+class AIService extends Service<AIServiceConfig> {
+  register(id: string, provider: ProviderV4): () => void; // id 重复 → logger.error + throw
+  providers(): string[];
 
-  register(provider: Provider): () => void; // 注册 provider，返回 disposer
-  resolveChatModel(fullId: string): ChatModelRef;
-  resolveEmbedding(fullId: string): EmbeddingModel;
-  getProvider(id: string): Provider | undefined;
-  listProviders(): string[];
-  getDefaultChatModelId(): ModelId | undefined;
-  getDefaultEmbeddingModelId(): ModelId | undefined;
-  listChatModels(): Array<{ fullId: string; config: ChatModelConfig }>;
-  listEmbeddingModels(): Array<{ fullId: string; config: EmbeddingModelConfig }>;
+  language(input?: string): LanguageModelV4; // input 省略 → defaults.language
+  embedding(input?: string): EmbeddingModelV4;
+  image(input?: string): ImageModelV4;
+  speech(input?: string): SpeechModelV4;
+  transcription(input?: string): TranscriptionModelV4;
+  reranking(input?: string): RerankingModelV4;
+
+  candidates(input: string): Candidate[]; // 统一入口：单模型 / group / alias
+  group(name: string): ModelGroup; // 显式取 group，不存在则抛
+
+  default(type: ModelType): string | undefined;
+  metadata(fullId: string): ModelMetadata | undefined;
+  list(type?: ModelType): ModelEntry[];
 }
 ```
 
-Provider 契约：
+**Provider 插件只带凭据**（D-34）—— 前端表单只有 `id` / `apiKey` / `baseURL` 三个字段：
 
 ```typescript
-interface Provider {
-  readonly id: string;
-  readonly capabilities: { chat: boolean; embedding: boolean };
-  chatModels(): ChatModelConfig[];
-  embeddingModels(): EmbeddingModelConfig[];
-  chat?(modelId: string): LanguageModel; // 返回 AI SDK v7 LanguageModel
-  embedding?(modelId: string): EmbeddingModel;
-  tools?(modelId: string): ToolSet; // provider 内建 tool
+export const inject = ["ai"];
+export const reusable = true; // 同一包可多实例（官方 key + 内部网关）
+
+export function apply(ctx: Context, config: Config) {
+  const provider = createOpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
+  const dispose = ctx.ai.register(config.id, provider);
+  ctx.effect(() => dispose, `provider-openai(${config.id}).unregister`);
 }
 ```
 
-模型 ID 格式：`${providerId}:${modelId}`（`ModelId` 模板字面量类型）。支持 alias 与 defaults。
+模型 ID 格式：`${providerId}:${modelId}`，**按第一个 `:` 切分**（所以 `ollama:llama3:8b` 正确解析）。类型上就是 `string`，不做模板字面量类型。
 
-> ⚠️ **已知缺口**：`ModelService` **不** `extends Service`，也没有 provide key，因此 `declare module "cordis" { ai: ModelService }` 声明的 `ctx.ai` 当前实际上不会被注册。这是 Phase 2 的首要修复项，详见 [06-progress-and-roadmap.md](./06-progress-and-roadmap.md)。同时 logger 名仍是 `"yesimbot.model"`，需改为 `"athena.model"`。
+#### 解析时的 middleware 注入
 
-### 9.2 LLM 调用链（目标形态）
+Provider 插件注册的是**裸 provider**。`models.yml` 中的默认值由 AIService 在解析时用 **AI SDK 自己的** `defaultSettingsMiddleware` + `wrapLanguageModel` 注入 —— 使用 AI SDK 的 middleware 不算"加抽象层"。
+
+优先级（高 → 低）：
 
 ```
-Cortex → ctx.ai.resolveChatModel('deepseek:deepseek-chat')
-       → { model: LanguageModel, tools?: ToolSet, entry: ChatModelConfig }
-       → AI SDK v7 generateText({ model, tools, messages, ... })
-       → provider 包（@ai-sdk/openai / @ai-sdk/anthropic / ...）
+1. 运行时调用参数（Cortex 传给 streamText / generateText 的）
+2. models.yml → providers.<id>.models[].defaults      （per-model）
+3. models.yml → providers.<id>.defaults               （per-provider）
+4. models.yml → providers.<id>.options.headers        （per-provider transport）
 ```
+
+`defaultSettingsMiddleware` 内部就是 `mergeObjects(settings, params)`——深合并、调用方参数胜出，所以上表的顺序是 AI SDK 原生语义，不是我们叠的规则。非 language 模态：embedding / image 走 `wrap*Model` 注入 `headers` / `providerOptions`；speech / transcription / reranking 上游没有对应 wrapper，返回裸模型。
+
+解析结果按 `type + fullId` 缓存；provider 注册/注销时整表失效。
+
+### 9.2 LLM 调用链
+
+简单场景（单模型）：
+
+```typescript
+const model = ctx.ai.language(); // 或 ctx.ai.language("openai:gpt-4o") / ctx.ai.language("fast")
+const result = streamText({ model, messages, tools, stopWhen: [stepCountIs(10)] });
+```
+
+生产场景（failover）—— **循环在 Cortex 里，框架只给候选列表**（D-35）：
+
+```typescript
+for (const candidate of ctx.ai.candidates(this.config.model)) {
+  try {
+    const response = streamText({ model: candidate.model, messages, tools, maxRetries: 0 });
+    for await (const part of response.fullStream) {
+      /* 消费 */
+    }
+    candidate.success();
+    return response;
+  } catch (e) {
+    candidate.failure(); // 喂断路器
+    this.ctx.logger("cortex-chat").warn(`Model ${candidate.id} failed:`, e);
+  }
+}
+throw new Error("All models exhausted");
+```
+
+`candidates(input)` 的三条路径：含 `:` → 单模型；否则先查 groups，再查 aliases。Group 候选带该 group 的断路器；单模型候选的 `success()` / `failure()` 是 no-op（无 group 即无断路器）。
+
+Group 只做**排序 + 跳过断路器已开的模型**，策略为 `failover` / `round-robin` / `random`。两条刻意的降级行为：
+
+- **成员解析失败**（provider 未注册）→ 跳过该成员并 warn，不让整个 group 失败
+- **全部断路器都开** → warn 后仍返回完整列表。哑掉的数字生命比多一次注定失败的尝试更糟
 
 **不做 LLM 抽象层。** AI SDK v7 已提供多 provider 支持、tool calling、structured output、streaming。它原生提供的以下能力消除了自建 wrapper 的需要：
 

@@ -351,7 +351,7 @@ Nerve（经 Capability）发射 Cordis 事件；Cortex 用 `ctx.on(...)` 订阅�
 
 自建 wrapper = 用更不成熟的实现重复同样的功能。
 
-**最终做法**：Cortex 直接调 `generateText` / `streamText` / `tool`。框架**不**在 Cortex 与 AI SDK 之间做中介。`ModelService` 只负责 **provider 注册与模型解析**（这是 AI SDK 不管的部分），解析结果直接是 AI SDK 的 `LanguageModel`。
+**最终做法**：Cortex 直接调 `generateText` / `streamText` / `tool`。框架**不**在 Cortex 与 AI SDK 之间做中介。`AIService`（`ctx.ai`）只负责 **provider 注册与模型解析**（这是 AI SDK 不管的部分），解析结果直接是 AI SDK 的 `LanguageModelV4` —— 连默认参数注入都用 AI SDK 自己的 `defaultSettingsMiddleware`，而非自建合并逻辑。
 
 ### 6.3 案例 C：不自建 Instance Loader
 
@@ -859,3 +859,7 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 | `session.stripped.appel`                   | Athena 没有（Koishi 加料）。查 `session.elements` 的 `at` 元素     | [B](./appendix/B-satori-primer.md) §3.4 |
 | `generateText({ maxSteps })`               | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                         | [04](./04-patterns-and-recipes.md) §5.2 |
 | tool 的 `execute` 解构参数                 | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                  | [04](./04-patterns-and-recipes.md) §5.2 |
+| `models.yml` 里写 `maxTokens`              | AI SDK 的名字是 `maxOutputTokens`；写错会被 loader 丢掉并 warn     | [04](./04-patterns-and-recipes.md) §5.7 |
+| 把模型列表塞进 provider 插件的 Config      | Config 只有 `id` / `apiKey` / `baseURL`；其余进 `models.yml`       | [04](./04-patterns-and-recipes.md) §5.5 |
+| 指望 `ctx.ai` 内部帮你重试 / failover      | `candidates()` 只给排好序的候选，循环写在 Cortex 里                | [04](./04-patterns-and-recipes.md) §5.1 |
+| 自己写代码合并模型默认参数                 | 用 AI SDK 的 `defaultSettingsMiddleware`，语义已是"调用方胜出"     | [02](./02-architecture.md) §9.1         |

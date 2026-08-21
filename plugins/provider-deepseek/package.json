@@ -1,6 +1,7 @@
 {
-  "name": "@athena-ai/plugin-message-store",
+  "name": "@athena-ai/provider-deepseek",
   "version": "0.0.1",
+  "description": "DeepSeek provider for Athena Harness",
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./lib/index.js",
@@ -14,16 +15,28 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@satorijs/core": "workspace:*",
-    "@satorijs/element": "workspace:*",
-    "@satorijs/protocol": "workspace:*"
+    "@ai-sdk/deepseek": "^3.0.29"
   },
   "devDependencies": {
+    "@athena-ai/ai": "workspace:*",
+    "@athena-ai/core": "workspace:*",
+    "cordis": "^4.0.0-rc.8",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@athena-ai/ai": "workspace:*",
     "@athena-ai/core": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
-  "peerDependencies": {
-    "@athena-ai/core": "workspace:*",
-    "cordis": "^4.0.0-rc.8"
+  "cordis": {
+    "description": {
+      "en": "DeepSeek models",
+      "zh": "DeepSeek 模型"
+    },
+    "service": {
+      "required": [
+        "ai"
+      ]
+    }
   }
 }

@@ -44,18 +44,19 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 
 **不要一次读完所有文档。** 按任务选入口：
 
-| 任务                                       | 先读                                |
-| ------------------------------------------ | ----------------------------------- |
-| 理解项目 / 首次接触                        | `docs/00-overview.md`               |
-| 讨论架构、判断某设计是否合理               | `docs/01-design-philosophy.md`      |
-| 改运行时拓扑、隔离、包依赖                 | `docs/02-architecture.md`           |
-| **写任何代码前（必读）**                   | `docs/03-code-conventions.md`       |
-| 新建 Service / Cortex / Nerve / Capability | `docs/04-patterns-and-recipes.md`   |
-| **改动前避坑（强烈建议）**                 | `docs/05-lessons-learned.md`        |
-| 确认进度、挑下一步任务                     | `docs/06-progress-and-roadmap.md`   |
-| 查 Cordis API / 陷阱                       | `docs/appendix/A-cordis-primer.md`  |
-| 查 Satori API / 我们的补丁                 | `docs/appendix/B-satori-primer.md`  |
-| 查某条决策的出处                           | `docs/appendix/C-decision-index.md` |
+| 任务                                       | 先读                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------- |
+| 理解项目 / 首次接触                        | `docs/00-overview.md`                                               |
+| 讨论架构、判断某设计是否合理               | `docs/01-design-philosophy.md`                                      |
+| 改运行时拓扑、隔离、包依赖                 | `docs/02-architecture.md`                                           |
+| **写任何代码前（必读）**                   | `docs/03-code-conventions.md`                                       |
+| 新建 Service / Cortex / Nerve / Capability | `docs/04-patterns-and-recipes.md`                                   |
+| 接 LLM / 配 provider / 写 `models.yml`     | `docs/04-patterns-and-recipes.md` §5 + `docs/02-architecture.md` §9 |
+| **改动前避坑（强烈建议）**                 | `docs/05-lessons-learned.md`                                        |
+| 确认进度、挑下一步任务                     | `docs/06-progress-and-roadmap.md`                                   |
+| 查 Cordis API / 陷阱                       | `docs/appendix/A-cordis-primer.md`                                  |
+| 查 Satori API / 我们的补丁                 | `docs/appendix/B-satori-primer.md`                                  |
+| 查某条决策的出处                           | `docs/appendix/C-decision-index.md`                                 |
 
 ---
 
@@ -106,6 +107,9 @@ Athena 满足以下任一条即已退化成"又一个 Koishi"：
 | `this.config` 在 Service 里           | **基类不提供。** 自己写 `constructor(ctx, public config: Config)`                             |
 | `generateText({ maxSteps })`          | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                                                    |
 | tool 的 `execute` 解构参数            | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                                             |
+| `models.yml` 里写 `maxTokens`         | AI SDK 的名字是 `maxOutputTokens`。写错会被 loader 丢掉并 warn，不会静默生效                  |
+| 以为 provider 插件能配模型列表        | 不能。Config 只有 `id` / `apiKey` / `baseURL`，其余全在 `models.yml`（D-34）                  |
+| 期待 `ctx.ai` 帮你重试                | 不会。`candidates()` 只给排好序的候选，failover 循环写在 Cortex 里（D-35）                    |
 | 测试里 `await` inject 未满足的 plugin | 会永久挂住。不要 await，直接断言 `ctx.get(...)` 为 `undefined`                                |
 | `cordis` 放 `dependencies`            | 必须 `peerDependencies`。多副本导致 Symbol 身份不同，隔离静默失效                             |
 | 改 vendored 代码不登记                | 登记到 `docs/02-architecture.md` §11.3                                                        |
@@ -210,45 +214,38 @@ cordis run            # cordis.yml(prelude) → app.yml(managed tree)
 packages/
   core/        @athena-ai/core       — prelude shell，重导出 cordis/cosmokit/Schema
   protocol/    @athena-ai/protocol   — 类型 + Cortex 基类 + declare module
-  ai/          @athena-ai/ai         — ModelService（provider 注册与模型解析）
+  ai/          @athena-ai/ai         — AIService（ctx.ai：provider registry + models.yml + 模型解析）
 plugins/
-  life/                @athena-ai/plugin-life        — ctx.life
-  capability-message/  → 见下方警告                  — ctx.message（Satori 隔离）
-  cortex-chat/         @athena-ai/cortex-chat        — ctx.cortex（当前仅 echo）
-  sandbox/             @athena-ai/plugin-sandbox     — 全局 SandboxHub
-  sandbox-nerve/       @athena-ai/sandbox-nerve      — per-Life Sandbox 桥
-  message-store/       → 见下方警告                  — 空壳
-providers/     ❌ 未迁移的 YesImBot Koishi 插件，不在 workspaces 中
+  life/                @athena-ai/plugin-life         — ctx.life
+  capability-message/  @athena-ai/capability-message  — ctx.message（Satori 隔离）
+  cortex-chat/         @athena-ai/cortex-chat         — ctx.cortex（当前仅 echo）
+  sandbox/             @athena-ai/plugin-sandbox      — 全局 SandboxHub
+  sandbox-nerve/       @athena-ai/sandbox-nerve       — per-Life Sandbox 桥
+  provider-openai/     @athena-ai/provider-openai     — 注册 AI SDK OpenAI provider
+  provider-deepseek/   @athena-ai/provider-deepseek   — 注册 AI SDK DeepSeek provider
+  message-store/       @athena-ai/plugin-message-store — 占位（src 只有 export {}）
+providers/     ❌ anthropic / google 仍是未迁移的 YesImBot Koishi 插件，不在 workspaces 中；openai / deepseek 已被 plugins/provider-* 取代
 vendor/        satorijs/*（已打补丁）+ cordisjs/url-is-local
 legacy/        被取代的旧包（10 个），可忽略
 docs/          本文档体系
 .specify/specs/ 设计演进记录
 ```
 
-> ⚠️ **已知 P0 缺陷：包名与目录错位**
->
-> ```
-> plugins/capability-message  → name: @athena-ai/plugin-message-store  ❌
-> plugins/message-store       → name: @athena-ai/capability-message    ❌
-> ```
->
-> 两者互换了。测试之所以通过是因为 `vitest.config.ts` 的 alias 绕过了包解析。**动 capability-message 时注意这一点**，或顺手修掉（交换 `name` 字段 + 移除 capability-message 的 `required: ["life"]`）。
-
 ---
 
-## 当前状态（2026-08-20 核验）
+## 当前状态（2026-08-21 核验）
 
-|           | 状态                                                                                                                                      |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ 完成   | `core`、`protocol`、`plugin-life`、capability-message、`plugin-sandbox`、`sandbox-nerve`；Satori vendoring + mixin 补丁；多 Life 隔离机制 |
-| 🔸 部分   | `ai`（ModelService 逻辑完整但**未注册为 cordis Service**，`ctx.ai` 实际不可用）；`cortex-chat`（仅 echo 骨架）                            |
-| ❌ 未开始 | `ctx.tools`、Hook Protocol 契约、AI SDK 集成、Memory 持久化、Persona 文件加载、`cortex-world` / `cortex-interlude`、非 IM capability      |
-| 测试      | `npx vitest run` → 7 文件 52 用例通过；`providers/*` 2 文件失败（依赖未安装）                                                             |
+|           | 状态                                                                                                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ✅ 完成   | `core`、`protocol`、`ai`（AIService）、`plugin-life`、`capability-message`、`plugin-sandbox`、`sandbox-nerve`、`provider-openai`、`provider-deepseek`；Satori vendoring + mixin 补丁；多 Life 隔离机制 |
+| 🔸 部分   | `cortex-chat`（仅 echo 骨架，尚未接 AI SDK）                                                                                                                                                           |
+| ❌ 未开始 | `ctx.tools`、Hook Protocol 契约、Cortex 侧 AI SDK 集成、Memory 持久化、Persona 文件加载、`cortex-world` / `cortex-interlude`、非 IM capability                                                         |
+| 测试      | `npx vitest run` → 13 文件 121 用例全绿                                                                                                                                                                |
 
 ### Roadmap 顺序（已确认）
 
 ```
-Phase 2-A  AI 基础设施   → 修 P0 缺陷 + ModelService 接线 + 迁移 providers + ctx.tools
+Phase 2-A  AI 基础设施   → ✅ AIService + provider 插件 ｜ ⬜ ctx.tools
 Phase 2-B  Hook 契约     → protocol 中声明五个 hook + 参考插件验证
 Phase 2-C  cortex-chat   → willingness + 缓冲 + generateText tool-loop + Layer 2 tools
 Phase 3    完整数字生命  → Memory 持久化 + Persona 文件 + Instance 工作流 + 真实 IM
@@ -298,10 +295,22 @@ Phase 4    多形态扩展    → cortex-world + capability-minecraft + cortex-i
 | 踩到新坑并解决                  | `docs/05-lessons-learned.md`（含速查表 §13）                                                           |
 | 完成 roadmap 项                 | `docs/06-progress-and-roadmap.md` §4 勾选 + §1 矩阵                                                    |
 | 修复缺陷                        | `docs/06-progress-and-roadmap.md` §3 移除                                                              |
-| 新的设计决策                    | `.specify/specs/` + `docs/appendix/C-decision-index.md`（从 `D-33` / `M-31` 续号，跳过 `D-24`/`D-25`） |
+| 新的设计决策                    | `.specify/specs/` + `docs/appendix/C-decision-index.md`（从 `D-37` / `M-31` 续号，跳过 `D-24`/`D-25`） |
 
 ### 沟通
 
 - 讨论用**中文**，技术术语保留**英文**（Life、Cortex、Nerve、Service、inject、isolate、Context、Session…）
 - 发现 spec 与代码冲突 → **明确指出**，以代码/用户指示为准
 - 触及硬约束或退化测试 → **先说明再动手**
+
+<!-- CODEGRAPH_START -->
+
+## CodeGraph
+
+In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
+
+- **MCP tool** (when available): `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
+- **Shell** (always works): `codegraph explore "<symbol names or question>"` prints the same output.
+
+If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
+<!-- CODEGRAPH_END -->

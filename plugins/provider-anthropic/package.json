@@ -1,6 +1,7 @@
 {
-  "name": "@athena-ai/plugin-message-store",
+  "name": "@athena-ai/provider-anthropic",
   "version": "0.0.1",
+  "description": "Anthropic provider for Athena Harness",
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./lib/index.js",
@@ -14,16 +15,28 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@satorijs/core": "workspace:*",
-    "@satorijs/element": "workspace:*",
-    "@satorijs/protocol": "workspace:*"
+    "@ai-sdk/anthropic": "^4.0.40"
   },
   "devDependencies": {
+    "@athena-ai/ai": "workspace:*",
+    "@athena-ai/core": "workspace:*",
+    "cordis": "^4.0.0-rc.8",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@athena-ai/ai": "workspace:*",
     "@athena-ai/core": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
-  "peerDependencies": {
-    "@athena-ai/core": "workspace:*",
-    "cordis": "^4.0.0-rc.8"
+  "cordis": {
+    "description": {
+      "en": "Anthropic models",
+      "zh": "Anthropic 模型"
+    },
+    "service": {
+      "required": [
+        "ai"
+      ]
+    }
   }
 }

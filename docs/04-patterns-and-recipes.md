@@ -1073,25 +1073,80 @@ Life Group
 
 ## 5. 使用 AI SDK v7
 
-> ⚠️ **当前状态**：`cortex-chat` 尚未集成 AI SDK；`ModelService` 尚未注册为 cordis Service（`ctx.ai` 声明了但未 provide，见 [06](./06-progress-and-roadmap.md) §3 P0-2）。
+> ⚠️ **当前状态**：`ctx.ai`（`AIService`）已可用；`cortex-chat` 尚未集成 AI SDK（见 [06](./06-progress-and-roadmap.md) §4 Phase 2-C）。
 >
 > 本节代码已针对 `ai@7.0.70` + `zod@3.25.76` 用 `tsc` 实测通过。
 
-### 5.1 通过 ModelService 解析模型
+### 5.1 通过 AIService 解析模型
+
+`ctx.ai` 返回的都是 **AI SDK 原生类型**，直接交给 `streamText` / `generateText` / `embed`：
 
 ```typescript
-const ref = this.ctx.ai.resolveChatModel("deepseek:deepseek-chat");
-// ref: {
-//   fullId: "deepseek:deepseek-chat",
-//   providerId: "deepseek",
-//   modelId: "deepseek-chat",
-//   entry: ChatModelConfig,       // 该模型的元数据（modalities、limit、toolCall...）
-//   model: LanguageModel,         // AI SDK v7 的 LanguageModel
-//   tools?: ToolSet,              // provider 内建 tool（如 web search）
-// }
+// 完整 id
+const model = this.ctx.ai.language("deepseek:deepseek-chat"); // → LanguageModelV4
 
-// 或使用默认模型
-const defaultId = this.ctx.ai.getDefaultChatModelId();
+// models.yml 里的 alias
+const fast = this.ctx.ai.language("fast");
+
+// 省略参数 → models.yml 的 defaults.language
+const preferred = this.ctx.ai.language();
+
+// 其他模态
+const embedder = this.ctx.ai.embedding(); // → EmbeddingModelV4
+const tts = this.ctx.ai.speech("openai:tts-1"); // → SpeechModelV4
+
+// 元数据用于决策（是否支持 vision / tool call / 上下文长度）
+const meta = this.ctx.ai.metadata("deepseek:deepseek-chat");
+if (meta?.toolCall !== false) {
+  /* 装配 tools */
+}
+```
+
+返回的模型已经把 `models.yml` 中声明的 per-provider / per-model 默认参数用 AI SDK 的 `defaultSettingsMiddleware` 包好了。**调用时显式传的参数永远赢**，所以不必担心默认值盖掉本次调用的意图。
+
+#### failover：循环归 Cortex，框架只给候选
+
+```typescript
+// config.model 可以是 "openai:gpt-4o" / "fast"（alias）/ "main"（group）
+const candidates = this.ctx.ai.candidates(this.config.model);
+
+for (const candidate of candidates) {
+  try {
+    const response = streamText({
+      model: candidate.model,
+      messages,
+      tools,
+      stopWhen: [stepCountIs(10)],
+      maxRetries: 0, // 重试由这个循环负责，别让 SDK 再叠一层
+      abortSignal,
+    });
+    for await (const part of response.fullStream) {
+      // 消费 stream...
+    }
+    candidate.success();
+    return response;
+  } catch (e) {
+    candidate.failure(); // 喂 group 的断路器
+    this.ctx.logger("cortex-chat").warn(`Model ${candidate.id} failed:`, e);
+  }
+}
+
+throw new Error("All models exhausted");
+```
+
+用元数据裁剪候选：
+
+```typescript
+const hasImage = messages.some((m) => /* ... */);
+const usable = hasImage ? candidates.filter((c) => c.metadata.modalities?.input?.includes("image")) : candidates;
+```
+
+断路器状态可观测（运维 / WebUI）：
+
+```typescript
+const group = this.ctx.ai.group("main");
+group.status(); // Map<"openai:gpt-4o", { state: "open", failures: 3 }>
+group.reset("openai:gpt-4o"); // 手动闭合
 ```
 
 ### 5.2 多步 tool-loop（Reactive / World Cortex）
@@ -1101,16 +1156,16 @@ import { generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
 
 private async cognize(context: IntegratedContext) {
-  const ref = this.ctx.ai.resolveChatModel(this.config.model);
+  const model = this.ctx.ai.language(this.config.model);
 
   const result = await generateText({
-    model: ref.model,
+    model,
     system: this.buildSystemPrompt(context.persona),
     messages: this.buildMessages(context),
     tools: {
       ...this.layer2Tools(),          // Cortex 定义的产品语义 tool
       // ...this.ctx.tools.available(),  // 【规划中】Layer 3 插件 tool
-      ...(ref.tools ?? {}),           // provider 内建 tool（web search 等）
+      // provider 内建 tool（web search 等）目前不经过 ctx.ai，见 §5.6 的已知缺口
     },
     stopWhen: stepCountIs(8),         // ← 不是 maxSteps
     abortSignal: this.abortSignal,
@@ -1189,10 +1244,10 @@ import { generateObject } from "ai";
 import { z } from "zod";
 
 private async generateNarrativeTurn(batch: Session[]) {
-  const ref = this.ctx.ai.resolveChatModel(this.config.model);
+  const model = this.ctx.ai.language(this.config.model);
 
   const { object } = await generateObject({
-    model: ref.model,
+    model,
     schema: z.object({
       innerThought: z.string().describe("What the character is thinking"),
       speech: z.string().describe("What the character says out loud; empty to stay silent"),
@@ -1214,8 +1269,8 @@ private async generateNarrativeTurn(batch: Session[]) {
 ```typescript
 import { streamText } from "ai";
 
-const ref = this.ctx.ai.resolveChatModel(this.config.model);
-const result = streamText({ model: ref.model, messages, tools });
+const model = this.ctx.ai.language(this.config.model);
+const result = streamText({ model, messages, tools });
 
 let buffer = "";
 for await (const delta of result.textStream) {
@@ -1228,35 +1283,52 @@ const finishReason = await result.finishReason;
 const usage = await result.usage;
 ```
 
-### 5.5 注册一个 Provider
+### 5.5 新建一个 Provider 插件
+
+Provider 插件是**最薄的一类插件**：创建 AI SDK client，注册，完事。模型声明、元数据、headers、默认参数全在 `models.yml`，插件不知道它存在。
 
 ```typescript
+// plugins/provider-deepseek/src/index.ts
+import type {} from "@athena-ai/ai"; // 拉进 ctx.ai 的类型增强
 import { createDeepSeek } from "@ai-sdk/deepseek";
+import { Schema } from "@athena-ai/core";
+import type { Context } from "cordis";
 
-const deepseek = createDeepSeek({ apiKey: process.env.DEEPSEEK_API_KEY });
+export const name = "provider-deepseek";
 
-const dispose = ctx.ai.register({
-  id: "deepseek",
-  capabilities: { chat: true, embedding: false },
-  chatModels: () => [
-    { id: "deepseek-chat", name: "DeepSeek Chat", toolCall: true },
-    { id: "deepseek-reasoner", name: "DeepSeek Reasoner" },
-  ],
-  embeddingModels: () => [],
-  chat: (modelId) => deepseek(modelId),
+export const inject = ["ai"];
+
+/** 同一个包允许多次安装（官方 key + 内部网关），靠 config.id 区分 */
+export const reusable = true;
+
+export interface Config {
+  id: string;
+  apiKey: string;
+  baseURL?: string;
+}
+
+export const Config: Schema<Config> = Schema.object({
+  id: Schema.string().default("deepseek").description("提供商标识（不可与已注册的提供商重复）"),
+  apiKey: Schema.string().role("secret").required().description("API Key"),
+  baseURL: Schema.string().description("自定义 API 地址，留空使用官方端点"),
 });
 
-// dispose() 注销 provider
-```
-
-在插件中应当 yield 这个 disposer：
-
-```typescript
-*[Service.init]() {
-  const dispose = this.ctx.ai.register(this.buildProvider());
-  yield dispose;
+export function apply(ctx: Context, config: Config) {
+  const provider = createDeepSeek({ apiKey: config.apiKey, baseURL: config.baseURL });
+  const dispose = ctx.ai.register(config.id, provider);
+  ctx.effect(() => dispose, `provider-deepseek(${config.id}).unregister`);
 }
 ```
+
+`package.json` 里声明 `cordis.service.required: ["ai"]`，依赖里放 `@ai-sdk/<name>` + `zod`（AI SDK 的 peer）。
+
+检查清单：
+
+- [ ] `export const reusable = true`
+- [ ] `Config` 只有 `id` / `apiKey` / `baseURL` —— 别把模型列表搬回前端表单（D-34）
+- [ ] `apiKey` 用 `.role("secret")`
+- [ ] disposer 交给 `ctx.effect()`，不要自己挂 `ctx.on("dispose")`
+- [ ] `id` 重复时 `register()` 会 `logger.error` + 抛错，让 fiber 失败并在 WebUI 显示为错误状态 —— 这是刻意的，不要 catch 掉
 
 ### 5.6 三层工具的组装位置
 
@@ -1265,12 +1337,65 @@ generateText({
   tools: {
     ...cortex.layer2Tools(),        // Layer 2：Cortex 定义，产品语义
     ...ctx.tools.available(),       // Layer 3：插件贡献，平台透传【规划中】
-    ...modelRef.tools,              // provider 内建（web search 等）
   }
 })
 ```
 
 Layer 1（结构化能力，如 `ctx.message.createMessage`）**不**进 tool 集合 —— 它由 Cortex 代码程序化调用，是 Layer 2 tool 的实现手段。
+
+> **已知缺口**：provider 内建 tool（`client.tools.webSearch()` 之类）目前**不经过** `ctx.ai` —— `register()` 只收 `ProviderV4`，而内建 tool 挂在各家 client 的自有字段上，不属于 `ProviderV4` 契约。需要时由 Cortex 自己 `createOpenAI()` 取，或等后续为此设计入口。
+
+### 5.7 `models.yml` 速查
+
+模型知识集中在这一个文件里（**不进** WebUI 表单，D-34）：
+
+```yaml
+defaults: # 各模态的默认模型，快捷方法省略参数时用
+  language: deepseek:deepseek-chat
+  embedding: openai:text-embedding-3-small
+
+aliases: # 短名 → provider:model
+  fast: openai:gpt-4o-mini
+  smart: anthropic:claude-sonnet-4-5
+
+strict: false # true = 只允许已声明的模型 resolve
+
+providers:
+  openai: # ← key 必须与 provider 插件 config.id 一致
+    options:
+      headers: { X-Org: athena } # per-provider transport
+    defaults:
+      maxOutputTokens: 4096 # per-provider 调用默认值，该 provider 下所有模型继承
+    models:
+      - id: gpt-4o
+        type: language # 省略则默认 language
+        metadata:
+          toolCall: true
+          reasoning: true
+          modalities: { input: [text, image], output: [text] }
+          limit: { context: 128000, output: 16384 }
+        defaults: # per-model，覆盖 per-provider
+          temperature: 0.7
+          providerOptions:
+            openai: { reasoningEffort: high }
+      - id: text-embedding-3-small
+        type: embedding
+
+groups: # 仅 language model
+  main:
+    strategy: failover # failover | round-robin | random
+    models: [deepseek:deepseek-chat, openai:gpt-4o] # 成员可以是 alias
+    circuitBreaker:
+      failureThreshold: 3 # 连续失败次数后开断路器
+      recoveryTimeout: 60 # 秒；之后进 half-open 放一次探测
+```
+
+几个容易踩的点：
+
+- `defaults` 里的键必须是 **AI SDK 的 call setting 名**（`maxOutputTokens`，不是 `maxTokens`）。写错会被丢掉并 warn，不会静默生效
+- 隐式的 `./models.yml` 缺失只 warn（空注册表照样启动）；**显式**配了 `configPath` 却找不到文件 → 抛错
+- YAML 解析失败、根节点不是 mapping → 抛错。单条目格式错 → warn + 跳过
+- alias 的目标必须含 `:`，group 不能嵌套 group
 
 ---
 
@@ -1580,23 +1705,23 @@ class FakeWebUI {
 
 原则：**Cordis 与 Satori 用真的，外部世界（浏览器、HTTP、平台）用 fake。**
 
-### 7.6 新增包时更新 vitest 别名
+### 7.6 跨包引用：相对路径指向 src
+
+`vitest.config.ts` **没有配 alias**。测试直接用相对路径引 src，跨包也一样：
 
 ```typescript
-// vitest.config.ts
-export default defineConfig({
-  resolve: {
-    alias: {
-      "@athena-ai/core": resolve(__dirname, "packages/core/src/index.ts"),
-      "@athena-ai/protocol": resolve(__dirname, "packages/protocol/src/index.ts"),
-      "@athena-ai/capability-message": resolve(__dirname, "plugins/capability-message/src/index.ts"),
-      "@athena-ai/cortex-chat": resolve(__dirname, "plugins/cortex-chat/src/index.ts"),
-      "@athena-ai/plugin-sandbox": resolve(__dirname, "plugins/sandbox/src/index.ts"),
-      // ← 新包在此补一行，指向 src/index.ts
-    },
-  },
-});
+// plugins/sandbox-nerve/tests/nerve.spec.ts
+import SandboxHub from "../../sandbox/src/index";
+import SandboxNerve from "../src/index";
+
+// plugins/provider-openai/tests/provider.spec.ts
+import { AIService } from "../../../packages/ai/src/index";
+import * as ProviderOpenAI from "../src/index";
 ```
+
+这样测的永远是源码，不依赖 `lib/` 是否构建过。新增包**不需要**改 `vitest.config.ts`。
+
+> 注意：插件源码里的 `import type {} from "@athena-ai/ai"` 走的是 `lib/index.d.ts`（包名解析）。它只是类型增强，vitest 下会被 esbuild 整行擦掉，所以运行时不需要构建产物；但**编辑器里**若同时看到 `src` 与 `lib` 两份 `AIService` 声明，可能报重复属性 —— `tests/` 不在任何 `tsconfig.json` 的 `include` 里，`yarn build` 不会因此失败。
 
 ---
 

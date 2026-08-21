@@ -351,8 +351,8 @@ export function apply(ctx: Context, config: Config) {
 
 | 种类                | 风格                   | 例                                                                           |
 | ------------------- | ---------------------- | ---------------------------------------------------------------------------- |
-| 类 / 接口 / 类型    | `PascalCase`           | `MessageService`、`SandboxNerveHandle`、`ChatModelRef`                       |
-| 函数 / 变量 / 方法  | `camelCase`            | `createMessage`、`resolveChatModel`                                          |
+| 类 / 接口 / 类型    | `PascalCase`           | `MessageService`、`SandboxNerveHandle`、`ModelGroup`、`Candidate`            |
+| 函数 / 变量 / 方法  | `camelCase`            | `createMessage`、`candidates`、`language`                                    |
 | 私有成员            | `_` 前缀               | `_self`、`_cortex`、`_resolveBot`、`_handles`                                |
 | 常量                | `SCREAMING_SNAKE`      | `SELF_ID`、`FILE_ROUTE`、`MIME_TYPES`、`DELETE_PREFIX`                       |
 | Service provide key | `camelCase` 单词       | `life`、`message`、`cortex`、`sandbox`、`ai`                                 |
@@ -511,10 +511,8 @@ logger scope 用**包名去 scope 后的部分**，或 `athena.<domain>`：
 
 - `cortex-chat`
 - `message`
-- `athena.model`
+- `ai`
 - `sandbox`
-
-> ⚠️ `packages/ai` 当前用 `"yesimbot.model"`，是从 YesImBot 迁移的遗留，需改为 `"athena.model"`。
 
 ### 7.3 级别语义
 

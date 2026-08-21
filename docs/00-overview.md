@@ -64,7 +64,7 @@ athena-harness/
 ├── packages/                   ← 库与协议层（不直接提供运行时行为）
 │   ├── core/                   @athena-ai/core — prelude shell + 重导出
 │   ├── protocol/               @athena-ai/protocol — 类型 + Cortex 基类
-│   └── ai/                     @athena-ai/ai — ModelService（模型注册与解析）
+│   └── ai/                     @athena-ai/ai — AIService（provider registry + models.yml + 模型解析）
 │
 ├── plugins/                    ← 可安装的运行时插件
 │   ├── life/                   @athena-ai/plugin-life — 提供 ctx.life
@@ -72,7 +72,9 @@ athena-harness/
 │   ├── cortex-chat/            @athena-ai/cortex-chat — 提供 ctx.cortex
 │   ├── sandbox/                @athena-ai/plugin-sandbox — 全局 SandboxHub
 │   ├── sandbox-nerve/          @athena-ai/sandbox-nerve — per-Life Sandbox 桥
-│   └── message-store/          （空壳，未开始）
+│   ├── provider-openai/        @athena-ai/provider-openai — 注册 AI SDK OpenAI provider
+│   ├── provider-deepseek/      @athena-ai/provider-deepseek — 注册 AI SDK DeepSeek provider
+│   └── message-store/          （占位，未开始）
 │
 ├── vendor/                     ← 从 git 直接内置的上游代码
 │   ├── satorijs/               core / protocol / element / adapter-* （已修补）

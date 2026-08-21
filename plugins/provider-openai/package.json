@@ -1,6 +1,7 @@
 {
-  "name": "@athena-ai/plugin-message-store",
+  "name": "@athena-ai/provider-openai",
   "version": "0.0.1",
+  "description": "OpenAI provider for Athena Harness",
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./lib/index.js",
@@ -14,16 +15,28 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@satorijs/core": "workspace:*",
-    "@satorijs/element": "workspace:*",
-    "@satorijs/protocol": "workspace:*"
+    "@ai-sdk/openai": "^4.0.45"
   },
   "devDependencies": {
+    "@athena-ai/ai": "workspace:*",
+    "@athena-ai/core": "workspace:*",
+    "cordis": "^4.0.0-rc.8",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@athena-ai/ai": "workspace:*",
     "@athena-ai/core": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
-  "peerDependencies": {
-    "@athena-ai/core": "workspace:*",
-    "cordis": "^4.0.0-rc.8"
+  "cordis": {
+    "description": {
+      "en": "OpenAI models (and OpenAI-compatible gateways)",
+      "zh": "OpenAI 模型（以及兼容 OpenAI 协议的网关）"
+    },
+    "service": {
+      "required": [
+        "ai"
+      ]
+    }
   }
 }

@@ -30,9 +30,6 @@
     "service": {
       "implements": [
         "message"
-      ],
-      "required": [
-        "life"
       ]
     }
   }
