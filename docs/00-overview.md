@@ -68,13 +68,15 @@ athena-harness/
 │
 ├── plugins/                    ← 可安装的运行时插件
 │   ├── life/                   @athena-ai/plugin-life — 提供 ctx.life
-│   ├── capability-message/     @athena-ai/capability-message — 提供 ctx.message
-│   ├── cortex-chat/            @athena-ai/cortex-chat — 提供 ctx.cortex
+│   ├── capability-message/     @athena-ai/plugin-capability-message — 提供 ctx.message
+│   ├── cortex-chat/            @athena-ai/plugin-cortex-chat — 提供 ctx.cortex
 │   ├── sandbox/                @athena-ai/plugin-sandbox — 全局 SandboxHub
-│   ├── sandbox-nerve/          @athena-ai/sandbox-nerve — per-Life Sandbox 桥
-│   ├── provider-openai/        @athena-ai/provider-openai — 注册 AI SDK OpenAI provider
-│   ├── provider-deepseek/      @athena-ai/provider-deepseek — 注册 AI SDK DeepSeek provider
-│   └── message-store/          （占位，未开始）
+│   ├── sandbox-nerve/          @athena-ai/plugin-sandbox-nerve — per-Life Sandbox 桥
+│   ├── provider-openai/        @athena-ai/plugin-provider-openai — 注册 AI SDK OpenAI provider
+│   ├── provider-deepseek/      @athena-ai/plugin-provider-deepseek — 注册 AI SDK DeepSeek provider
+│   ├── provider-anthropic/     @athena-ai/plugin-provider-anthropic — 注册 AI SDK Anthropic provider
+│   ├── provider-google/        @athena-ai/plugin-provider-google — 注册 AI SDK Google provider
+│   └── message-store/          @athena-ai/plugin-message-store（占位，未开始）
 │
 ├── vendor/                     ← 从 git 直接内置的上游代码
 │   ├── satorijs/               core / protocol / element / adapter-* （已修补）
@@ -114,7 +116,7 @@ cordis run
 
 启动链路：`cordis.yml`（prelude：`@athena-ai/core` + logger）→ `app.yml`（managed plugin tree：Life groups、capability、cortex、adapters）。
 
-验证最快路径是 **Sandbox**：安装 `@athena-ai/plugin-sandbox`（root）+ `@athena-ai/sandbox-nerve`（per-Life group），打开 WebUI 的 `/sandbox` 页面即可与 Life 对话，无需接入真实 IM 平台。
+验证最快路径是 **Sandbox**：安装 `@athena-ai/plugin-sandbox`（root）+ `@athena-ai/plugin-sandbox-nerve`（per-Life group），打开 WebUI 的 `/sandbox` 页面即可与 Life 对话，无需接入真实 IM 平台。
 
 ---
 
@@ -130,11 +132,10 @@ cordis run
 | 抄一份 Service / Cortex / Nerve 模板 | [04-patterns-and-recipes.md](./04-patterns-and-recipes.md)     |
 | 避免前人踩过的坑                     | [05-lessons-learned.md](./05-lessons-learned.md)               |
 | 知道现在做到哪、接下来做什么         | [06-progress-and-roadmap.md](./06-progress-and-roadmap.md)     |
+| 非技术读者通俗读物                   | [07-athena-harness-book.md](./07-athena-harness-book.md)       |
 | 快速查 Cordis v4 概念                | [appendix/A-cordis-primer.md](./appendix/A-cordis-primer.md)   |
 | 快速查 Satori v5 在 Athena 中的用法  | [appendix/B-satori-primer.md](./appendix/B-satori-primer.md)   |
 | 查某条设计决策的出处                 | [appendix/C-decision-index.md](./appendix/C-decision-index.md) |
-
-另有一份面向**非技术读者**的通俗读物（不要求编程基础，用"角色 / 剧本 / 神经"等生活化比喻讲解同一套系统）：[athena-harness-book.md](./athena-harness-book.md)。它与本文档体系并行，不替代任何技术文档。
 
 ---
 

@@ -38,6 +38,12 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 
 已知的 spec ↔ 代码偏差清单见 `docs/06-progress-and-roadmap.md` §2。
 
+**新 spec 规约**：
+
+- 必须使用 `.specify/templates/spec-template.md` 模板
+- 使用**英文**撰写
+- 已有中文 spec 为历史记录，不做回改
+
 ---
 
 ## 文档路由
@@ -57,35 +63,7 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 | 查 Cordis API / 陷阱                       | `docs/appendix/A-cordis-primer.md`                                  |
 | 查 Satori API / 我们的补丁                 | `docs/appendix/B-satori-primer.md`                                  |
 | 查某条决策的出处                           | `docs/appendix/C-decision-index.md`                                 |
-
----
-
-## 硬约束（不可违反）
-
-违反这些会破坏架构。改动前逐条核对：
-
-1. **Cortex 只通过 `ctx.message` 访问 IM** —— 永不 `ctx.satori`、永不 `ctx.bots`
-2. **Cortex 依赖 `capability-*`，永不依赖 `nerve-*` / `adapter-*`**
-3. **每个 Life 至多一个 Cortex** —— 由 `Life.bind()` 强制
-4. **框架不提供 event→response 管道** —— 无 middleware chain、无 command routing
-5. **Cortex 自管理事件缓冲** —— 框架不提供 queue / inbox / mailbox
-6. **没有 Service 在构造函数调 `ctx.mixin()`** —— 全进程 accessor 名冲突
-7. **Multi-Life 隔离 `{ life, cortex, message, satori }` 四个 key**
-8. **不包装 Satori Bot / Session / Methods**
-9. **不在 AI SDK 之上加 LLM 抽象层**
-10. **Instance 机制只用 cordis 标准原语**（`plugin-include` + `plugin-group` + `isolate`）
-
-### 退化测试
-
-Athena 满足以下任一条即已退化成"又一个 Koishi"：
-
-1. Life 只是 Cortex 启动时读一次的 config 文件
-2. Cortex 只是个订阅事件的普通插件
-3. 非 IM capability 是二等公民
-4. 框架把 event→response 当核心流程
-5. Memory / persona 是静态的
-
-**任何改动如果推向上述任一条，必须先说明并征求确认。**
+| 非技术读者通俗读物                         | `docs/07-athena-harness-book.md`                                    |
 
 ---
 
@@ -125,7 +103,7 @@ Athena 满足以下任一条即已退化成"又一个 Koishi"：
 
 - **纯 ESM**，`"type": "module"`
 - **双引号**、**必须分号**、`printWidth: 160`、`trailingComma: "all"`
-- 新代码 import **省略扩展名**（`moduleResolution: "bundler"`）
+- import **必须添加扩展名**（src 内用 `.js`，跨包用相对路径直接导入源文件）
 - **不要手工调格式** —— 跑 `yarn format`
 - 代码注释用**英文**，文档用**中文**（技术术语保留英文）
 
@@ -216,15 +194,16 @@ packages/
   protocol/    @athena-ai/protocol   — 类型 + Cortex 基类 + declare module
   ai/          @athena-ai/ai         — AIService（ctx.ai：provider registry + models.yml + 模型解析）
 plugins/
-  life/                @athena-ai/plugin-life         — ctx.life
-  capability-message/  @athena-ai/capability-message  — ctx.message（Satori 隔离）
-  cortex-chat/         @athena-ai/cortex-chat         — ctx.cortex（当前仅 echo）
-  sandbox/             @athena-ai/plugin-sandbox      — 全局 SandboxHub
-  sandbox-nerve/       @athena-ai/sandbox-nerve       — per-Life Sandbox 桥
-  provider-openai/     @athena-ai/provider-openai     — 注册 AI SDK OpenAI provider
-  provider-deepseek/   @athena-ai/provider-deepseek   — 注册 AI SDK DeepSeek provider
-  message-store/       @athena-ai/plugin-message-store — 占位（src 只有 export {}）
-providers/     ❌ anthropic / google 仍是未迁移的 YesImBot Koishi 插件，不在 workspaces 中；openai / deepseek 已被 plugins/provider-* 取代
+  life/                @athena-ai/plugin-life              — ctx.life
+  capability-message/  @athena-ai/plugin-capability-message — ctx.message（Satori 隔离）
+  cortex-chat/         @athena-ai/plugin-cortex-chat        — ctx.cortex（当前仅 echo）
+  sandbox/             @athena-ai/plugin-sandbox            — 全局 SandboxHub
+  sandbox-nerve/       @athena-ai/plugin-sandbox-nerve      — per-Life Sandbox 桥
+  provider-openai/     @athena-ai/plugin-provider-openai    — 注册 AI SDK OpenAI provider
+  provider-deepseek/   @athena-ai/plugin-provider-deepseek  — 注册 AI SDK DeepSeek provider
+  provider-anthropic/  @athena-ai/plugin-provider-anthropic — 注册 AI SDK Anthropic provider
+  provider-google/     @athena-ai/plugin-provider-google    — 注册 AI SDK Google provider
+  message-store/       @athena-ai/plugin-message-store      — 占位（src 只有 export {}）
 vendor/        satorijs/*（已打补丁）+ cordisjs/url-is-local
 legacy/        被取代的旧包（10 个），可忽略
 docs/          本文档体系
@@ -237,8 +216,8 @@ docs/          本文档体系
 
 |           | 状态                                                                                                                                                                                                   |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ✅ 完成   | `core`、`protocol`、`ai`（AIService）、`plugin-life`、`capability-message`、`plugin-sandbox`、`sandbox-nerve`、`provider-openai`、`provider-deepseek`；Satori vendoring + mixin 补丁；多 Life 隔离机制 |
-| 🔸 部分   | `cortex-chat`（仅 echo 骨架，尚未接 AI SDK）                                                                                                                                                           |
+| ✅ 完成   | `core`、`protocol`、`ai`（AIService）、`plugin-life`、`plugin-capability-message`、`plugin-sandbox`、`plugin-sandbox-nerve`、`plugin-provider-openai`、`plugin-provider-deepseek`、`plugin-provider-anthropic`、`plugin-provider-google`；Satori vendoring + mixin 补丁；多 Life 隔离机制 |
+| 🔸 部分   | `plugin-cortex-chat`（仅 echo 骨架，尚未接 AI SDK）                                                                                                                                                    |
 | ❌ 未开始 | `ctx.tools`、Hook Protocol 契约、Cortex 侧 AI SDK 集成、Memory 持久化、Persona 文件加载、`cortex-world` / `cortex-interlude`、非 IM capability                                                         |
 | 测试      | `npx vitest run` → 13 文件 121 用例全绿                                                                                                                                                                |
 

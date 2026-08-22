@@ -34,19 +34,22 @@
 - **纯 ESM** —— 所有 package.json 都有 `"type": "module"`
 - **`strict: true`，但 `noImplicitAny: false`** —— 允许隐式 any（与 Satori/Cordis 生态的动态特性妥协），但其他 strict 检查全开
 - **`emitDeclarationOnly`** —— tsc 只出 `.d.ts`，JS 由 esbuild 产出
-- **`moduleResolution: "bundler"`** + `allowImportingTsExtensions` —— import 时**可以**省略扩展名
+- **`moduleResolution: "bundler"`** + `allowImportingTsExtensions` —— import 时支持 `.ts` / `.js` 扩展名
 
 ### 1.2 Import 规范
 
-**扩展名**：仓库内两种风格都存在，均可编译。**新代码统一省略扩展名**（`moduleResolution: "bundler"` 支持）：
+**扩展名**：**新代码必须添加扩展名**。src 内源文件使用 `.js` 后缀（`moduleResolution: "bundler"` + esbuild 产出 JS 时路径一致）；跨包 import 使用相对路径直接导入源文件，不配置 `resolve.alias`：
 
 ```typescript
 // ✅ 推荐（新代码）
-import { Life } from "./life";
+import { Life } from "./life.js";
 import { Cortex } from "@athena-ai/protocol";
 
-// ⚠️ 存量代码中也有这种，不必回改
-import { Cortex } from "./cortex.js";
+// ✅ 跨包测试 import（相对路径直接到源文件）
+import { AIService } from "../../../packages/ai/src/index.js";
+
+// ⚠️ 存量代码中省略扩展名的写法，逐步回改
+import { Cortex } from "./cortex";
 ```
 
 **Import 排序**由 oxfmt 自动处理，分组顺序：
@@ -544,10 +547,8 @@ this.logger.debug("model.resolve_chat", {
 ### 8.1 框架与位置
 
 - **Vitest**，测试文件放在包的 `tests/` 目录（与 `src/` 同级，不在 `src/` 内）
-- 命名 `<subject>.test.ts`
-- 根 `vitest.config.ts` 已配置 workspace 包的路径别名，指向 `src/index.ts`（不经过构建产物）
-
-> ⚠️ 新增 package 时若测试需要跨包 import，记得在 `vitest.config.ts` 的 `resolve.alias` 中补一条。当前缺 `@athena-ai/plugin-life` 与 `@athena-ai/ai` 的别名（前者靠 workspace symlink 生效）。
+- 命名 `<subject>.spec.ts`
+- 跨包 import 使用相对路径直接导入源文件（如 `../../../packages/ai/src/index.js`），不配置 `resolve.alias`
 
 ### 8.2 核心测试模式：真实 Context
 
