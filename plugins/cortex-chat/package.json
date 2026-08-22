@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/cortex-chat",
+  "name": "@athena-ai/plugin-cortex-chat",
   "version": "0.0.1",
   "type": "module",
   "main": "./lib/index.cjs",

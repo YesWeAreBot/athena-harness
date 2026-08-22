@@ -133,9 +133,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@athena-ai/capability-message@workspace:plugins/capability-message":
+"@athena-ai/core@workspace:*, @athena-ai/core@workspace:packages/core":
   version: 0.0.0-use.local
-  resolution: "@athena-ai/capability-message@workspace:plugins/capability-message"
+  resolution: "@athena-ai/core@workspace:packages/core"
+  dependencies:
+    cordis: "npm:^4.0.0-rc.8"
+    cosmokit: "npm:^1.8.1"
+    schemastery: "npm:^3.18.0"
+  languageName: unknown
+  linkType: soft
+
+"@athena-ai/plugin-capability-message@workspace:plugins/capability-message":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/plugin-capability-message@workspace:plugins/capability-message"
   dependencies:
     "@athena-ai/core": "workspace:*"
     "@satorijs/core": "workspace:*"
@@ -148,19 +158,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@athena-ai/core@workspace:*, @athena-ai/core@workspace:packages/core":
+"@athena-ai/plugin-cortex-chat@workspace:plugins/cortex-chat":
   version: 0.0.0-use.local
-  resolution: "@athena-ai/core@workspace:packages/core"
-  dependencies:
-    cordis: "npm:^4.0.0-rc.8"
-    cosmokit: "npm:^1.8.1"
-    schemastery: "npm:^3.18.0"
-  languageName: unknown
-  linkType: soft
-
-"@athena-ai/cortex-chat@workspace:plugins/cortex-chat":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/cortex-chat@workspace:plugins/cortex-chat"
+  resolution: "@athena-ai/plugin-cortex-chat@workspace:plugins/cortex-chat"
   dependencies:
     "@athena-ai/core": "workspace:*"
     cordis: "npm:^4.0.0-rc.8"
@@ -198,6 +198,81 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@athena-ai/plugin-provider-anthropic@workspace:plugins/provider-anthropic":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/plugin-provider-anthropic@workspace:plugins/provider-anthropic"
+  dependencies:
+    "@ai-sdk/anthropic": "npm:^4.0.40"
+    "@athena-ai/ai": "workspace:*"
+    "@athena-ai/core": "workspace:*"
+    cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
+  peerDependencies:
+    "@athena-ai/ai": "workspace:*"
+    "@athena-ai/core": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
+"@athena-ai/plugin-provider-deepseek@workspace:plugins/provider-deepseek":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/plugin-provider-deepseek@workspace:plugins/provider-deepseek"
+  dependencies:
+    "@ai-sdk/deepseek": "npm:^3.0.29"
+    "@athena-ai/ai": "workspace:*"
+    "@athena-ai/core": "workspace:*"
+    cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
+  peerDependencies:
+    "@athena-ai/ai": "workspace:*"
+    "@athena-ai/core": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
+"@athena-ai/plugin-provider-google@workspace:plugins/provider-google":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/plugin-provider-google@workspace:plugins/provider-google"
+  dependencies:
+    "@ai-sdk/google": "npm:^4.0.49"
+    "@athena-ai/ai": "workspace:*"
+    "@athena-ai/core": "workspace:*"
+    cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
+  peerDependencies:
+    "@athena-ai/ai": "workspace:*"
+    "@athena-ai/core": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
+"@athena-ai/plugin-provider-openai@workspace:plugins/provider-openai":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/plugin-provider-openai@workspace:plugins/provider-openai"
+  dependencies:
+    "@ai-sdk/openai": "npm:^4.0.45"
+    "@athena-ai/ai": "workspace:*"
+    "@athena-ai/core": "workspace:*"
+    cordis: "npm:^4.0.0-rc.8"
+    zod: "npm:^3.25.76"
+  peerDependencies:
+    "@athena-ai/ai": "workspace:*"
+    "@athena-ai/core": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
+"@athena-ai/plugin-sandbox-nerve@workspace:plugins/sandbox-nerve":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/plugin-sandbox-nerve@workspace:plugins/sandbox-nerve"
+  peerDependencies:
+    "@athena-ai/plugin-sandbox": "workspace:*"
+    "@athena-ai/protocol": "workspace:*"
+    "@satorijs/core": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
 "@athena-ai/plugin-sandbox@workspace:plugins/sandbox":
   version: 0.0.0-use.local
   resolution: "@athena-ai/plugin-sandbox@workspace:plugins/sandbox"
@@ -226,81 +301,6 @@ __metadata:
   dependencies:
     cordis: "npm:^4.0.0-rc.8"
   peerDependencies:
-    cordis: ^4.0.0-rc.8
-  languageName: unknown
-  linkType: soft
-
-"@athena-ai/provider-anthropic@workspace:plugins/provider-anthropic":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/provider-anthropic@workspace:plugins/provider-anthropic"
-  dependencies:
-    "@ai-sdk/anthropic": "npm:^4.0.40"
-    "@athena-ai/ai": "workspace:*"
-    "@athena-ai/core": "workspace:*"
-    cordis: "npm:^4.0.0-rc.8"
-    zod: "npm:^3.25.76"
-  peerDependencies:
-    "@athena-ai/ai": "workspace:*"
-    "@athena-ai/core": "workspace:*"
-    cordis: ^4.0.0-rc.8
-  languageName: unknown
-  linkType: soft
-
-"@athena-ai/provider-deepseek@workspace:plugins/provider-deepseek":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/provider-deepseek@workspace:plugins/provider-deepseek"
-  dependencies:
-    "@ai-sdk/deepseek": "npm:^3.0.29"
-    "@athena-ai/ai": "workspace:*"
-    "@athena-ai/core": "workspace:*"
-    cordis: "npm:^4.0.0-rc.8"
-    zod: "npm:^3.25.76"
-  peerDependencies:
-    "@athena-ai/ai": "workspace:*"
-    "@athena-ai/core": "workspace:*"
-    cordis: ^4.0.0-rc.8
-  languageName: unknown
-  linkType: soft
-
-"@athena-ai/provider-google@workspace:plugins/provider-google":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/provider-google@workspace:plugins/provider-google"
-  dependencies:
-    "@ai-sdk/google": "npm:^4.0.49"
-    "@athena-ai/ai": "workspace:*"
-    "@athena-ai/core": "workspace:*"
-    cordis: "npm:^4.0.0-rc.8"
-    zod: "npm:^3.25.76"
-  peerDependencies:
-    "@athena-ai/ai": "workspace:*"
-    "@athena-ai/core": "workspace:*"
-    cordis: ^4.0.0-rc.8
-  languageName: unknown
-  linkType: soft
-
-"@athena-ai/provider-openai@workspace:plugins/provider-openai":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/provider-openai@workspace:plugins/provider-openai"
-  dependencies:
-    "@ai-sdk/openai": "npm:^4.0.45"
-    "@athena-ai/ai": "workspace:*"
-    "@athena-ai/core": "workspace:*"
-    cordis: "npm:^4.0.0-rc.8"
-    zod: "npm:^3.25.76"
-  peerDependencies:
-    "@athena-ai/ai": "workspace:*"
-    "@athena-ai/core": "workspace:*"
-    cordis: ^4.0.0-rc.8
-  languageName: unknown
-  linkType: soft
-
-"@athena-ai/sandbox-nerve@workspace:plugins/sandbox-nerve":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/sandbox-nerve@workspace:plugins/sandbox-nerve"
-  peerDependencies:
-    "@athena-ai/plugin-sandbox": "workspace:*"
-    "@athena-ai/protocol": "workspace:*"
-    "@satorijs/core": "workspace:*"
     cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft

@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/sandbox-nerve",
+  "name": "@athena-ai/plugin-sandbox-nerve",
   "version": "0.0.1",
   "description": "Per-Life sandbox nerve that bridges the Hub to a Life's isolated Satori domain",
   "license": "MIT",

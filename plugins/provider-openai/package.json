@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/provider-openai",
+  "name": "@athena-ai/plugin-provider-openai",
   "version": "0.0.1",
   "description": "OpenAI provider for Athena Harness",
   "type": "module",

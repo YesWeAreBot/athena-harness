@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/provider-deepseek",
+  "name": "@athena-ai/plugin-provider-deepseek",
   "version": "0.0.1",
   "description": "DeepSeek provider for Athena Harness",
   "type": "module",

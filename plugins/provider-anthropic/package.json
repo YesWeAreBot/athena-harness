@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/provider-anthropic",
+  "name": "@athena-ai/plugin-provider-anthropic",
   "version": "0.0.1",
   "description": "Anthropic provider for Athena Harness",
   "type": "module",

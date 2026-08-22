@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/provider-google",
+  "name": "@athena-ai/plugin-provider-google",
   "version": "0.0.1",
   "description": "Google provider for Athena Harness",
   "type": "module",

@@ -1,5 +1,5 @@
 {
-  "name": "@athena-ai/capability-message",
+  "name": "@athena-ai/plugin-capability-message",
   "version": "0.0.1",
   "type": "module",
   "main": "./lib/index.cjs",
