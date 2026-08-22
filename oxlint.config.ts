@@ -15,6 +15,7 @@ export default defineConfig({
     "legacy/**",
     "vendor/**",
   ],
+  plugins: ["eslint", "import", "node", "oxc", "promise", "typescript", "unicorn", "vitest", "vue"],
   jsPlugins: [{ name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" }],
   rules: {
     "anti-slop/no-chained-type-assertions": "error",
