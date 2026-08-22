@@ -1,4 +1,4 @@
-import type { MessageSink, SandboxNerveHandle } from "@athena-ai/protocol";
+import type { JsonObject, MessageSink, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
 import { Satori, type Session } from "@satorijs/core";
 import { Context } from "cordis";
 import type { Dict } from "cosmokit";
@@ -11,7 +11,7 @@ const PLATFORM = "sandbox:nerve-test";
 
 interface Frame {
   type: string;
-  body?: Record<string, unknown>;
+  body?: JsonObject;
 }
 
 /** Stands in for a browser tab holding a WebUI socket. */
@@ -19,8 +19,9 @@ class FakeClient {
   readonly id = Math.random().toString(36).slice(2);
   readonly frames: Frame[] = [];
 
-  send(payload: Frame) {
-    this.frames.push(payload);
+  send(payload: { type: string; body: unknown }) {
+    // SAFETY: Test frames emitted by the sandbox transport always carry JSON object bodies.
+    this.frames.push(payload as Frame);
   }
 
   last(type: string): Frame | undefined {
@@ -30,7 +31,7 @@ class FakeClient {
 
 /** Minimal WebUI mock. */
 class FakeWebUI {
-  readonly listeners: Dict<(body?: unknown) => unknown> = Object.create(null);
+  readonly listeners: Dict<(body?: JsonObject) => void> = Object.create(null);
   readonly clients: Dict<FakeClient> = Object.create(null);
   addEntry() {
     return {};
@@ -44,6 +45,19 @@ class FakeLife {
   bind() {
     return () => {};
   }
+}
+
+interface HubInternals extends SandboxHubService {
+  _nerves: Map<string, SandboxNerveHandle>;
+}
+
+function hubInternals(hub: SandboxHub): HubInternals {
+  // SAFETY: SandboxHub keeps its per-Life registry in `_nerves`; these tests read it to drive a nerve directly.
+  return hub as HubInternals;
+}
+
+function sinkFor(client: FakeClient): MessageSink {
+  return { send: (frame) => client.send(frame) };
 }
 
 async function setup() {
@@ -80,7 +94,9 @@ async function setup() {
 }
 
 function getHub(ctx: Context): SandboxHub {
-  return ctx.get("sandbox") as unknown as SandboxHub;
+  const hub = ctx.get("sandbox");
+  if (!(hub instanceof SandboxHub)) throw new Error("sandbox service is not a SandboxHub");
+  return hub;
 }
 
 describe("sandbox-nerve", () => {
@@ -97,10 +113,10 @@ describe("sandbox-nerve", () => {
   it("dispatches message through nerve to local satori", async () => {
     const { ctx, client, sessions } = await setup();
     const hub = getHub(ctx);
-    const nerveHandle = (hub as any)._nerves.get("alice") as SandboxNerveHandle;
+    const nerveHandle = hubInternals(hub)._nerves.get("alice")!;
     expect(nerveHandle).toBeDefined();
 
-    const sink: MessageSink = { send: (frame) => client.send(frame as any) };
+    const sink = sinkFor(client);
     await nerveHandle.dispatch({
       clientId: client.id,
       platform: PLATFORM,
@@ -130,8 +146,8 @@ describe("sandbox-nerve", () => {
   it("handles delete-message dispatch", async () => {
     const { ctx, client, sessions } = await setup();
     const hub = getHub(ctx);
-    const nerveHandle = (hub as any)._nerves.get("alice") as SandboxNerveHandle;
-    const sink: MessageSink = { send: (frame) => client.send(frame as any) };
+    const nerveHandle = hubInternals(hub)._nerves.get("alice")!;
+    const sink = sinkFor(client);
 
     // First create a bot by sending a normal message
     await nerveHandle.dispatch({
@@ -170,8 +186,8 @@ describe("sandbox-nerve", () => {
   it("uses persona name as bot selfName", async () => {
     const { ctx, group, client } = await setup();
     const hub = getHub(ctx);
-    const nerveHandle = (hub as any)._nerves.get("alice") as SandboxNerveHandle;
-    const sink: MessageSink = { send: (frame) => client.send(frame as any) };
+    const nerveHandle = hubInternals(hub)._nerves.get("alice")!;
+    const sink = sinkFor(client);
 
     await nerveHandle.dispatch({
       clientId: client.id,
@@ -191,8 +207,8 @@ describe("sandbox-nerve", () => {
   it("bot replies reach the sink", async () => {
     const { ctx, group, client } = await setup();
     const hub = getHub(ctx);
-    const nerveHandle = (hub as any)._nerves.get("alice") as SandboxNerveHandle;
-    const sink: MessageSink = { send: (frame) => client.send(frame as any) };
+    const nerveHandle = hubInternals(hub)._nerves.get("alice")!;
+    const sink = sinkFor(client);
 
     await nerveHandle.dispatch({
       clientId: client.id,

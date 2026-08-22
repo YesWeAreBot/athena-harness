@@ -9,5 +9,6 @@ declare module "cordis" {
 }
 
 export { Cortex } from "./cortex.js";
-export type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "./sandbox.js";
-export type { LifeService, MemoryEntry, MemoryProvider, Persona, SearchOptions } from "./types.js";
+export type { JsonObject, JsonValue } from "./json.js";
+export type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle, SandboxRequestPayload } from "./sandbox.js";
+export type { LifeService, MemoryEntry, MemoryProvider, MemoryValue, Persona, PersonaTraits, SearchOptions } from "./types.js";

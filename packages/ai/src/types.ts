@@ -1,18 +1,38 @@
 import type { EmbeddingModelV4, ImageModelV4, LanguageModelV4, RerankingModelV4, SpeechModelV4, TranscriptionModelV4 } from "@ai-sdk/provider";
 import type { defaultSettingsMiddleware } from "ai";
 
+export type YamlValue = string | number | boolean | null | YamlValue[] | YamlMapping;
+export interface YamlMapping {
+  [key: string]: YamlValue;
+}
+
+export function isYamlString(value: YamlValue | undefined): value is string {
+  return typeof value === "string";
+}
+
+export function isYamlNumber(value: YamlValue | undefined): value is number {
+  return typeof value === "number";
+}
+
+export function isYamlBoolean(value: YamlValue | undefined): value is boolean {
+  return typeof value === "boolean";
+}
+
+export function isYamlMapping(value: YamlValue | undefined): value is YamlMapping {
+  return value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);
+}
+
+export function isYamlList(value: YamlValue | undefined): value is YamlValue[] {
+  return Array.isArray(value);
+}
+
 /** Modalities exposed by an AI SDK `ProviderV4`. */
 export type ModelType = "language" | "embedding" | "image" | "speech" | "transcription" | "reranking";
 
 export const MODEL_TYPES = ["language", "embedding", "image", "speech", "transcription", "reranking"] as const satisfies readonly ModelType[];
 
-export function isModelType(value: unknown): value is ModelType {
-  return typeof value === "string" && (MODEL_TYPES as readonly string[]).includes(value);
-}
-
-/** Canonical object guard for this package. Narrows to a record; individual fields stay `unknown`. */
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+export function isModelType(value: YamlValue | undefined): value is ModelType {
+  return isYamlString(value) && new Set<string>(MODEL_TYPES).has(value);
 }
 
 /** Maps a {@link ModelType} onto the native AI SDK model interface it resolves to. */

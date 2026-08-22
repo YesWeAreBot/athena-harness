@@ -6,14 +6,14 @@
 
 ## 关键结论与证据索引
 
-| 结论 | 状态 | 关键证据 |
-|---|---|---|
-| NachoBot 是一个单进程、单份 global configuration 与 singleton runtime 驱动的多平台聊天 Agent，不是可实例化的多 Life runtime | **[代码推断]** | `src/main.py:35-39,55-138`；`src/chat/message_receive/chat_stream.py:118-142`；`src/config/config.py` 的 `global_config` 被全链路导入 |
-| 多平台输入通过 `BaseMessageInfo` 统一到同一个 `chat_bot.message_process` | **[已实现事实]** | `NachoBot-Koishi-Adapter/adapter.py:145-248`；`ncnk_message/message_base.py:219-337`；`src/main.py:136-138`；`src/chat/message_receive/bot.py:456-574` |
-| 「同一意识」在 runtime 与人格配置层共享；短期上下文严格按 `platform + group/user` stream 隔离，跨 stream 长期 Memory 可由配置放开 | **[代码推断]** | 单例 `ChatBot`/`global_config`；`chat_stream.py:177-200`；`A_memorix/_compat.py:123-212` |
-| 主回复为 planner（JSON action）与 replyer（文本）两段 LLM pipeline，而不是统一 tool-loop | **[已实现事实]** | `planner.py:727-793`；`heartFC_chat.py:1126-1311,1754-2003`；`replyer/group_generator.py:990-1328,1481-1497` |
-| 平台回执仅在 adapter WebSocket 的 OneBot `status/retcode/echo` 中记录；通用发送链没有把送达/实际消息 ID 可靠地回流给 Cortex/Planner | **[已实现事实]** | `adapter.py:121-143,305-340`；`uni_message_sender.py:72-86,175-194`；`heartFC_chat.py:1547-1587` |
-| Athena 当前实现已具备 per-Life event ownership 与 one-Cortex-per-Life；但 LLM、Tool Registry、持久 Memory、真实多平台运行仍未完成 | **[已实现事实]** | `plugins/capability-message/src/index.ts:41-105`；`plugins/life/src/life.ts:5-52`；`plugins/cortex-chat/src/index.ts:15-44`；`docs/06-progress-and-roadmap.md:55-68,231-289` |
+| 结论                                                                                                                                | 状态             | 关键证据                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NachoBot 是一个单进程、单份 global configuration 与 singleton runtime 驱动的多平台聊天 Agent，不是可实例化的多 Life runtime         | **[代码推断]**   | `src/main.py:35-39,55-138`；`src/chat/message_receive/chat_stream.py:118-142`；`src/config/config.py` 的 `global_config` 被全链路导入                                        |
+| 多平台输入通过 `BaseMessageInfo` 统一到同一个 `chat_bot.message_process`                                                            | **[已实现事实]** | `NachoBot-Koishi-Adapter/adapter.py:145-248`；`ncnk_message/message_base.py:219-337`；`src/main.py:136-138`；`src/chat/message_receive/bot.py:456-574`                       |
+| 「同一意识」在 runtime 与人格配置层共享；短期上下文严格按 `platform + group/user` stream 隔离，跨 stream 长期 Memory 可由配置放开   | **[代码推断]**   | 单例 `ChatBot`/`global_config`；`chat_stream.py:177-200`；`A_memorix/_compat.py:123-212`                                                                                     |
+| 主回复为 planner（JSON action）与 replyer（文本）两段 LLM pipeline，而不是统一 tool-loop                                            | **[已实现事实]** | `planner.py:727-793`；`heartFC_chat.py:1126-1311,1754-2003`；`replyer/group_generator.py:990-1328,1481-1497`                                                                 |
+| 平台回执仅在 adapter WebSocket 的 OneBot `status/retcode/echo` 中记录；通用发送链没有把送达/实际消息 ID 可靠地回流给 Cortex/Planner | **[已实现事实]** | `adapter.py:121-143,305-340`；`uni_message_sender.py:72-86,175-194`；`heartFC_chat.py:1547-1587`                                                                             |
+| Athena 当前实现已具备 per-Life event ownership 与 one-Cortex-per-Life；但 LLM、Tool Registry、持久 Memory、真实多平台运行仍未完成   | **[已实现事实]** | `plugins/capability-message/src/index.ts:41-105`；`plugins/life/src/life.ts:5-52`；`plugins/cortex-chat/src/index.ts:15-44`；`docs/06-progress-and-roadmap.md:55-68,231-289` |
 
 ---
 
@@ -36,13 +36,13 @@
 
 Athena 的正式模型把 **Life（identity / persona / memory / self-model）**、**Cortex（完整生存策略）**、**Nerve（世界双向通路）**作为不可拆的三原语（`docs/00-overview.md:9-29`；`docs/01-design-philosophy.md:35-47,66-80,124-173`）。当前代码中 `Life.bind()` 强制一个 Life 只绑定一个 Cortex（`plugins/life/src/life.ts:21-46`），`Cortex` 的 init 自动绑定/释放（`packages/protocol/src/cortex.ts:3-13`）。
 
-| 比较项 | NachoBot | Athena |
-|---|---|---|
-| 核心单位 | ChatStream 与 global bot | Life / Cortex / Nerve |
-| 身份所有权 | 实际由 `global_config` + singleton 间接持有 | `Life` Service 显式持有 persona、memory |
-| 运行策略 | HeartFlow 作为内置、固定主 loop | Cortex 是可整体替换策略 |
-| 世界接入 | adapter + shared `ncnk_message` protocol | Nerve 实现 Capability；Cortex 不依赖具体 Nerve |
-| 多实体 | **[代码推断]** 无 clear per-Agent instance boundary | **[已实现事实]** Cordis group isolate 的 per-Life 边界 |
+| 比较项     | NachoBot                                            | Athena                                                 |
+| ---------- | --------------------------------------------------- | ------------------------------------------------------ |
+| 核心单位   | ChatStream 与 global bot                            | Life / Cortex / Nerve                                  |
+| 身份所有权 | 实际由 `global_config` + singleton 间接持有         | `Life` Service 显式持有 persona、memory                |
+| 运行策略   | HeartFlow 作为内置、固定主 loop                     | Cortex 是可整体替换策略                                |
+| 世界接入   | adapter + shared `ncnk_message` protocol            | Nerve 实现 Capability；Cortex 不依赖具体 Nerve         |
+| 多实体     | **[代码推断]** 无 clear per-Agent instance boundary | **[已实现事实]** Cordis group isolate 的 per-Life 边界 |
 
 ---
 
@@ -102,7 +102,7 @@ Athena 的正式模型把 **Life（identity / persona / memory / self-model）**
 
 1. 所有 adapter 都应发送同一 `MessageBase` wire shape，core 只注册一个 `chat_bot.message_process` handler（`src/main.py:136-138`）。
 2. `ChatBot` 在模块底部构造唯一 `chat_bot = ChatBot()`（`src/chat/message_receive/bot.py:581-582`）；`ChatManager` 也以 singleton `__new__` 实现（`chat_stream.py:118-142`）。
-3. Stream key 用 `platform` 分隔（`chat_stream.py:177-200`），故不同平台 message 不共享当前 stream 的 message history。 
+3. Stream key 用 `platform` 分隔（`chat_stream.py:177-200`），故不同平台 message 不共享当前 stream 的 message history。
 4. identity / reply behavior 在 replyer 从 process-wide `global_config.bot` 和 `global_config.personality` 读取（例如 `group_generator.py:1021-1023,1264-1321`；模板首位 `{identity}` 在 `replyer_prompt.py:11-28`）。
 5. A_Memorix 的 `get_shared_memory_session_ids(chat_id)` 可按 cross-chat memory access 解析其他现有 stream 的 read/write permission（`src/A_memorix/_compat.py:123-212`）；这说明跨 session memory 是另设策略而非天然隔离。
 
@@ -213,14 +213,14 @@ Athena 的目标则是 Cortex 仅依赖 capability、Nerve 实现 capability、�
 
 # 八、工程质量与风险
 
-| 方面 | 已确认优点 | 风险 / 不能照搬 |
-|---|---|---|
-| Transport | 统一 message schema、可携带 media/format/capabilities（`message_base.py:219-337`） | `group_info/user_info` 与 sender/receiver 并存，core 仍依旧字段；account identity 不是 key 的一部分 |
-| 认知循环 | Planner JSON action 与 Replyer 分工；特定 ReAct memory tool-loop | 两条模型 tool/action 语义并存；主 reply native tool call 未见 dispatch |
-| 并发 | stream creation dedupe、serial/parallel action 显式划分、Focus permit | 全局 singleton ownership；未证明 action idempotency 和 platform receipt 一致性 |
-| Prompt | 可审计的固定 template 顺序、对 target/history 有 guard | 全部压入一条 prompt，system/user/tool provenance 丢失；retrieval fragment sanitation 无法确认 |
-| Memory | message persistence、mid/long-term 子系统、跨 chat access policy | startup 可降级运行；共享 memory policy 与 Life ownership 没有强边界 |
-| LLM resilience | retry、413 compression、multi-model failover | retry 在 LLM transport，不涵盖 side-effect actions；发送后未确认回执 |
+| 方面           | 已确认优点                                                                         | 风险 / 不能照搬                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Transport      | 统一 message schema、可携带 media/format/capabilities（`message_base.py:219-337`） | `group_info/user_info` 与 sender/receiver 并存，core 仍依旧字段；account identity 不是 key 的一部分 |
+| 认知循环       | Planner JSON action 与 Replyer 分工；特定 ReAct memory tool-loop                   | 两条模型 tool/action 语义并存；主 reply native tool call 未见 dispatch                              |
+| 并发           | stream creation dedupe、serial/parallel action 显式划分、Focus permit              | 全局 singleton ownership；未证明 action idempotency 和 platform receipt 一致性                      |
+| Prompt         | 可审计的固定 template 顺序、对 target/history 有 guard                             | 全部压入一条 prompt，system/user/tool provenance 丢失；retrieval fragment sanitation 无法确认       |
+| Memory         | message persistence、mid/long-term 子系统、跨 chat access policy                   | startup 可降级运行；共享 memory policy 与 Life ownership 没有强边界                                 |
+| LLM resilience | retry、413 compression、multi-model failover                                       | retry 在 LLM transport，不涵盖 side-effect actions；发送后未确认回执                                |
 
 ---
 
@@ -300,13 +300,13 @@ Athena 的目标则是 Cortex 仅依赖 capability、Nerve 实现 capability、�
 
 ### A5. 对 Athena 的严格边界建议
 
-| 能力 | Athena 应归属 | 依据与边界 |
-|---|---|---|
-| raw platform webhook/WebSocket、normalization、platform/account/message/channel/user identifiers | **Nerve** | Nerve 负责世界双向接触；必须附 `nerveInstanceId`/account id 与 typed origin，不可让 Cortex 解析 OneBot/Discord raw payload。 |
-| send/edit/delete/reaction/voice 等 concrete API、transport retry、ack/receipt | **Nerve（实现 Capability 的 act endpoint）** | Capability 声明 protocol；Nerve 兑现它并返回 `Pending/Accepted/Delivered/Failed` receipt。不要把 adapter API 或 client 泄漏到 Cortex。 |
-| response choice、willingness、per-conversation ordering、aggregation、LLM failover、tool-call policy、多 action dependency/parallelism | **Cortex** | 这些是「如何活着」的整块策略；不能全局化为 event→reply middleware。参考 NachoBot action scheduler 但保持 Cortex 可替换。 |
-| Persona、long-term memory、self-model、cross-Nerve continuity、instance/account binding policy | **Life / Memory / Instance** | Life 是 identity owner；Instance declaratively wires one Life to its Nerves. Cortex 可读写 memory via contract，不能拥有 global mutable persona。 |
-| generic Message/World action contract、Nerve registry、tool definition type | **Capability** | 为 Cortex 提供稳定抽象，避免 `additional_config` dict；capability 不该拥有 identity/memory。 |
+| 能力                                                                                                                                   | Athena 应归属                                | 依据与边界                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| raw platform webhook/WebSocket、normalization、platform/account/message/channel/user identifiers                                       | **Nerve**                                    | Nerve 负责世界双向接触；必须附 `nerveInstanceId`/account id 与 typed origin，不可让 Cortex 解析 OneBot/Discord raw payload。                      |
+| send/edit/delete/reaction/voice 等 concrete API、transport retry、ack/receipt                                                          | **Nerve（实现 Capability 的 act endpoint）** | Capability 声明 protocol；Nerve 兑现它并返回 `Pending/Accepted/Delivered/Failed` receipt。不要把 adapter API 或 client 泄漏到 Cortex。            |
+| response choice、willingness、per-conversation ordering、aggregation、LLM failover、tool-call policy、多 action dependency/parallelism | **Cortex**                                   | 这些是「如何活着」的整块策略；不能全局化为 event→reply middleware。参考 NachoBot action scheduler 但保持 Cortex 可替换。                          |
+| Persona、long-term memory、self-model、cross-Nerve continuity、instance/account binding policy                                         | **Life / Memory / Instance**                 | Life 是 identity owner；Instance declaratively wires one Life to its Nerves. Cortex 可读写 memory via contract，不能拥有 global mutable persona。 |
+| generic Message/World action contract、Nerve registry、tool definition type                                                            | **Capability**                               | 为 Cortex 提供稳定抽象，避免 `additional_config` dict；capability 不该拥有 identity/memory。                                                      |
 
 ### A6. 会破坏 Athena 隔离的做法
 

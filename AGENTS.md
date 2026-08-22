@@ -214,12 +214,12 @@ docs/          本文档体系
 
 ## 当前状态（2026-08-21 核验）
 
-|           | 状态                                                                                                                                                                                                   |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|           | 状态                                                                                                                                                                                                                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ✅ 完成   | `core`、`protocol`、`ai`（AIService）、`plugin-life`、`plugin-capability-message`、`plugin-sandbox`、`plugin-sandbox-nerve`、`plugin-provider-openai`、`plugin-provider-deepseek`、`plugin-provider-anthropic`、`plugin-provider-google`；Satori vendoring + mixin 补丁；多 Life 隔离机制 |
-| 🔸 部分   | `plugin-cortex-chat`（仅 echo 骨架，尚未接 AI SDK）                                                                                                                                                    |
-| ❌ 未开始 | `ctx.tools`、Hook Protocol 契约、Cortex 侧 AI SDK 集成、Memory 持久化、Persona 文件加载、`cortex-world` / `cortex-interlude`、非 IM capability                                                         |
-| 测试      | `npx vitest run` → 13 文件 121 用例全绿                                                                                                                                                                |
+| 🔸 部分   | `plugin-cortex-chat`（仅 echo 骨架，尚未接 AI SDK）                                                                                                                                                                                                                                       |
+| ❌ 未开始 | `ctx.tools`、Hook Protocol 契约、Cortex 侧 AI SDK 集成、Memory 持久化、Persona 文件加载、`cortex-world` / `cortex-interlude`、非 IM capability                                                                                                                                            |
+| 测试      | `npx vitest run` → 13 文件 121 用例全绿                                                                                                                                                                                                                                                   |
 
 ### Roadmap 顺序（已确认）
 

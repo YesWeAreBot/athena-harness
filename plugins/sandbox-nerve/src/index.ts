@@ -1,5 +1,5 @@
 import { SandboxBot, SELF_ID } from "@athena-ai/plugin-sandbox";
-import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
+import type { JsonValue, MessageSink, SandboxDispatchPayload, SandboxNerveHandle, SandboxRequestPayload } from "@athena-ai/protocol";
 import { Dict, Universal } from "@satorijs/core";
 import type { Context, Fiber } from "cordis";
 
@@ -26,7 +26,7 @@ export default class SandboxNerve {
   constructor(private ctx: Context) {
     this._lifeId = ctx.life.persona.name.toLowerCase();
 
-    const unregister = (ctx.sandbox as SandboxHubService).register(this._lifeId, {
+    const unregister = ctx.sandbox.register(this._lifeId, {
       meta: {
         name: ctx.life.persona.name,
         description: ctx.life.persona.description,
@@ -87,8 +87,8 @@ export default class SandboxNerve {
     bot.dispatch(session);
   }
 
-  private async _request(method: string, data: Record<string, unknown>): Promise<unknown> {
-    const platform = data.platform as string | undefined;
+  private async _request(method: string, payload: SandboxRequestPayload): Promise<JsonValue> {
+    const platform = payload.platform;
     if (!platform) throw new Error("sandbox-nerve: request requires `platform` in data");
     const handle = this._handles[platform];
     if (!handle) {
@@ -100,11 +100,12 @@ export default class SandboxNerve {
 
     // Response correlation coming back from the browser.
     if (method === "settle") {
-      bot.settle(data.nonce as string, data.data);
+      // SAFETY: The Hub only sends settle frames with a nonce; the bot ignores unknown nonces.
+      bot.settle(payload.nonce as string, payload.data ?? null);
       return null;
     }
 
-    return bot.request(method, data);
+    return bot.request<JsonValue>(method, payload);
   }
 
   /** Tear down the bot backing a browser tab that has gone away. */
@@ -130,14 +131,17 @@ export default class SandboxNerve {
       selfId: SELF_ID,
       selfName: ctx.life.persona.name,
       sink,
-      fileBase: (ctx.sandbox as SandboxHubService).fileBase,
+      fileBase: ctx.sandbox.fileBase,
     });
 
     const bot = (async () => {
       await fiber;
       const registered = ctx.satori.bots[`${platform}:${SELF_ID}`];
       if (!registered) throw new Error(`sandbox-nerve: bot was not registered for platform ${platform}`);
-      return registered as SandboxBot;
+      if (!(registered instanceof SandboxBot)) {
+        throw new Error(`sandbox-nerve: registered bot has unexpected type for platform ${platform}`);
+      }
+      return registered;
     })();
 
     return (this._handles[platform] = { fiber, bot });

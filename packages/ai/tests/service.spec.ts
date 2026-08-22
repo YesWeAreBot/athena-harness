@@ -279,7 +279,8 @@ providers:
 
     await other.doGenerate({ prompt: USER_PROMPT });
 
-    const call = (provider.languageModel("other") as MockLanguageModelV4).doGenerateCalls[0];
+    // SAFETY: This provider is constructed by the test and languageModel() returns its mock model.
+    const call = provider.languageModel("other").doGenerateCalls[0];
     expect(call.temperature).toBe(1);
     expect(call.maxOutputTokens).toBe(4096);
   });

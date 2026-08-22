@@ -107,6 +107,18 @@ export namespace Life {
 | `yarn lint` / `yarn lint:fix`       | oxlint                                                               |
 | `yarn format` / `yarn format:check` | oxfmt                                                                |
 
+### 类型安全 lint（anti-slop）
+
+`yarn lint` 使用根目录 `oxlint.config.ts` 注册的 `anti-slop` 规则集，重点约束运行时边界和类型逃逸：
+
+- 不要用 `any`、`unknown` 作为业务参数/返回值或字典值；为 JSON、YAML、memory、transport 等边界定义命名域类型。
+- 不要使用 `x as unknown as T` 链式断言；优先使用类型谓词、`instanceof`、显式分支或泛型收窄。
+- 必要的框架/DOM/第三方库边界断言，必须在所在语句前写 `SAFETY:` 注释，说明实际不变量，而不是重复断言本身。
+- 不要用 `Reflect.get` / `Reflect.apply` 窥探私有实现；优先公开的类型化 API 或 `Function.call`。
+- `typeof` 只用于真实运行时类型谓词；配置/YAML 解码统一先进入命名域类型，再由类型谓词收窄。
+
+新增或修改代码后至少执行 `yarn lint`；自定义规则的测试位于 `tools/oxlint/anti-slop/`，由 oxlint plugin 测试环境驱动，不属于 Vitest 项目测试。
+
 ### 2.1 格式化规则（oxfmt）
 
 | 设置                 | 值                                   |

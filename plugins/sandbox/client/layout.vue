@@ -75,6 +75,8 @@ const panelTabs = computed(() => {
 });
 
 function selectPanel(id: string) {
+  if (!Object.hasOwn(panelTypes, id)) return;
+  // SAFETY: Object.hasOwn above proves id is one of panelTypes' runtime keys.
   config.value.panelType = id as keyof typeof panelTypes;
 }
 

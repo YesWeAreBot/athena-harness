@@ -3,9 +3,10 @@ import { describe, it, expect } from "vitest";
 
 import { Life } from "../src/life";
 
-// Helper to access internal _cortex field for testing
-function getCortex(life: Life): Service | null {
-  return Reflect.get(life, "_cortex") as Service | null;
+class FakeCortex extends Service {
+  constructor(ctx: Context, name: string) {
+    super(ctx, name);
+  }
 }
 
 describe("Life", () => {
@@ -23,9 +24,9 @@ describe("Life", () => {
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
-    const mockCortex = { name: "test-cortex" } as unknown as Service;
+    const mockCortex = new FakeCortex(ctx, "test-cortex");
     ctx.life.bind(mockCortex);
-    expect(getCortex(ctx.life)).toBe(mockCortex);
+    expect(ctx.life.cortex).toBeInstanceOf(FakeCortex);
   });
 
   it("bind throws on second cortex", async () => {
@@ -33,8 +34,8 @@ describe("Life", () => {
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
-    const cortex1 = { name: "cortex-1" } as unknown as Service;
-    const cortex2 = { name: "cortex-2" } as unknown as Service;
+    const cortex1 = new FakeCortex(ctx, "cortex-1");
+    const cortex2 = new FakeCortex(ctx, "cortex-2");
     ctx.life.bind(cortex1);
     expect(() => ctx.life.bind(cortex2)).toThrow("Only one Cortex per Life");
   });
@@ -44,10 +45,10 @@ describe("Life", () => {
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
-    const cortex = { name: "test-cortex" } as unknown as Service;
+    const cortex = new FakeCortex(ctx, "test-cortex");
     const unbind = ctx.life.bind(cortex);
     unbind();
-    expect(getCortex(ctx.life)).toBeNull();
+    expect(ctx.life.cortex).toBeNull();
   });
 
   it("disposer ignores if already rebound", async () => {
@@ -55,14 +56,14 @@ describe("Life", () => {
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
-    const cortex1 = { name: "cortex-1" } as unknown as Service;
-    const cortex2 = { name: "cortex-2" } as unknown as Service;
+    const cortex1 = new FakeCortex(ctx, "cortex-1");
+    const cortex2 = new FakeCortex(ctx, "cortex-2");
     const unbind1 = ctx.life.bind(cortex1);
     // Manually clear and rebind (simulating hot-reload)
     unbind1();
     ctx.life.bind(cortex2);
     // Old disposer should not clear new binding
     unbind1();
-    expect(getCortex(ctx.life)).toBe(cortex2);
+    expect(ctx.life.cortex).toBeInstanceOf(FakeCortex);
   });
 });

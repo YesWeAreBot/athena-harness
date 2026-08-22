@@ -5,6 +5,12 @@
  * directly, outside the server's TypeScript project.
  */
 
+/**
+ * JSON-representable value, declared locally to keep this module dependency-free.
+ * Structurally identical to `JsonValue` in `@athena-ai/protocol`.
+ */
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 /** A single chat bubble, as exchanged with the sandbox page. */
 export interface Message {
   id: string;
@@ -48,7 +54,7 @@ export interface ResponsePayload {
   lifeId: string;
   platform: string;
   nonce: string;
-  data?: unknown;
+  data?: JsonValue;
 }
 
 /** `sandbox/life-list` — the Hub broadcasts the current Life registry. */

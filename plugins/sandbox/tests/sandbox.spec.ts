@@ -1,4 +1,4 @@
-import type { MessageSink, SandboxDispatchPayload, SandboxNerveHandle } from "@athena-ai/protocol";
+import type { JsonObject, MessageSink, SandboxDispatchPayload, SandboxNerveHandle, SandboxRequestPayload } from "@athena-ai/protocol";
 import { Satori, type Session, Universal } from "@satorijs/core";
 import { Context, type Fiber } from "cordis";
 import type { Dict } from "cosmokit";
@@ -12,14 +12,21 @@ const DELETE_PREFIX = "__delete:";
 
 interface Frame {
   type: string;
-  body?: Record<string, unknown>;
+  body?: JsonObject;
+}
+
+interface LifeListEntry {
+  id: string;
+  name: string;
+  description?: string;
 }
 
 /** Read the `lives` array out of a `sandbox/life-list` frame. */
-function livesOf(frame: Frame | undefined): unknown {
+function livesOf(frame: Frame | undefined): LifeListEntry[] | undefined {
   const body = frame?.body;
   if (!body || !("lives" in body)) throw new Error("not a sandbox/life-list frame");
-  return body.lives;
+  // SAFETY: The Hub constructs `lives` entries with exactly this shape.
+  return body.lives as LifeListEntry[];
 }
 
 /** Stands in for a browser tab holding a WebUI socket. */
@@ -39,7 +46,7 @@ class FakeClient {
 
 /** The slice of `WebUI` the sandbox plugin actually touches. */
 class FakeWebUI {
-  readonly listeners: Dict<(body?: unknown) => unknown> = Object.create(null);
+  readonly listeners: Dict<(body?: JsonObject) => void> = Object.create(null);
   readonly clients: Dict<FakeClient> = Object.create(null);
 
   addEntry() {
@@ -93,16 +100,19 @@ class TestNerve implements SandboxNerveHandle {
     if (quote) session.quote = { id: quote.id, content: quote.content };
     bot.dispatch(session);
   }
-
-  async request(method: string, data: Record<string, unknown>) {
-    const handle = this._handles[data.platform as string];
+  async request(method: string, data: SandboxRequestPayload): Promise<JsonValue> {
+    const platform = data.platform;
+    if (!platform) throw new Error("sandbox request requires platform");
+    const handle = this._handles[platform];
     if (!handle) return null;
     const bot = await handle.bot;
     if (method === "settle") {
-      bot.settle(data.nonce as string, data.data);
+      const nonce = data.nonce;
+      if (!nonce) throw new Error("sandbox response requires nonce");
+      bot.settle(nonce, data.data ?? null);
       return null;
     }
-    return bot.request(method, data);
+    return bot.request<JsonValue>(method, data);
   }
 
   async release({ platform }: { clientId: string; platform: string }) {
@@ -124,7 +134,9 @@ class TestNerve implements SandboxNerveHandle {
     const fiber = this.ctx.plugin(SandboxBot, { platform, selfId: SELF_ID, selfName: SELF_NAME, sink });
     const bot = (async () => {
       await fiber;
-      return this.ctx.satori.bots[`${platform}:${SELF_ID}`] as SandboxBot;
+      const registered = this.ctx.satori.bots[`${platform}:${SELF_ID}`];
+      if (!(registered instanceof SandboxBot)) throw new Error("sandbox bot was not registered");
+      return registered;
     })();
     return (this._handles[platform] = { fiber, bot });
   }
@@ -164,10 +176,10 @@ async function setup() {
   const client = new FakeClient();
   webui.clients[client.id] = client;
 
-  const invoke = (type: string, body: Record<string, unknown>) => {
+  const invoke = (type: string, body: JsonObject) => {
     const listener = webui.listeners[type];
     if (!listener) throw new Error(`listener not registered: ${type}`);
-    return Reflect.apply(listener, client, [{ lifeId: LIFE_ID, ...body }]);
+    return listener.call(client, { lifeId: LIFE_ID, ...body });
   };
 
   return { ctx, inner, webui, client, sessions, invoke, hub, nerve, unregister };
@@ -256,6 +268,7 @@ describe("sandbox plugin", () => {
     expect(satori.bots[0].status).toBe(Universal.Status.ONLINE);
 
     delete webui.clients[client.id];
+    // SAFETY: The fake Client implements only Hub-used members; `never` bypasses WebUI's complete Client type.
     ctx.emit("webui/connection", client as never);
 
     await expect(nerve.released).resolves.toBe(PLATFORM);
@@ -319,8 +332,8 @@ describe("SandboxBot.request", () => {
 describe("SandboxHub service", () => {
   it("exposes the Hub contract on the sandbox service", async () => {
     const { hub } = await setup();
-    expect(typeof hub.register).toBe("function");
-    expect(typeof hub.lives).toBe("function");
+    expect(hub.register).toBeTypeOf("function");
+    expect(hub.lives).toBeTypeOf("function");
   });
 
   it("reports a registered nerve in lives()", async () => {
@@ -355,6 +368,7 @@ describe("SandboxHub service", () => {
     const { ctx, webui } = await setup();
     const fresh = new FakeClient();
     webui.clients[fresh.id] = fresh;
+    // SAFETY: The fake Client implements only Hub-used members; `never` bypasses WebUI's complete Client type.
     ctx.emit("webui/connection", fresh as never);
 
     expect(livesOf(fresh.last("sandbox/life-list"))).toEqual([{ id: LIFE_ID, name: "TestLife", description: "A test" }]);

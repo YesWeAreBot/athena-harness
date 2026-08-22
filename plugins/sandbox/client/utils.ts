@@ -1,3 +1,4 @@
+import type { JsonValue } from "@athena-ai/protocol";
 import { type Context, type Dict, useStorage } from "@cordisjs/client";
 import { computed } from "vue";
 
@@ -86,9 +87,12 @@ export const users = computed(() => {
     .map((key) => key.slice(prefix.length));
 });
 
-export function send(ctx: Context, type: string, body: unknown) {
+export function send(ctx: Context, type: string, body: JsonValue): void {
   const socket = ctx.client.socket.value;
-  if (!socket) return console.warn("[sandbox] dropping %s: socket not connected", type);
+  if (!socket) {
+    console.warn("[sandbox] dropping %s: socket not connected", type);
+    return;
+  }
   socket.send(JSON.stringify({ type, body }));
 }
 
@@ -96,7 +100,7 @@ export function send(ctx: Context, type: string, body: unknown) {
  * The sandbox page *is* the platform, so it answers the Satori read APIs the
  * harness would normally issue against a real server.
  */
-type ApiHandler = (data: Record<string, string>) => unknown;
+type ApiHandler = (data: Record<string, string>) => JsonValue | undefined;
 
 const api: Dict<ApiHandler> = {
   deleteMessage({ messageId, channelId }) {

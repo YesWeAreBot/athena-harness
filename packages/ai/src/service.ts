@@ -16,7 +16,6 @@ import {
   type ModelsConfig,
   type ModelType,
   type ModelTypeMap,
-  isRecord,
 } from "./types";
 
 declare module "cordis" {
@@ -26,7 +25,14 @@ declare module "cordis" {
 }
 
 export interface AIServiceConfig {
-  /** Path to `models.yml`. Relative paths resolve against the process working directory. */
+  /**
+   * Path to `models.yml`. Relative paths resolve against the process working directory.
+   *
+   * Left unset on purpose by default: an *explicitly* configured path that does not exist is
+   * fatal, while the implicit `data/models.yml` probe is optional so a fresh install still boots
+   * with an empty model registry. Giving this a schema default would turn every install into the
+   * explicit case and make a missing file fatal everywhere.
+   */
   configPath?: string;
 }
 
@@ -40,26 +46,59 @@ interface DeclarationEntry {
   model: ModelDeclaration;
 }
 
+type MutableModelSettings = Partial<ModelSettings>;
+
+type ProviderOptionsValue = NonNullable<ModelSettings["providerOptions"]>[string];
+
+/** Provider-scoped call options, keyed by provider id. */
+interface ProviderOptionsMap {
+  [provider: string]: ProviderOptionsValue;
+}
+
 /**
  * Merge call-setting layers, lowest priority first. Later layers win; `undefined` never overwrites.
  * Mirrors the AI SDK's own `mergeObjects` so injected defaults behave exactly like
  * `defaultSettingsMiddleware` does against runtime parameters.
  */
 export function mergeSettings(...layers: (ModelSettings | undefined)[]): ModelSettings {
-  let result: Record<string, unknown> = {};
+  const result: MutableModelSettings = {};
   for (const layer of layers) {
-    if (!layer) continue;
-    result = merge(result, layer as Record<string, unknown>);
+    if (layer) merge(result, layer);
   }
-  return result as ModelSettings;
+  return result;
 }
 
-function merge(base: Record<string, unknown>, overrides: Record<string, unknown>): Record<string, unknown> {
-  const result = { ...base };
-  for (const [key, value] of Object.entries(overrides)) {
-    if (value === undefined) continue;
-    const current = result[key];
-    result[key] = isRecord(current) && isRecord(value) ? merge(current, value) : value;
+/**
+ * Apply one layer onto the accumulator.
+ *
+ * Every key is assigned explicitly rather than looped over: indexing `ModelSettings` with a
+ * `keyof` variable loses the key/value correlation, and recovering it needs an assertion. The two
+ * dictionary-shaped settings deep-merge (a later layer adds headers instead of replacing the set);
+ * every other setting is replaced outright by the later layer.
+ */
+function merge(base: MutableModelSettings, overrides: ModelSettings): void {
+  if (overrides.headers !== undefined) base.headers = base.headers === undefined ? overrides.headers : { ...base.headers, ...overrides.headers };
+  if (overrides.providerOptions !== undefined) base.providerOptions = mergeProviderOptions(base.providerOptions, overrides.providerOptions);
+  if (overrides.maxOutputTokens !== undefined) base.maxOutputTokens = overrides.maxOutputTokens;
+  if (overrides.temperature !== undefined) base.temperature = overrides.temperature;
+  if (overrides.stopSequences !== undefined) base.stopSequences = overrides.stopSequences;
+  if (overrides.topP !== undefined) base.topP = overrides.topP;
+  if (overrides.topK !== undefined) base.topK = overrides.topK;
+  if (overrides.presencePenalty !== undefined) base.presencePenalty = overrides.presencePenalty;
+  if (overrides.frequencyPenalty !== undefined) base.frequencyPenalty = overrides.frequencyPenalty;
+  if (overrides.responseFormat !== undefined) base.responseFormat = overrides.responseFormat;
+  if (overrides.seed !== undefined) base.seed = overrides.seed;
+  if (overrides.toolChoice !== undefined) base.toolChoice = overrides.toolChoice;
+  if (overrides.tools !== undefined) base.tools = overrides.tools;
+}
+
+/** Deep-merge provider options one level down, so two layers can contribute options to the same provider. */
+function mergeProviderOptions(base: ProviderOptionsMap | undefined, overrides: ProviderOptionsMap): ProviderOptionsMap {
+  if (base === undefined) return overrides;
+  const result: ProviderOptionsMap = { ...base };
+  for (const [provider, options] of Object.entries(overrides)) {
+    const current = result[provider];
+    result[provider] = current === undefined ? options : { ...current, ...options };
   }
   return result;
 }
@@ -77,7 +116,7 @@ function merge(base: Record<string, unknown>, overrides: Record<string, unknown>
  */
 export class AIService extends Service<AIServiceConfig> {
   public static readonly Config: Schema<AIServiceConfig> = Schema.object({
-    configPath: Schema.string().default("data/models.yml"),
+    configPath: Schema.string(),
   });
 
   private readonly _logger: Logger;
@@ -87,7 +126,7 @@ export class AIService extends Service<AIServiceConfig> {
   private readonly _declarations = new Map<string, DeclarationEntry>();
   private readonly _groups = new Map<string, ModelGroupImpl>();
   /** Wrapped models, keyed by `type` + full id. Cleared whenever the provider set changes. */
-  private readonly _cache = new Map<string, unknown>();
+  private readonly _cache = new Map<string, ModelTypeMap[ModelType]>();
 
   constructor(
     ctx: Context,
@@ -123,7 +162,7 @@ export class AIService extends Service<AIServiceConfig> {
    * the second instance a different `id` in its config.
    */
   register(id: string, provider: ProviderV4): () => void {
-    if (typeof id !== "string" || id.length === 0) throw new Error("Provider id must be a non-empty string");
+    if (id.length === 0) throw new Error("Provider id must be a non-empty string");
     if (id.includes(":")) throw new Error(`Provider id "${id}" must not contain ":" — it separates provider from model`);
     if (this._providers.has(id)) {
       const message = `Provider "${id}" is already registered; give this instance a different "id"`;
@@ -190,7 +229,7 @@ export class AIService extends Service<AIServiceConfig> {
    * nothing, so their `success()` / `failure()` are no-ops.
    */
   candidates(input: string): Candidate[] {
-    if (typeof input !== "string" || input.length === 0) throw new Error("candidates() needs a model id, group name, or alias");
+    if (input.length === 0) throw new Error("candidates() needs a model id, group name, or alias");
     if (!input.includes(":")) {
       const group = this._groups.get(input);
       if (group) return group.candidates();
@@ -284,7 +323,10 @@ export class AIService extends Service<AIServiceConfig> {
   private _model<T extends ModelType>(type: T, fullId: string): ModelTypeMap[T] {
     const key = `${type}\u0000${fullId}`;
     const cached = this._cache.get(key);
-    if (cached !== undefined) return cached as ModelTypeMap[T];
+    if (cached !== undefined) {
+      // SAFETY: Cache key modality guarantees the cached model matches the requested type.
+      return cached as ModelTypeMap[T];
+    }
     const model = this._create(type, fullId);
     this._cache.set(key, model);
     return model;
@@ -309,53 +351,67 @@ export class AIService extends Service<AIServiceConfig> {
       declared?.model.defaults,
     );
 
-    // The switch narrows `type` at runtime but TS cannot tie that back to `ModelTypeMap[T]`.
+    // SAFETY: _wrap dispatches exhaustively on type and returns the matching ModelTypeMap member.
     return this._wrap(type, entry.provider, modelId, settings) as ModelTypeMap[T];
   }
 
-  private _wrap(type: ModelType, provider: ProviderV4, modelId: string, settings: ModelSettings): unknown {
+  private _wrap<T extends ModelType>(type: T, provider: ProviderV4, modelId: string, settings: ModelSettings): ModelTypeMap[T] {
+    let wrapped: ModelTypeMap[ModelType];
     switch (type) {
       case "language": {
         const model = provider.languageModel(modelId);
-        if (Object.keys(settings).length === 0) return model;
-        return wrapLanguageModel({ model, middleware: defaultSettingsMiddleware({ settings }) });
+        wrapped = Object.keys(settings).length === 0 ? model : wrapLanguageModel({ model, middleware: defaultSettingsMiddleware({ settings }) });
+        break;
       }
       case "embedding": {
         const model = provider.embeddingModel(modelId);
         const transport = pickTransport(settings);
-        if (!transport) return model;
+        if (!transport) {
+          wrapped = model;
+          break;
+        }
         const middleware: EmbeddingModelV4Middleware = {
           specificationVersion: "v4",
           transformParams: async ({ params }) => ({ ...params, ...applyTransport(transport, params) }),
         };
-        return wrapEmbeddingModel({ model, middleware });
+        wrapped = wrapEmbeddingModel({ model, middleware });
+        break;
       }
       case "image": {
         const model = provider.imageModel(modelId);
         const transport = pickTransport(settings);
-        if (!transport) return model;
+        if (!transport) {
+          wrapped = model;
+          break;
+        }
         const middleware: ImageModelV4Middleware = {
           specificationVersion: "v4",
           transformParams: async ({ params }) => ({ ...params, ...applyTransport(transport, params) }),
         };
-        return wrapImageModel({ model, middleware });
+        wrapped = wrapImageModel({ model, middleware });
+        break;
       }
       case "speech": {
         if (!provider.speechModel) throw new Error(`Provider does not support speech models (missing speechModel())`);
         this._warnUninjectable("speech", settings);
-        return provider.speechModel(modelId);
+        wrapped = provider.speechModel(modelId);
+        break;
       }
       case "transcription": {
         if (!provider.transcriptionModel) throw new Error(`Provider does not support transcription models (missing transcriptionModel())`);
         this._warnUninjectable("transcription", settings);
-        return provider.transcriptionModel(modelId);
+        wrapped = provider.transcriptionModel(modelId);
+        break;
       }
       case "reranking": {
         if (!provider.rerankingModel) throw new Error(`Provider does not support reranking models (missing rerankingModel())`);
         this._warnUninjectable("reranking", settings);
-        return provider.rerankingModel(modelId);
+        wrapped = provider.rerankingModel(modelId);
+        break;
       }
     }
+    // SAFETY: The switch exhaustively dispatches on type, so wrapped matches ModelTypeMap[T].
+    return wrapped as ModelTypeMap[T];
   }
 
   /** The AI SDK ships no settings middleware for these modalities, so declared defaults cannot be injected. */
@@ -371,8 +427,12 @@ function describe(values: string[]): string {
   return values.length > 0 ? values.join(", ") : "none";
 }
 
+interface HeaderMap {
+  [key: string]: string;
+}
+
 interface Transport {
-  headers: Record<string, string>;
+  headers: HeaderMap;
   providerOptions?: ModelSettings["providerOptions"];
 }
 
@@ -384,8 +444,8 @@ function pickTransport(settings: ModelSettings): Transport | undefined {
 }
 
 /** AI SDK call options reject `undefined` header values, while declared settings allow them. */
-function compactHeaders(headers: Record<string, string | undefined> | undefined): Record<string, string> {
-  const compacted: Record<string, string> = {};
+function compactHeaders(headers: Record<string, string | undefined> | undefined): HeaderMap {
+  const compacted: HeaderMap = {};
   for (const [key, value] of Object.entries(headers ?? {})) {
     if (value !== undefined) compacted[key] = value;
   }

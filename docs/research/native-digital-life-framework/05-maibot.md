@@ -7,16 +7,16 @@
 
 ## 关键结论与证据索引
 
-| 结论 | 标签 | 关键证据 |
-|---|---|---|
-| MaiBot 的核心运行单元是按 `session_id` 创建的 `MaisakaHeartFlowChatting`，不是跨媒介、可替换的实体 primitive。 | 已实现事实 / 代码推断 | `src/chat/heart_flow/heartflow_manager.py:21-45`；`src/maisaka/runtime.py:139-223` |
-| 入站已具备 Platform IO 的 `InboundMessageEnvelope`、`RouteKey(platform, account_id, scope)`、路由、去重和异步转交，但主认知链仍固定落入聊天消息处理。 | 已实现事实 | `src/platform_io/types.py:32-207`；`src/platform_io/manager.py:458-514`；`src/plugin_runtime/integration.py:137-153` |
-| 人格主要是全局 `global_config.personality` 的 prompt 字段；它不是独立的、可持久演化的 Life object。 | 已实现事实 / 代码推断 | `src/config/config.py:763-788`；`src/config/official_configs.py:189-280`；`src/maisaka/chat_loop_service.py:609-773` |
-| 会话短期上下文可从 DB 恢复；长期 memory 通过 A_Memorix、人物画像和启发式召回作为每轮 prompt 注入。 | 已实现事实 | `src/maisaka/runtime.py:316-401`；`src/maisaka/reasoning_engine.py:492-531,696-740`；`src/maisaka/memory/person_profile.py:222-271`；`src/maisaka/memory/heuristic_injector.py:64-220` |
-| Planner 使用 tool-call 循环；tool result、发送成功后的消息、投递回执与 memory 写回均会反流，但不是统一的跨 Nerve enactment protocol。 | 已实现事实 / 代码推断 | `src/maisaka/reasoning_engine.py:640-685,2030-2128`；`src/services/send_service.py:824-968` |
-| `wait` 与插件 `enqueue_proactive_task()` 能继续/主动唤醒会话级循环；这是一种聊天节律，不是全局持续 world heartbeat。 | 已实现事实 / 代码推断 | `src/maisaka/runtime.py:589-685,1664-1826`；`src/maisaka/reasoning_engine.py:999-1043` |
-| 插件 Runtime 以两个 Runner 子进程、IPC、hook、capability 和 component 注册实现隔离/扩展；但其公开能力大量是宿主 API，不能替代 Life/Cortex/Nerve 的领域组合。 | 已实现事实 / 代码推断 | `src/plugin_runtime/integration.py:99-153,626-679`；`src/plugin_runtime/capabilities/registry.py:13-45`；`src/plugin_runtime/runner/runner_main.py:1232-1246` |
-| Athena 已有 per-Life 隔离、one-Cortex-per-Life、Cortex/Capability 分层；但认知、memory persistence、tool registry、world/interlude Cortex 尚未实现。 | 已实现事实 / 文档计划 | `plugins/life/src/life.ts:4-58`；`plugins/cortex-chat/src/index.ts:15-44`；`docs/02-architecture.md:215-289`；`docs/06-progress-and-roadmap.md:55-68,231-290` |
+| 结论                                                                                                                                                         | 标签                  | 关键证据                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MaiBot 的核心运行单元是按 `session_id` 创建的 `MaisakaHeartFlowChatting`，不是跨媒介、可替换的实体 primitive。                                               | 已实现事实 / 代码推断 | `src/chat/heart_flow/heartflow_manager.py:21-45`；`src/maisaka/runtime.py:139-223`                                                                                                     |
+| 入站已具备 Platform IO 的 `InboundMessageEnvelope`、`RouteKey(platform, account_id, scope)`、路由、去重和异步转交，但主认知链仍固定落入聊天消息处理。        | 已实现事实            | `src/platform_io/types.py:32-207`；`src/platform_io/manager.py:458-514`；`src/plugin_runtime/integration.py:137-153`                                                                   |
+| 人格主要是全局 `global_config.personality` 的 prompt 字段；它不是独立的、可持久演化的 Life object。                                                          | 已实现事实 / 代码推断 | `src/config/config.py:763-788`；`src/config/official_configs.py:189-280`；`src/maisaka/chat_loop_service.py:609-773`                                                                   |
+| 会话短期上下文可从 DB 恢复；长期 memory 通过 A_Memorix、人物画像和启发式召回作为每轮 prompt 注入。                                                           | 已实现事实            | `src/maisaka/runtime.py:316-401`；`src/maisaka/reasoning_engine.py:492-531,696-740`；`src/maisaka/memory/person_profile.py:222-271`；`src/maisaka/memory/heuristic_injector.py:64-220` |
+| Planner 使用 tool-call 循环；tool result、发送成功后的消息、投递回执与 memory 写回均会反流，但不是统一的跨 Nerve enactment protocol。                        | 已实现事实 / 代码推断 | `src/maisaka/reasoning_engine.py:640-685,2030-2128`；`src/services/send_service.py:824-968`                                                                                            |
+| `wait` 与插件 `enqueue_proactive_task()` 能继续/主动唤醒会话级循环；这是一种聊天节律，不是全局持续 world heartbeat。                                         | 已实现事实 / 代码推断 | `src/maisaka/runtime.py:589-685,1664-1826`；`src/maisaka/reasoning_engine.py:999-1043`                                                                                                 |
+| 插件 Runtime 以两个 Runner 子进程、IPC、hook、capability 和 component 注册实现隔离/扩展；但其公开能力大量是宿主 API，不能替代 Life/Cortex/Nerve 的领域组合。 | 已实现事实 / 代码推断 | `src/plugin_runtime/integration.py:99-153,626-679`；`src/plugin_runtime/capabilities/registry.py:13-45`；`src/plugin_runtime/runner/runner_main.py:1232-1246`                          |
+| Athena 已有 per-Life 隔离、one-Cortex-per-Life、Cortex/Capability 分层；但认知、memory persistence、tool registry、world/interlude Cortex 尚未实现。         | 已实现事实 / 文档计划 | `plugins/life/src/life.ts:4-58`；`plugins/cortex-chat/src/index.ts:15-44`；`docs/02-architecture.md:215-289`；`docs/06-progress-and-roadmap.md:55-68,231-290`                          |
 
 ---
 
@@ -180,12 +180,12 @@
 
 ### 可能误导的表面相似点
 
-| 表面相似 | 实质差异 |
-|---|---|
-| 两者都有“数字生命”叙事和 persona/memory。 | MaiBot persona 是全局 prompt config、memory 主要围绕 chat/person；Athena 的目标是 Life primitive，当前只有最小 stub。 |
-| 两者都有消息路由和多账号字段。 | MaiBot `RouteKey` 解决 transport routing；Athena isolate 解决 service/identity ownership。二者可互补，不可互换。 |
-| 两者都有主动/等待。 | MaiBot 是 session queue + `wait` timeout + plugin task；Athena 目标是由 Cortex 定义的多种 rhythm，包括无 IM 的 heartbeat。 |
-| 两者都有插件和 tools。 | MaiBot plugin runtime 是 host-centric IPC extension；Athena 的目标是 capability/nerve/cortex composition。 |
+| 表面相似                                  | 实质差异                                                                                                                   |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 两者都有“数字生命”叙事和 persona/memory。 | MaiBot persona 是全局 prompt config、memory 主要围绕 chat/person；Athena 的目标是 Life primitive，当前只有最小 stub。      |
+| 两者都有消息路由和多账号字段。            | MaiBot `RouteKey` 解决 transport routing；Athena isolate 解决 service/identity ownership。二者可互补，不可互换。           |
+| 两者都有主动/等待。                       | MaiBot 是 session queue + `wait` timeout + plugin task；Athena 目标是由 Cortex 定义的多种 rhythm，包括无 IM 的 heartbeat。 |
+| 两者都有插件和 tools。                    | MaiBot plugin runtime 是 host-centric IPC extension；Athena 的目标是 capability/nerve/cortex composition。                 |
 
 ---
 

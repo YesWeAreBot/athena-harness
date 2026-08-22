@@ -1,7 +1,7 @@
-import { Life } from "@athena-ai/plugin-life";
 import { Context } from "cordis";
 import { describe, it, expect } from "vitest";
 
+import { Life } from "../../../plugins/life/src/life.js";
 import { Cortex } from "../src/cortex";
 
 class TestCortex extends Cortex {
@@ -17,7 +17,7 @@ describe("Cortex", () => {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
     await ctx.plugin(TestCortex);
-    expect(Reflect.get(ctx.life, "_cortex")).toBeInstanceOf(TestCortex);
+    expect(ctx.life.cortex).toBeInstanceOf(TestCortex);
   });
 
   it("unbinds on dispose", async () => {
@@ -26,9 +26,9 @@ describe("Cortex", () => {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
     const fork = await ctx.plugin(TestCortex);
-    expect(Reflect.get(ctx.life, "_cortex")).toBeInstanceOf(TestCortex);
+    expect(ctx.life.cortex).toBeInstanceOf(TestCortex);
     await fork.dispose();
-    expect(Reflect.get(ctx.life, "_cortex") === null).toBe(true);
+    expect(ctx.life.cortex === null).toBe(true);
   });
 
   it("second Cortex throws", async () => {

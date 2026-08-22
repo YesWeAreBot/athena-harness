@@ -16,15 +16,23 @@ import {
   type ProviderDeclaration,
   SETTING_KEYS,
   isModelType,
-  isRecord,
+  isYamlBoolean,
+  isYamlList,
+  isYamlMapping,
+  isYamlNumber,
+  isYamlString,
+  type YamlValue,
 } from "./types";
 
 /** Path probed when `AIServiceConfig.configPath` is omitted. */
 export const DEFAULT_CONFIG_PATH = "data/models.yml";
+const SETTING_KEY_SET = new Set<string>(SETTING_KEYS);
+const GROUP_STRATEGY_SET = new Set<string>(GROUP_STRATEGIES);
+type MutableModelSettings = Partial<ModelSettings>;
 
 export interface ModelsConfigLoadResult {
-  config: ModelsConfig;
   /** Non-fatal problems: unknown keys, malformed entries that were skipped. */
+  config: ModelsConfig;
   warnings: string[];
   /** Absolute path that was read, or `undefined` when no file was found. */
   source?: string;
@@ -52,21 +60,21 @@ export function loadModelsConfig(configPath?: string): ModelsConfigLoadResult {
     return { config: emptyModelsConfig(), warnings };
   }
 
-  let document: unknown;
+  let document: YamlValue | undefined;
   try {
     document = parseYaml(readFileSync(filePath, "utf8"));
   } catch (error) {
-    throw new Error(`Failed to parse ${filePath}: ${(error as Error).message}`);
+    throw new Error(`Failed to parse ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   return { config: parseModelsConfig(document, warnings, filePath), warnings, source: filePath };
 }
 
 /** Validate an already-parsed `models.yml` document. Exported so callers can supply config inline. */
-export function parseModelsConfig(document: unknown, warnings: string[] = [], label = "models config"): ModelsConfig {
+export function parseModelsConfig(document: YamlValue | undefined, warnings: string[] = [], label = "models config"): ModelsConfig {
   const config = emptyModelsConfig();
   if (document === null || document === undefined) return config;
-  if (!isRecord(document)) throw new Error(`${label}: expected a mapping at the document root`);
+  if (!isYamlMapping(document)) throw new Error(`${label}: expected a mapping at the document root`);
 
   config.strict = readStrict(document.strict, warnings, label);
   readDefaults(document.defaults, config, warnings, label);
@@ -75,7 +83,7 @@ export function parseModelsConfig(document: unknown, warnings: string[] = [], la
   readGroups(document.groups, config, warnings, label);
 
   for (const key of Object.keys(document)) {
-    if (!["strict", "defaults", "aliases", "providers", "groups"].includes(key)) {
+    if (!new Set(["strict", "defaults", "aliases", "providers", "groups"]).has(key)) {
       warnings.push(`${label}: unknown top-level key "${key}"`);
     }
   }
@@ -83,16 +91,25 @@ export function parseModelsConfig(document: unknown, warnings: string[] = [], la
   return config;
 }
 
-function readStrict(value: unknown, warnings: string[], label: string): boolean {
+function describeYamlKind(value: YamlValue | undefined): string {
+  if (isYamlString(value)) return "string";
+  if (isYamlNumber(value)) return "number";
+  if (isYamlBoolean(value)) return "boolean";
+  if (isYamlList(value)) return "object";
+  if (isYamlMapping(value)) return "object";
+  return "undefined";
+}
+
+function readStrict(value: YamlValue | undefined, warnings: string[], label: string): boolean {
   if (value === undefined || value === null) return false;
-  if (typeof value === "boolean") return value;
-  warnings.push(`${label}: "strict" must be a boolean, got ${typeof value}; treating as false`);
+  if (isYamlBoolean(value)) return value;
+  warnings.push(`${label}: "strict" must be a boolean, got ${describeYamlKind(value)}; treating as false`);
   return false;
 }
 
-function readDefaults(value: unknown, config: ModelsConfig, warnings: string[], label: string): void {
+function readDefaults(value: YamlValue | undefined, config: ModelsConfig, warnings: string[], label: string): void {
   if (value === undefined || value === null) return;
-  if (!isRecord(value)) {
+  if (!isYamlMapping(value)) {
     warnings.push(`${label}: "defaults" must be a mapping; ignored`);
     return;
   }
@@ -101,25 +118,24 @@ function readDefaults(value: unknown, config: ModelsConfig, warnings: string[], 
       warnings.push(`${label}: defaults."${type}" is not a known model type; ignored`);
       continue;
     }
-    if (typeof target !== "string" || target.length === 0) {
+    if (!isYamlString(target) || target.length === 0) {
       warnings.push(`${label}: defaults.${type} must be a non-empty string; ignored`);
       continue;
     }
-    if (!target.includes(":")) {
+    if (!target.includes(":"))
       warnings.push(`${label}: defaults.${type} = "${target}" is not a "provider:model" id; it must resolve through aliases or groups`);
-    }
     config.defaults[type] = target;
   }
 }
 
-function readAliases(value: unknown, config: ModelsConfig, warnings: string[], label: string): void {
+function readAliases(value: YamlValue | undefined, config: ModelsConfig, warnings: string[], label: string): void {
   if (value === undefined || value === null) return;
-  if (!isRecord(value)) {
+  if (!isYamlMapping(value)) {
     warnings.push(`${label}: "aliases" must be a mapping; ignored`);
     return;
   }
   for (const [alias, target] of Object.entries(value)) {
-    if (typeof target !== "string" || target.length === 0) {
+    if (!isYamlString(target) || target.length === 0) {
       warnings.push(`${label}: aliases.${alias} must be a non-empty string; ignored`);
       continue;
     }
@@ -131,19 +147,19 @@ function readAliases(value: unknown, config: ModelsConfig, warnings: string[], l
   }
 }
 
-function readProviders(value: unknown, config: ModelsConfig, warnings: string[], label: string): void {
+function readProviders(value: YamlValue | undefined, config: ModelsConfig, warnings: string[], label: string): void {
   if (value === undefined || value === null) return;
-  if (!isRecord(value)) {
+  if (!isYamlMapping(value)) {
     warnings.push(`${label}: "providers" must be a mapping; ignored`);
     return;
   }
   for (const [providerId, raw] of Object.entries(value)) {
-    if (!isRecord(raw)) {
+    if (!isYamlMapping(raw)) {
       warnings.push(`${label}: providers.${providerId} must be a mapping; ignored`);
       continue;
     }
     const declaration: ProviderDeclaration = { models: [] };
-    const headers = readHeaders(isRecord(raw.options) ? raw.options.headers : undefined, `${label}: providers.${providerId}.options.headers`, warnings);
+    const headers = readHeaders(isYamlMapping(raw.options) ? raw.options.headers : undefined, `${label}: providers.${providerId}.options.headers`, warnings);
     if (headers) declaration.options = { headers };
     const defaults = readSettings(raw.defaults, `${label}: providers.${providerId}.defaults`, warnings);
     if (defaults) declaration.defaults = defaults;
@@ -152,9 +168,9 @@ function readProviders(value: unknown, config: ModelsConfig, warnings: string[],
   }
 }
 
-function readModels(value: unknown, providerId: string, warnings: string[], label: string): ModelDeclaration[] {
+function readModels(value: YamlValue | undefined, providerId: string, warnings: string[], label: string): ModelDeclaration[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) {
+  if (!isYamlList(value)) {
     warnings.push(`${label}: providers.${providerId}.models must be a list; ignored`);
     return [];
   }
@@ -162,11 +178,11 @@ function readModels(value: unknown, providerId: string, warnings: string[], labe
   const seen = new Set<string>();
   for (const [index, raw] of value.entries()) {
     const where = `${label}: providers.${providerId}.models[${index}]`;
-    if (!isRecord(raw)) {
+    if (!isYamlMapping(raw)) {
       warnings.push(`${where} must be a mapping; skipped`);
       continue;
     }
-    if (typeof raw.id !== "string" || raw.id.length === 0) {
+    if (!isYamlString(raw.id) || raw.id.length === 0) {
       warnings.push(`${where} is missing a non-empty "id"; skipped`);
       continue;
     }
@@ -178,7 +194,7 @@ function readModels(value: unknown, providerId: string, warnings: string[], labe
       warnings.push(`${where}: unknown type "${String(raw.type)}"; skipped`);
       continue;
     }
-    const declaration: ModelDeclaration = { id: raw.id, type: raw.type === undefined ? "language" : (raw.type as ModelDeclaration["type"]) };
+    const declaration: ModelDeclaration = { id: raw.id, type: raw.type === undefined ? "language" : raw.type };
     const metadata = readMetadata(raw.metadata, `${where}.metadata`, warnings);
     if (metadata) declaration.metadata = metadata;
     const defaults = readSettings(raw.defaults, `${where}.defaults`, warnings);
@@ -189,18 +205,18 @@ function readModels(value: unknown, providerId: string, warnings: string[], labe
   return models;
 }
 
-function readMetadata(value: unknown, where: string, warnings: string[]): ModelMetadata | undefined {
+function readMetadata(value: YamlValue | undefined, where: string, warnings: string[]): ModelMetadata | undefined {
   if (value === undefined || value === null) return undefined;
-  if (!isRecord(value)) {
+  if (!isYamlMapping(value)) {
     warnings.push(`${where} must be a mapping; ignored`);
     return undefined;
   }
   const metadata: ModelMetadata = {};
-  if (typeof value.name === "string") metadata.name = value.name;
-  if (typeof value.toolCall === "boolean") metadata.toolCall = value.toolCall;
-  if (typeof value.reasoning === "boolean") metadata.reasoning = value.reasoning;
+  if (isYamlString(value.name)) metadata.name = value.name;
+  if (isYamlBoolean(value.toolCall)) metadata.toolCall = value.toolCall;
+  if (isYamlBoolean(value.reasoning)) metadata.reasoning = value.reasoning;
 
-  if (isRecord(value.modalities)) {
+  if (isYamlMapping(value.modalities)) {
     const input = readStringList(value.modalities.input, `${where}.modalities.input`, warnings);
     const output = readStringList(value.modalities.output, `${where}.modalities.output`, warnings);
     if (input || output) metadata.modalities = { ...(input && { input }), ...(output && { output }) };
@@ -208,12 +224,10 @@ function readMetadata(value: unknown, where: string, warnings: string[]): ModelM
     warnings.push(`${where}.modalities must be a mapping; ignored`);
   }
 
-  if (isRecord(value.limit)) {
-    const context = typeof value.limit.context === "number" ? value.limit.context : undefined;
-    const output = typeof value.limit.output === "number" ? value.limit.output : undefined;
-    if (context !== undefined || output !== undefined) {
-      metadata.limit = { ...(context !== undefined && { context }), ...(output !== undefined && { output }) };
-    }
+  if (isYamlMapping(value.limit)) {
+    const context = isYamlNumber(value.limit.context) ? value.limit.context : undefined;
+    const output = isYamlNumber(value.limit.output) ? value.limit.output : undefined;
+    if (context !== undefined || output !== undefined) metadata.limit = { ...(context !== undefined && { context }), ...(output !== undefined && { output }) };
   } else if (value.limit !== undefined) {
     warnings.push(`${where}.limit must be a mapping; ignored`);
   }
@@ -221,42 +235,42 @@ function readMetadata(value: unknown, where: string, warnings: string[]): ModelM
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
-function readStringList(value: unknown, where: string, warnings: string[]): string[] | undefined {
+function readStringList(value: YamlValue | undefined, where: string, warnings: string[]): string[] | undefined {
   if (value === undefined || value === null) return undefined;
-  if (!Array.isArray(value)) {
+  if (!isYamlList(value)) {
     warnings.push(`${where} must be a list of strings; ignored`);
     return undefined;
   }
-  const items = value.filter((item): item is string => typeof item === "string");
+  const items = value.filter((item): item is string => isYamlString(item));
   if (items.length !== value.length) warnings.push(`${where} contains non-string entries; they were dropped`);
   return items.length > 0 ? items : undefined;
 }
 
-function readHeaders(value: unknown, where: string, warnings: string[]): Record<string, string> | undefined {
+function readHeaders(value: YamlValue | undefined, where: string, warnings: string[]): Record<string, string> | undefined {
   if (value === undefined || value === null) return undefined;
-  if (!isRecord(value)) {
+  if (!isYamlMapping(value)) {
     warnings.push(`${where} must be a mapping; ignored`);
     return undefined;
   }
   const headers: Record<string, string> = {};
   for (const [key, item] of Object.entries(value)) {
-    if (typeof item === "string") headers[key] = item;
-    else if (typeof item === "number" || typeof item === "boolean") headers[key] = String(item);
+    if (isYamlString(item)) headers[key] = item;
+    else if (isYamlNumber(item) || isYamlBoolean(item)) headers[key] = String(item);
     else warnings.push(`${where}.${key} must be a scalar; ignored`);
   }
   return Object.keys(headers).length > 0 ? headers : undefined;
 }
 
 /** Pick the AI SDK call settings out of a `defaults` block, dropping anything unrecognised. */
-function readSettings(value: unknown, where: string, warnings: string[]): ModelSettings | undefined {
+function readSettings(value: YamlValue | undefined, where: string, warnings: string[]): ModelSettings | undefined {
   if (value === undefined || value === null) return undefined;
-  if (!isRecord(value)) {
+  if (!isYamlMapping(value)) {
     warnings.push(`${where} must be a mapping; ignored`);
     return undefined;
   }
-  const settings: Record<string, unknown> = {};
+  const settings: MutableModelSettings = {};
   for (const [key, item] of Object.entries(value)) {
-    if (!(SETTING_KEYS as readonly string[]).includes(key)) {
+    if (!SETTING_KEY_SET.has(key)) {
       warnings.push(`${where}.${key} is not an AI SDK call setting; ignored (allowed: ${SETTING_KEYS.join(", ")})`);
       continue;
     }
@@ -265,20 +279,24 @@ function readSettings(value: unknown, where: string, warnings: string[]): ModelS
       if (headers) settings.headers = headers;
       continue;
     }
-    if (item !== undefined && item !== null) settings[key] = item;
+    if (item !== undefined && item !== null) Object.assign(settings, { [key]: item });
   }
-  return Object.keys(settings).length > 0 ? (settings as ModelSettings) : undefined;
+  return Object.keys(settings).length > 0 ? settings : undefined;
 }
 
-function readGroups(value: unknown, config: ModelsConfig, warnings: string[], label: string): void {
+function isGroupStrategy(value: YamlValue | undefined): value is GroupStrategy {
+  return isYamlString(value) && GROUP_STRATEGY_SET.has(value);
+}
+
+function readGroups(value: YamlValue | undefined, config: ModelsConfig, warnings: string[], label: string): void {
   if (value === undefined || value === null) return;
-  if (!isRecord(value)) {
+  if (!isYamlMapping(value)) {
     warnings.push(`${label}: "groups" must be a mapping; ignored`);
     return;
   }
   for (const [name, raw] of Object.entries(value)) {
     const where = `${label}: groups.${name}`;
-    if (!isRecord(raw)) {
+    if (!isYamlMapping(raw)) {
       warnings.push(`${where} must be a mapping; ignored`);
       continue;
     }
@@ -289,7 +307,7 @@ function readGroups(value: unknown, config: ModelsConfig, warnings: string[], la
     }
     let strategy: GroupStrategy = "failover";
     if (raw.strategy !== undefined) {
-      if ((GROUP_STRATEGIES as readonly string[]).includes(raw.strategy as string)) strategy = raw.strategy as GroupStrategy;
+      if (isGroupStrategy(raw.strategy)) strategy = raw.strategy;
       else warnings.push(`${where}.strategy "${String(raw.strategy)}" is unknown; using "failover" (allowed: ${GROUP_STRATEGIES.join(", ")})`);
     }
     const declaration: GroupDeclaration = { strategy, models, circuitBreaker: readCircuitBreaker(raw.circuitBreaker, `${where}.circuitBreaker`, warnings) };
@@ -297,9 +315,9 @@ function readGroups(value: unknown, config: ModelsConfig, warnings: string[], la
   }
 }
 
-function readCircuitBreaker(value: unknown, where: string, warnings: string[]): CircuitBreakerOptions {
+function readCircuitBreaker(value: YamlValue | undefined, where: string, warnings: string[]): CircuitBreakerOptions {
   if (value === undefined || value === null) return { ...DEFAULT_CIRCUIT_BREAKER };
-  if (!isRecord(value)) {
+  if (!isYamlMapping(value)) {
     warnings.push(`${where} must be a mapping; using defaults`);
     return { ...DEFAULT_CIRCUIT_BREAKER };
   }
@@ -307,7 +325,7 @@ function readCircuitBreaker(value: unknown, where: string, warnings: string[]): 
   for (const key of ["failureThreshold", "recoveryTimeout"] as const) {
     const item = value[key];
     if (item === undefined || item === null) continue;
-    if (typeof item !== "number" || !Number.isFinite(item) || item <= 0) {
+    if (!isYamlNumber(item) || !Number.isFinite(item) || item <= 0) {
       warnings.push(`${where}.${key} must be a positive number; using ${options[key]}`);
       continue;
     }

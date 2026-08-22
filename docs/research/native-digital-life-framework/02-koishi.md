@@ -10,18 +10,18 @@
 
 ## 关键结论与证据索引
 
-| # | 结论 | 标签 | 主要证据 |
-|---|---|---|---|
-| K1 | Koishi 的框架 Context 直接继承 `satori.Context`，构造时安装 Processor、Commander、数据库与 Koishi Service；IM 是其结构性中心。 | 已实现事实 | `references/koishi/packages/core/src/context.ts:50-71, 118-130` |
-| K2 | 平台输入的可见入口是 `Bot.session(event)` 产出 Session 后 `Bot.dispatch(session)`；`plugins/mock` 给出了完整 adapter-side 调用样本。 | 已实现事实 | `references/koishi/plugins/mock/src/adapter.ts:23-42` |
-| K3 | `Processor` 监听 `message`，把每个 Session 放入有界、可 `next()` 扩展的 middleware 链，并将链返回的 Fragment 通过 `session.send()` 发出。 | 已实现事实 | `references/koishi/packages/core/src/middleware.ts:64-75, 195-279` |
-| K4 | Command 是 middleware chain 中的优先路由：前置 attach 阶段解析 prefix/mention，随后 `resolveCommand()`、`session.execute()`、`Command.execute()`，最终 `Session.send()`。 | 已实现事实 | `references/koishi/packages/core/src/command/index.ts:58-133, 275-328`; `session.ts:384-434`; `command.ts:271-325` |
-| K5 | Koishi 以 Satori 的 Bot/Session/Fragment 归一化多平台；`Session.send()` 委托 `bot.sendMessage()`，adapter 负责实际协议输出。 | 已实现事实（前两段）；代码推断（协议下沉） | `references/koishi/packages/core/src/session.ts:196-204`; `plugins/mock/src/adapter.ts:23-42`; Satori 源码缺失 |
-| K6 | Koishi 服务生态是 Cordis plugin/service + manifest metadata；`inject`、`implements`、ecosystem naming pattern 可被 loader/管理界面消费，但 metadata 不等于运行时依赖。 | 已实现事实 | `references/koishi/packages/koishi/package.json:47-59`; `plugins/common/bind/src/index.ts:10-14`; `plugins/server/package.json:39-59` |
-| K7 | Loader 把 YAML/JSON/JS config 读入 Context.Config，递归安装配置树，并能对 fork 做 update、unload、reload；HMR 对 config 与 module change 分别做局部重载或进程级重载。 | 已实现事实 | `references/koishi/packages/loader/src/shared.ts:164-293, 309-465`; `plugins/hmr/src/index.ts:88-127` |
-| K8 | Koishi database 的默认领域模型是 bot 运维所需的 user/binding/channel/assignee，并在消息处理前按需 attach/observe 后持久化。 | 已实现事实 | `references/koishi/packages/core/src/database.ts:107-152, 155-247`; `middleware.ts:195-230`; `session.ts:235-321` |
-| K9 | Athena 已采用 Cordis/Satori 的成熟砖块，但把 Satori 收进 `message` capability 与 Life group isolate，Cortex 不直接进入 Bot/middleware/command 主路径。 | 已实现事实 | `plugins/capability-message/src/index.ts:41-105`; `docs/02-architecture.md:142-149, 168-211`; `docs/01-design-philosophy.md:232-296` |
-| K10 | Athena 的 Life/Cortex/Nerve、持久 Memory、真实认知循环、非 IM capability 和持续 Cortex 尚未完全落地；因此不能把“设计正确”表述成“已经超过 Koishi”。 | 已实现事实（现状）/文档计划（后续） | `docs/06-progress-and-roadmap.md:21-30, 55-68, 231-323`; `plugins/life/src/life.ts:4-52`; `plugins/cortex-chat/src/index.ts:15-44` |
+| #   | 结论                                                                                                                                                                      | 标签                                       | 主要证据                                                                                                                              |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| K1  | Koishi 的框架 Context 直接继承 `satori.Context`，构造时安装 Processor、Commander、数据库与 Koishi Service；IM 是其结构性中心。                                            | 已实现事实                                 | `references/koishi/packages/core/src/context.ts:50-71, 118-130`                                                                       |
+| K2  | 平台输入的可见入口是 `Bot.session(event)` 产出 Session 后 `Bot.dispatch(session)`；`plugins/mock` 给出了完整 adapter-side 调用样本。                                      | 已实现事实                                 | `references/koishi/plugins/mock/src/adapter.ts:23-42`                                                                                 |
+| K3  | `Processor` 监听 `message`，把每个 Session 放入有界、可 `next()` 扩展的 middleware 链，并将链返回的 Fragment 通过 `session.send()` 发出。                                 | 已实现事实                                 | `references/koishi/packages/core/src/middleware.ts:64-75, 195-279`                                                                    |
+| K4  | Command 是 middleware chain 中的优先路由：前置 attach 阶段解析 prefix/mention，随后 `resolveCommand()`、`session.execute()`、`Command.execute()`，最终 `Session.send()`。 | 已实现事实                                 | `references/koishi/packages/core/src/command/index.ts:58-133, 275-328`; `session.ts:384-434`; `command.ts:271-325`                    |
+| K5  | Koishi 以 Satori 的 Bot/Session/Fragment 归一化多平台；`Session.send()` 委托 `bot.sendMessage()`，adapter 负责实际协议输出。                                              | 已实现事实（前两段）；代码推断（协议下沉） | `references/koishi/packages/core/src/session.ts:196-204`; `plugins/mock/src/adapter.ts:23-42`; Satori 源码缺失                        |
+| K6  | Koishi 服务生态是 Cordis plugin/service + manifest metadata；`inject`、`implements`、ecosystem naming pattern 可被 loader/管理界面消费，但 metadata 不等于运行时依赖。    | 已实现事实                                 | `references/koishi/packages/koishi/package.json:47-59`; `plugins/common/bind/src/index.ts:10-14`; `plugins/server/package.json:39-59` |
+| K7  | Loader 把 YAML/JSON/JS config 读入 Context.Config，递归安装配置树，并能对 fork 做 update、unload、reload；HMR 对 config 与 module change 分别做局部重载或进程级重载。     | 已实现事实                                 | `references/koishi/packages/loader/src/shared.ts:164-293, 309-465`; `plugins/hmr/src/index.ts:88-127`                                 |
+| K8  | Koishi database 的默认领域模型是 bot 运维所需的 user/binding/channel/assignee，并在消息处理前按需 attach/observe 后持久化。                                               | 已实现事实                                 | `references/koishi/packages/core/src/database.ts:107-152, 155-247`; `middleware.ts:195-230`; `session.ts:235-321`                     |
+| K9  | Athena 已采用 Cordis/Satori 的成熟砖块，但把 Satori 收进 `message` capability 与 Life group isolate，Cortex 不直接进入 Bot/middleware/command 主路径。                    | 已实现事实                                 | `plugins/capability-message/src/index.ts:41-105`; `docs/02-architecture.md:142-149, 168-211`; `docs/01-design-philosophy.md:232-296`  |
+| K10 | Athena 的 Life/Cortex/Nerve、持久 Memory、真实认知循环、非 IM capability 和持续 Cortex 尚未完全落地；因此不能把“设计正确”表述成“已经超过 Koishi”。                        | 已实现事实（现状）/文档计划（后续）        | `docs/06-progress-and-roadmap.md:21-30, 55-68, 231-323`; `plugins/life/src/life.ts:4-52`; `plugins/cortex-chat/src/index.ts:15-44`    |
 
 ---
 
@@ -209,17 +209,17 @@ Athena 应继续使用 Cordis 的 group/isolate、plugin config tree 和 Service
 
 ## 9. 与 Athena Harness 的逐项比较
 
-| 比较项 | Koishi（可见事实） | Athena（当前事实） | 判断 |
-|---|---|---|---|
-| 组织中心 | `Context extends satori.Context`；Processor/message/middleware 是默认路径。 | Life/Cortex/Nerve 是正式原语；core 尚为最小 shell。 | Athena 的边界更适合数字生命，但完整 runtime 尚未形成。 |
-| IM 接入 | Satori Bot/Adapter/Session 直接构成核心 surface。 | Satori 收进 MessageService；Cortex 仅 inject `message`。 | Athena 已在隔离方向领先。 |
-| 事件消费 | message → per-Session middleware queue → optional command → reply。 | push event → Cortex 订阅；当前 chat 是 echo，缓冲/节律未实现。 | Athena 设计正确但实现未完成。 |
-| 状态 | Session + user/channel/binding/assignee 的 bot 运维状态。 | Life persona + MemoryStub + one-Cortex binding。 | Athena 的 long-lived identity 正确但 persistence 明显不足。 |
-| 认知 | core 是 command action pipeline；LLM 无法从可见 core 确认。 | AIService 已有；Cortex 尚未接 LLM。 | 双方不能仅凭“有 plugin”比较 agent 能力。 |
-| 行动 | `Session.send` 默认回当前会话；Bot APIs 可主动调用。 | `ctx.message` 允许显式 channel/botSid；产品语义 tool 计划中。 | Athena 更适合跨世界行动，尚须实装工具与 guard。 |
-| 多实例 | 多 Bot/平台以 bot registry、channel assignee 路由。 | 多 Life group 用 isolate 分离 life/cortex/message/satori。 | “多账号”不是“多生命”；Athena 已有更强隔离语义。 |
-| 配置/运维 | Loader、config tree、migration、HMR、CLI watchdog 成熟。 | 使用 Cordis prelude/app.yml 思路；仓库未含部署 config，Cortex reload policy 未落地。 | Koishi 明显领先于可运维性。 |
-| 非 IM 扩展 | core 主模型仍 chat；非消息能力在快照不可见。 | capability/Nerve 平权是明确架构，Minecraft/World 尚未实现。 | Athena 的价值主张尚待 Phase 4 证明。 |
+| 比较项     | Koishi（可见事实）                                                          | Athena（当前事实）                                                                   | 判断                                                        |
+| ---------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| 组织中心   | `Context extends satori.Context`；Processor/message/middleware 是默认路径。 | Life/Cortex/Nerve 是正式原语；core 尚为最小 shell。                                  | Athena 的边界更适合数字生命，但完整 runtime 尚未形成。      |
+| IM 接入    | Satori Bot/Adapter/Session 直接构成核心 surface。                           | Satori 收进 MessageService；Cortex 仅 inject `message`。                             | Athena 已在隔离方向领先。                                   |
+| 事件消费   | message → per-Session middleware queue → optional command → reply。         | push event → Cortex 订阅；当前 chat 是 echo，缓冲/节律未实现。                       | Athena 设计正确但实现未完成。                               |
+| 状态       | Session + user/channel/binding/assignee 的 bot 运维状态。                   | Life persona + MemoryStub + one-Cortex binding。                                     | Athena 的 long-lived identity 正确但 persistence 明显不足。 |
+| 认知       | core 是 command action pipeline；LLM 无法从可见 core 确认。                 | AIService 已有；Cortex 尚未接 LLM。                                                  | 双方不能仅凭“有 plugin”比较 agent 能力。                    |
+| 行动       | `Session.send` 默认回当前会话；Bot APIs 可主动调用。                        | `ctx.message` 允许显式 channel/botSid；产品语义 tool 计划中。                        | Athena 更适合跨世界行动，尚须实装工具与 guard。             |
+| 多实例     | 多 Bot/平台以 bot registry、channel assignee 路由。                         | 多 Life group 用 isolate 分离 life/cortex/message/satori。                           | “多账号”不是“多生命”；Athena 已有更强隔离语义。             |
+| 配置/运维  | Loader、config tree、migration、HMR、CLI watchdog 成熟。                    | 使用 Cordis prelude/app.yml 思路；仓库未含部署 config，Cortex reload policy 未落地。 | Koishi 明显领先于可运维性。                                 |
+| 非 IM 扩展 | core 主模型仍 chat；非消息能力在快照不可见。                                | capability/Nerve 平权是明确架构，Minecraft/World 尚未实现。                          | Athena 的价值主张尚待 Phase 4 证明。                        |
 
 ### Athena 已明显领先
 
@@ -258,14 +258,14 @@ Athena 应继续使用 Cordis 的 group/isolate、plugin config tree 和 Service
 
 ### 可能误导的表面相似点
 
-| 表面相似点 | 实际差异与风险 |
-|---|---|
-| 都用 Cordis | Cordis 是组合基座；Koishi 的组织中心是 messaging application，Athena 的应是 Life runtime。 |
-| 都用 Satori/Bot/Session | Koishi 把它们置于 Context 根部；Athena 已把它们封在 Message capability 内。 |
-| 都 `ctx.on('message')` | Koishi 的 Processor 随即进入 middleware response；Athena 只是 Cortex 的一个 sensory input，Chat/World/Interlude 应有不同 drain rhythm。 |
-| 都有 plugin、Service、config | Koishi 插件通常扩展 bot application 功能；Athena 的核心 composition unit 是 per-Life group，Cortex 不应被碎片化。 |
-| 都支持多 Bot | Koishi 多 Bot 主要是同一 app 的平台账号；Athena multi-Life 必须有 identity、memory、Cortex、Nerve 的隔离及 ownership。 |
-| 都可以主动发消息 | 主动调用 Bot API 不自动产生“持续存在”；Athena 必须有框架支持的 rhythm、state evolution 与 observation。 |
+| 表面相似点                   | 实际差异与风险                                                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 都用 Cordis                  | Cordis 是组合基座；Koishi 的组织中心是 messaging application，Athena 的应是 Life runtime。                                              |
+| 都用 Satori/Bot/Session      | Koishi 把它们置于 Context 根部；Athena 已把它们封在 Message capability 内。                                                             |
+| 都 `ctx.on('message')`       | Koishi 的 Processor 随即进入 middleware response；Athena 只是 Cortex 的一个 sensory input，Chat/World/Interlude 应有不同 drain rhythm。 |
+| 都有 plugin、Service、config | Koishi 插件通常扩展 bot application 功能；Athena 的核心 composition unit 是 per-Life group，Cortex 不应被碎片化。                       |
+| 都支持多 Bot                 | Koishi 多 Bot 主要是同一 app 的平台账号；Athena multi-Life 必须有 identity、memory、Cortex、Nerve 的隔离及 ownership。                  |
+| 都可以主动发消息             | 主动调用 Bot API 不自动产生“持续存在”；Athena 必须有框架支持的 rhythm、state evolution 与 observation。                                 |
 
 ---
 

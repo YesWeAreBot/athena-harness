@@ -4,7 +4,7 @@ import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
 import { Schema } from "@athena-ai/core";
-import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
+import type { JsonObject, MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
 import type {} from "@cordisjs/plugin-server";
 import type { Client } from "@cordisjs/plugin-webui";
 import { type Context, Service } from "cordis";
@@ -41,23 +41,25 @@ export const Config: Schema<Config> = Schema.object({
 });
 
 /** Minimal content-type table for the resources a sandbox chat can render. */
-const MIME_TYPES: Record<string, string> = {
-  ".aac": "audio/aac",
-  ".flac": "audio/flac",
-  ".gif": "image/gif",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  ".m4a": "audio/mp4",
-  ".mp3": "audio/mpeg",
-  ".mp4": "video/mp4",
-  ".ogg": "audio/ogg",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".txt": "text/plain",
-  ".wav": "audio/wav",
-  ".webm": "video/webm",
-  ".webp": "image/webp",
-};
+const MIME_TYPES = new Map(
+  Object.entries({
+    ".aac": "audio/aac",
+    ".flac": "audio/flac",
+    ".gif": "image/gif",
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".mp4": "video/mp4",
+    ".ogg": "audio/ogg",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".txt": "text/plain",
+    ".wav": "audio/wav",
+    ".webm": "video/webm",
+    ".webp": "image/webp",
+  }),
+);
 
 /** Marker used to tunnel retractions through the Nerve's `dispatch` method. */
 const DELETE_PREFIX = "__delete:";
@@ -142,7 +144,7 @@ export default class SandboxHub extends Service<Config> implements SandboxHubSer
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
 
-    const listen = <T>(type: string, listener: (this: Client, body: T) => unknown) => {
+    const listen = <T>(type: string, listener: (this: Client, body: T) => void): void => {
       ctx.effect(
         () => {
           ctx.webui.listeners[type] = listener;
@@ -159,11 +161,13 @@ export default class SandboxHub extends Service<Config> implements SandboxHubSer
      * page can route replies back to the right conversation.
      */
     const sinkFor = (client: Client, lifeId: string): MessageSink => ({
-      send: (frame) =>
+      send: (frame) => {
+        // SAFETY: frame.body comes from this Hub's own frame construction and is always an object.
         client.send({
           type: frame.type,
-          body: { ...(frame.body as object), lifeId },
-        } as never),
+          body: { ...(frame.body as JsonObject), lifeId },
+        } as never);
+      },
     });
 
     const nerveFor = (lifeId: string): SandboxNerveHandle => {
@@ -275,7 +279,8 @@ export default class SandboxHub extends Service<Config> implements SandboxHubSer
           res.text("expected a `file:` url");
           return;
         }
-        res.headers.set("content-type", MIME_TYPES[extname(url).toLowerCase()] ?? "application/octet-stream");
+        res.headers.set("content-type", MIME_TYPES.get(extname(url).toLowerCase()) ?? "application/octet-stream");
+        // SAFETY: Node's Readable.toWeb returns a ReadableStream<any>; this stream emits file bytes.
         res.body = Readable.toWeb(createReadStream(fileURLToPath(url))) as ReadableStream<Uint8Array>;
       });
 

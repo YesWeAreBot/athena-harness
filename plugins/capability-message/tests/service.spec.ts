@@ -57,9 +57,7 @@ describe("MessageService", () => {
   it("group isolation hides satori outside while message stays visible", async () => {
     const { ctx, inner } = createDomain();
     await inner.plugin(MessageService, {});
-    // satori lives in the group's isolate — invisible to the outer context
     expect(ctx.get("satori")).toBeUndefined();
-    // the capability itself is still exposed to consumers
     expect(ctx.get("message")).toBeInstanceOf(MessageService);
   });
 
@@ -72,7 +70,12 @@ describe("MessageService", () => {
   it("bots resolves through the captured ctx when reached from outside", async () => {
     const { ctx, inner } = createDomain();
     await inner.plugin(MessageService, {});
-    inner.get("satori")!.bots.push({ sid: "fake:1", isActive: true } as unknown as Bot);
+    // SAFETY: this object has Bot's prototype and the fields consumed by MessageService.
+    const fakeBot = Object.create(Bot.prototype, {
+      sid: { value: "fake:1" },
+      isActive: { value: true },
+    }) as Bot;
+    inner.get("satori")!.bots.push(fakeBot);
     // ctx.get() rebinds this.ctx on the traceable proxy, and the caller's ctx
     // cannot resolve `satori` — the service must use its own captured ctx
     expect(ctx.get("message")!.bots).toHaveLength(1);
@@ -87,8 +90,11 @@ describe("MessageService", () => {
   it("a sibling plugin in the same isolate domain registers its bot", async () => {
     const { ctx, inner } = createDomain();
     await inner.plugin(MessageService, {});
-
-    const fakeBot = { sid: "fake:1", isActive: true } as unknown as Bot;
+    // SAFETY: this object has Bot's prototype and the fields consumed by MessageService.
+    const fakeBot = Object.create(Bot.prototype, {
+      sid: { value: "fake:1" },
+      isActive: { value: true },
+    }) as Bot;
     function fakeAdapter(adapterCtx: Context) {
       // Sibling entries resolve the capability's satori through the group isolate
       adapterCtx.satori.bots.push(fakeBot);
@@ -106,17 +112,12 @@ describe("MessageService", () => {
     const session = await dispatch(inner, "own");
 
     const filter = session[Context.filter];
-    expect(typeof filter).toBe("function");
-    // The outer ctx shares the same message symbol — message is not isolated here
+    expect(filter).toBeTypeOf("function");
     expect(filter!.call(session, ctx)).toBe(true);
     expect(filter!.call(session, ctx.isolate("message"))).toBe(false);
   });
 
   it("ignores a session dispatched by a bot from another satori domain", async () => {
-    // Regression: `internal/session` is a global bus, and both `Session` and
-    // `Bot` are cordis traced proxies whose `.ctx` follows the receiver. A
-    // MessageService that trusted `session.bot.ctx` claimed every session, so
-    // the last one installed hijacked every other Life's messages.
     const root = new Context();
     const alice = root.isolate("satori").isolate("bots").isolate("message");
     const bob = root.isolate("satori").isolate("bots").isolate("message");
@@ -125,7 +126,7 @@ describe("MessageService", () => {
 
     const session = await dispatch(alice, "alice");
     const filter = session[Context.filter];
-    expect(typeof filter).toBe("function");
+    expect(filter).toBeTypeOf("function");
     expect(filter!.call(session, alice)).toBe(true);
     expect(filter!.call(session, bob)).toBe(false);
   });

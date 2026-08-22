@@ -35,6 +35,7 @@ function onEnter() {
 }
 
 function onInput(event: Event) {
+  // SAFETY: This handler is bound only to the component's input element.
   text.value = (event.target as HTMLInputElement).value;
 }
 

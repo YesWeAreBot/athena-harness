@@ -1,8 +1,8 @@
-import MessageService from "@athena-ai/capability-message";
-import { Life } from "@athena-ai/plugin-life";
 import { Context } from "cordis";
 import { describe, it, expect } from "vitest";
 
+import MessageService from "../../capability-message/src/index.js";
+import { Life } from "../../life/src/life.js";
 import CortexChat from "../src/index.js";
 
 describe("CortexChat", () => {
@@ -41,6 +41,6 @@ describe("CortexChat", () => {
     });
     await ctx.plugin(MessageService, {});
     await ctx.plugin(CortexChat);
-    expect(Reflect.get(ctx.life, "_cortex")).toBeInstanceOf(CortexChat);
+    expect(ctx.life.cortex).toBeInstanceOf(CortexChat);
   });
 });

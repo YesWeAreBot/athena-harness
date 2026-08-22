@@ -8,17 +8,17 @@
 
 ## 关键结论与证据索引
 
-| 结论 | 状态 | 核心证据 |
-| --- | --- | --- |
-| AstrBot 的中心抽象是 `AstrMessageEvent` 驱动的 **event → ordered pipeline → response**，而非独立数字实体的运行时 | 已实现事实 | `astrbot/core/platform/platform.py:147-165`；`astrbot/core/event_bus.py:39-63`；`astrbot/core/pipeline/stage_order.py:3-13` |
-| 多平台共享 `Platform`、`AstrBotMessage`、`AstrMessageEvent`、`MessageChain`；各 adapter 负责平台收发细节 | 已实现事实 | `astrbot/core/platform/platform.py:38-165`；`astrbot/core/platform/manager.py:89-227`；`astrbot/core/platform/sources/aiocqhttp/aiocqhttp_message_event.py:183-197` |
-| 每个事件按 `unified_msg_origin` 选取 configuration profile 与 `PipelineScheduler`，但核心管理器、插件上下文、工具池为进程级共享对象 | 已实现事实 | `astrbot/core/event_bus.py:41-54`；`astrbot/core/core_lifecycle.py:213-282`；`astrbot/core/star/context.py:123-169` |
-| 同一 UMO 的 LLM execution 有 `session_lock_manager` 串行化；不同 UMO 的 EventBus task 则并发创建 | 已实现事实 | `astrbot/core/event_bus.py:52-54`；`astrbot/core/pipeline/process_stage/method/agent_sub_stages/internal.py:220-279` |
-| `Persona` 是可持久化的 LLM instruction/tool/skill selection；不是 Athena 所定义的跨 Cortex 持续身份 | 已实现事实 / 代码推断 | `astrbot/core/db/po.py:145-178`；`astrbot/core/persona_mgr.py:75-127`；`astrbot/core/astr_main_agent.py:522-617` |
-| Conversation history 以 UMO 关联、持久化到 DB；其隔离粒度为聊天窗口/会话，而非独立 Life | 已实现事实 / 代码推断 | `astrbot/core/conversation_mgr.py:92-188`；`astrbot/core/astr_main_agent.py:272-286,1573-1576` |
-| Local Agent 真实执行 multi-step tool loop、MCP/插件/builtin tools、fallback provider、context guard，并可把 tool 结果回灌模型 | 已实现事实 | `astrbot/core/astr_main_agent.py:1412-1754`；`astrbot/core/agent/runners/tool_loop_agent_runner.py:500-667,927-1087`；`astrbot/core/astr_agent_tool_exec.py:131-187` |
-| AstrBot 已有 Cron 触发的主动 Agent 行为，但它仍复用指定 session 的 conversation、provider、工具和消息投递，不构成持续 heartbeat 的生命循环 | 已实现事实 / 代码推断 | `astrbot/core/cron/manager.py:395-513`；`astrbot/core/core_lifecycle.py:306-333` |
-| Athena 当前实现已经把 Life、Cortex、Message capability 的 **per-Life scope / one-Cortex** 语义做成代码；但真正 LLM Cortex、持久 Memory、Tool Registry、非 IM Nerve 尚未实现 | 已实现事实 | `plugins/life/src/life.ts:4-52`；`packages/protocol/src/cortex.ts:3-13`；`plugins/cortex-chat/src/index.ts:15-44`；`docs/06-progress-and-roadmap.md:55-68,231-254` |
+| 结论                                                                                                                                                                        | 状态                  | 核心证据                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AstrBot 的中心抽象是 `AstrMessageEvent` 驱动的 **event → ordered pipeline → response**，而非独立数字实体的运行时                                                            | 已实现事实            | `astrbot/core/platform/platform.py:147-165`；`astrbot/core/event_bus.py:39-63`；`astrbot/core/pipeline/stage_order.py:3-13`                                          |
+| 多平台共享 `Platform`、`AstrBotMessage`、`AstrMessageEvent`、`MessageChain`；各 adapter 负责平台收发细节                                                                    | 已实现事实            | `astrbot/core/platform/platform.py:38-165`；`astrbot/core/platform/manager.py:89-227`；`astrbot/core/platform/sources/aiocqhttp/aiocqhttp_message_event.py:183-197`  |
+| 每个事件按 `unified_msg_origin` 选取 configuration profile 与 `PipelineScheduler`，但核心管理器、插件上下文、工具池为进程级共享对象                                         | 已实现事实            | `astrbot/core/event_bus.py:41-54`；`astrbot/core/core_lifecycle.py:213-282`；`astrbot/core/star/context.py:123-169`                                                  |
+| 同一 UMO 的 LLM execution 有 `session_lock_manager` 串行化；不同 UMO 的 EventBus task 则并发创建                                                                            | 已实现事实            | `astrbot/core/event_bus.py:52-54`；`astrbot/core/pipeline/process_stage/method/agent_sub_stages/internal.py:220-279`                                                 |
+| `Persona` 是可持久化的 LLM instruction/tool/skill selection；不是 Athena 所定义的跨 Cortex 持续身份                                                                         | 已实现事实 / 代码推断 | `astrbot/core/db/po.py:145-178`；`astrbot/core/persona_mgr.py:75-127`；`astrbot/core/astr_main_agent.py:522-617`                                                     |
+| Conversation history 以 UMO 关联、持久化到 DB；其隔离粒度为聊天窗口/会话，而非独立 Life                                                                                     | 已实现事实 / 代码推断 | `astrbot/core/conversation_mgr.py:92-188`；`astrbot/core/astr_main_agent.py:272-286,1573-1576`                                                                       |
+| Local Agent 真实执行 multi-step tool loop、MCP/插件/builtin tools、fallback provider、context guard，并可把 tool 结果回灌模型                                               | 已实现事实            | `astrbot/core/astr_main_agent.py:1412-1754`；`astrbot/core/agent/runners/tool_loop_agent_runner.py:500-667,927-1087`；`astrbot/core/astr_agent_tool_exec.py:131-187` |
+| AstrBot 已有 Cron 触发的主动 Agent 行为，但它仍复用指定 session 的 conversation、provider、工具和消息投递，不构成持续 heartbeat 的生命循环                                  | 已实现事实 / 代码推断 | `astrbot/core/cron/manager.py:395-513`；`astrbot/core/core_lifecycle.py:306-333`                                                                                     |
+| Athena 当前实现已经把 Life、Cortex、Message capability 的 **per-Life scope / one-Cortex** 语义做成代码；但真正 LLM Cortex、持久 Memory、Tool Registry、非 IM Nerve 尚未实现 | 已实现事实            | `plugins/life/src/life.ts:4-52`；`packages/protocol/src/cortex.ts:3-13`；`plugins/cortex-chat/src/index.ts:15-44`；`docs/06-progress-and-roadmap.md:55-68,231-254`   |
 
 ---
 
@@ -32,12 +32,12 @@
 
 ### 1.2 与 Athena primitive 的语义映射（不可按名字等同）
 
-| AstrBot 概念 | 直接职责 | 与 Athena 的近似物 | 不可等同的原因 |
-| --- | --- | --- | --- |
-| `Persona` + `Conversation` + UMO scoped preferences | prompt、few-shot、允许 tool/skill、聊天历史与选中 provider | `Life` 的局部输入 | **不等同于 Life**：Persona 是 LLM request material，Conversation 按 UMO 归档；二者没有 “one Cortex / 跨 Cortex 持续 / self-model” 契约。 |
-| `PipelineScheduler` + stages | 每条消息的过滤、插件、LLM、装饰、回复 | Reactive `Cortex` 的一个实现形态 | **不等同于 Cortex**：它是全局固定 ordered pipeline，接受 event→response 为主路径；不是每个 Life 的整体可替换 survival strategy。 |
-| `Platform` + concrete adapter | 外部 IM 收发与事件归一化 | IM Nerve 的部分能力 | **不等同于 Nerve**：平台 adapter 是格式/SDK 层，未携带 Life ownership、Presence 或 capability inversion。 |
-| `ToolSet` / `FuncCall` | LLM 可调用函数与 MCP/builtin/plugin tool 管理 | `ctx.tools`（Athena 规划） | AstrBot 注册表进程级，工具的 session/profile 过滤为附加 policy；Athena 规划的是沿 scope 的 capability/tool discovery。 |
+| AstrBot 概念                                        | 直接职责                                                   | 与 Athena 的近似物               | 不可等同的原因                                                                                                                           |
+| --------------------------------------------------- | ---------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `Persona` + `Conversation` + UMO scoped preferences | prompt、few-shot、允许 tool/skill、聊天历史与选中 provider | `Life` 的局部输入                | **不等同于 Life**：Persona 是 LLM request material，Conversation 按 UMO 归档；二者没有 “one Cortex / 跨 Cortex 持续 / self-model” 契约。 |
+| `PipelineScheduler` + stages                        | 每条消息的过滤、插件、LLM、装饰、回复                      | Reactive `Cortex` 的一个实现形态 | **不等同于 Cortex**：它是全局固定 ordered pipeline，接受 event→response 为主路径；不是每个 Life 的整体可替换 survival strategy。         |
+| `Platform` + concrete adapter                       | 外部 IM 收发与事件归一化                                   | IM Nerve 的部分能力              | **不等同于 Nerve**：平台 adapter 是格式/SDK 层，未携带 Life ownership、Presence 或 capability inversion。                                |
+| `ToolSet` / `FuncCall`                              | LLM 可调用函数与 MCP/builtin/plugin tool 管理              | `ctx.tools`（Athena 规划）       | AstrBot 注册表进程级，工具的 session/profile 过滤为附加 policy；Athena 规划的是沿 scope 的 capability/tool discovery。                   |
 
 **Athena 基准**：Athena 明确将 Life（身份）、Cortex（完整生存策略）、Nerve（双向世界通道）作为三原语（`docs/00-overview.md:9-38`），并明确拒绝把自己组织成 AstrBot 式 LLM message pipeline（`docs/01-design-philosophy.md:15-29`）。当前源码中 `Life.bind()` 已强制一个 Life 只能绑定一个 Cortex（`plugins/life/src/life.ts:35-46`），`Cortex` 生命周期又由该绑定建立（`packages/protocol/src/cortex.ts:3-13`）。
 
@@ -157,14 +157,14 @@ OneBot SDK callback
 
 ### 6.2 失败处理与恢复
 
-| 位置 | 已实现机制 | 局限 / 判断 |
-| --- | --- | --- |
-| EventBus | scheduler 缺失时丢弃并 log；pending task done callback 暴露 exception | queue 未见背压、优先级、per-entity fairness 的框架契约；只能说本段源码未出现，不能断言所有 adapter 都无背压。 |
-| Pipeline | `finally` 清临时文件、注销 active event | 这是 per-event cleanup，不是持久实体 lifecycle。 |
-| LLM | empty output retry、fallback providers、error `LLMResponse` | 已是生产级 request resilience；失败策略仍主要绑定 chat request。 |
-| Tool | timeout 由 build config/runner 设置、可 abort、max step 强制 finalization | background tool task 会脱离当前 request 继续，必须依赖 tool 实现保证资源管理。 |
-| Output | send exception 捕获/记录后继续下一 segment | 交付失败没有在本段代码中形成可重试 action record。 |
-| Plugin | reload lock、文件 watcher、plugin owned handler/tool 清理 | Python plugin 可附带 requirements 并触发安装/恢复路径（`star_manager.py:328-423`），扩展灵活但 supply-chain 与进程一致性风险更高。 |
+| 位置     | 已实现机制                                                                | 局限 / 判断                                                                                                                        |
+| -------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| EventBus | scheduler 缺失时丢弃并 log；pending task done callback 暴露 exception     | queue 未见背压、优先级、per-entity fairness 的框架契约；只能说本段源码未出现，不能断言所有 adapter 都无背压。                      |
+| Pipeline | `finally` 清临时文件、注销 active event                                   | 这是 per-event cleanup，不是持久实体 lifecycle。                                                                                   |
+| LLM      | empty output retry、fallback providers、error `LLMResponse`               | 已是生产级 request resilience；失败策略仍主要绑定 chat request。                                                                   |
+| Tool     | timeout 由 build config/runner 设置、可 abort、max step 强制 finalization | background tool task 会脱离当前 request 继续，必须依赖 tool 实现保证资源管理。                                                     |
+| Output   | send exception 捕获/记录后继续下一 segment                                | 交付失败没有在本段代码中形成可重试 action record。                                                                                 |
+| Plugin   | reload lock、文件 watcher、plugin owned handler/tool 清理                 | Python plugin 可附带 requirements 并触发安装/恢复路径（`star_manager.py:328-423`），扩展灵活但 supply-chain 与进程一致性风险更高。 |
 
 ### 6.3 主动性
 
@@ -213,16 +213,16 @@ OneBot SDK callback
 
 ### 9.1 逐项矩阵
 
-| 维度 | AstrBot 已实现形态 | Athena 当前事实 | 判断 |
-| --- | --- | --- | --- |
-| 组织原则 | fixed message pipeline + global managers/plugins | Life/Cortex/Nerve primitive，Cortex 是整体可替换 unit | Athena 的概念边界更适于数字生命；AstrBot 的运行面明显更成熟。 |
-| 世界输入 | 多 IM `Platform` 标准化，event queue | Satori 被封装在 `ctx.message` capability；Sandbox Nerve 已可入站 | AstrBot 领先真实 adapter breadth；Athena 正确地避免 IM 特权。 |
-| 会话/状态 | UMO-scoped conversation, profile, provider, plugin settings | `Life` 有 persona/memory interface 且 one-Cortex；MemoryStub 仅 in-memory | AstrBot 的聊天状态成熟；Athena 的 identity ownership 正确但未完成持久实现。 |
-| LLM/Agent | provider adapter、Agent runner、tool-loop、fallback/streaming/context guard | `AIService` + provider registry/model resolution 已完成；chat Cortex 只 echo | AstrBot 明显领先 end-to-end cognition。 |
-| 行动 | `MessageChain` platform dispatch、direct send tool、Cron action | `MessageService.createMessage`、Sandbox Nerve 已存在 | Athena 已有最小 action plumbing；缺 LLM enactment/tool contract。 |
-| 并发/可靠性 | EventBus task concurrency + UMO agent lock + fallback/retry | Cordis Fiber lifecycle、Message event scope filter；chat Cortex 无 queue/lock | 两者各有强项；Athena 仍须把 per-Cortex concurrency strategy 落地。 |
-| 扩展 | Star plugins, fixed pipeline hooks, provider/platform/tool/MCP | Capability token + Nerve implementer + Cortex inject boundary | Athena 的依赖倒置更深；AstrBot 的插件生态与各类实现更多。 |
-| 自主性 | Cron active agent/background tasks | design 有 World/Interlude，代码未实现 | AstrBot 已有离散 scheduled proactive behavior；Athena 的 continuous model 尚为路线图。 |
+| 维度        | AstrBot 已实现形态                                                          | Athena 当前事实                                                               | 判断                                                                                   |
+| ----------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 组织原则    | fixed message pipeline + global managers/plugins                            | Life/Cortex/Nerve primitive，Cortex 是整体可替换 unit                         | Athena 的概念边界更适于数字生命；AstrBot 的运行面明显更成熟。                          |
+| 世界输入    | 多 IM `Platform` 标准化，event queue                                        | Satori 被封装在 `ctx.message` capability；Sandbox Nerve 已可入站              | AstrBot 领先真实 adapter breadth；Athena 正确地避免 IM 特权。                          |
+| 会话/状态   | UMO-scoped conversation, profile, provider, plugin settings                 | `Life` 有 persona/memory interface 且 one-Cortex；MemoryStub 仅 in-memory     | AstrBot 的聊天状态成熟；Athena 的 identity ownership 正确但未完成持久实现。            |
+| LLM/Agent   | provider adapter、Agent runner、tool-loop、fallback/streaming/context guard | `AIService` + provider registry/model resolution 已完成；chat Cortex 只 echo  | AstrBot 明显领先 end-to-end cognition。                                                |
+| 行动        | `MessageChain` platform dispatch、direct send tool、Cron action             | `MessageService.createMessage`、Sandbox Nerve 已存在                          | Athena 已有最小 action plumbing；缺 LLM enactment/tool contract。                      |
+| 并发/可靠性 | EventBus task concurrency + UMO agent lock + fallback/retry                 | Cordis Fiber lifecycle、Message event scope filter；chat Cortex 无 queue/lock | 两者各有强项；Athena 仍须把 per-Cortex concurrency strategy 落地。                     |
+| 扩展        | Star plugins, fixed pipeline hooks, provider/platform/tool/MCP              | Capability token + Nerve implementer + Cortex inject boundary                 | Athena 的依赖倒置更深；AstrBot 的插件生态与各类实现更多。                              |
+| 自主性      | Cron active agent/background tasks                                          | design 有 World/Interlude，代码未实现                                         | AstrBot 已有离散 scheduled proactive behavior；Athena 的 continuous model 尚为路线图。 |
 
 ### 9.2 Athena 已明显领先
 
@@ -262,14 +262,14 @@ OneBot SDK callback
 
 ### 9.7 可能误导的表面相似点
 
-| 表面相似 | 实际差异 |
-| --- | --- |
-| AstrBot `Persona` 与 Athena `Life.persona` | 前者是可按 session/conversation 选择的 prompt/tool policy；后者意图是实体身份的一部分。 |
-| AstrBot `Conversation.history` 与 Athena Memory | history 是上下文 log；Memory 需要 store/retrieve/search、ownership、持久化和 Cortex 更替后的连续性。 |
-| AstrBot `Platform` 与 Athena Nerve | Platform 是 adapter runtime；Nerve 还要求双向 presence、Life ownership、capability abstraction。 |
-| AstrBot Agent loop 与 Athena Cortex | Agent loop 是 cognition engine；Cortex 还决定 trigger、multi-Nerve integration、enactment、continuation。 |
-| AstrBot Cron 主动消息与 Athena continuous existence | Cron 是外部 scheduler stimulus；continuous Cortex 要定义没有外部消息时如何形成 percept、决策和等待。 |
-| AstrBot 插件 tool registry 与 Athena `ctx.tools` | 前者全局注册并按 policy 筛选；后者规划为 scope-local discovery/execute contract。 |
+| 表面相似                                            | 实际差异                                                                                                  |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| AstrBot `Persona` 与 Athena `Life.persona`          | 前者是可按 session/conversation 选择的 prompt/tool policy；后者意图是实体身份的一部分。                   |
+| AstrBot `Conversation.history` 与 Athena Memory     | history 是上下文 log；Memory 需要 store/retrieve/search、ownership、持久化和 Cortex 更替后的连续性。      |
+| AstrBot `Platform` 与 Athena Nerve                  | Platform 是 adapter runtime；Nerve 还要求双向 presence、Life ownership、capability abstraction。          |
+| AstrBot Agent loop 与 Athena Cortex                 | Agent loop 是 cognition engine；Cortex 还决定 trigger、multi-Nerve integration、enactment、continuation。 |
+| AstrBot Cron 主动消息与 Athena continuous existence | Cron 是外部 scheduler stimulus；continuous Cortex 要定义没有外部消息时如何形成 percept、决策和等待。      |
+| AstrBot 插件 tool registry 与 Athena `ctx.tools`    | 前者全局注册并按 policy 筛选；后者规划为 scope-local discovery/execute contract。                         |
 
 ---
 

@@ -2,17 +2,15 @@ import { defineConfig } from "oxlint";
 
 export default defineConfig({
   ignorePatterns: [
-    ".agent/**",
     ".agents/**",
     ".claude/**",
     ".codex/**",
-    ".continue/**",
     ".cursor/**",
     ".gemini/**",
     ".opencode/**",
     ".pi/**",
-    ".roo/**",
-    ".windsurf/**",
+    ".omp/**",
+    ".specify/**",
     "tools/oxlint/anti-slop/**",
     "legacy/**",
     "vendor/**",

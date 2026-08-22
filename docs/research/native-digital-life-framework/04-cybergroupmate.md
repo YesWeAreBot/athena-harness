@@ -7,15 +7,15 @@
 
 ## 关键结论与证据索引
 
-| 结论 | 状态 | 核心证据 |
-| --- | --- | --- |
-| CyberGroupmate 是单进程、配置驱动的多平台群聊社会 Agent application，而不是可被第三方组合的 runtime framework。 | **[已实现事实]** + **[代码推断]** | `package.json:9-20` 以 `tsx src/main.ts` 为唯一应用入口；`src/main.ts:260-480` 在 bootstrap 中直接装配 config、memory、adapter、Sandbox；`src/adapter/platform-adapter.ts:75-110` 是应用内 adapter interface，而非独立 package/plugin contract。 |
-| 状态的主要隔离单位是 composite `chatId`，但 Discord 的 group model 有意按 guild 聚合；人的 identity/profile 同时有跨群与群内两层。 | **[已实现事实]** | `src/core/chat-id.ts:51-130,188-195`；`src/memory-v2/memory-v2.ts:369-440`。 |
-| 主链为 adapter 标准化 `nc.message` → 即时 SQLite 落盘/每 chat `GroupSubagent` → `AttentionAccumulator` → `MainAgentLoop`/Meta-CodeAct → per-chat `CodeActExecutor`/Sandbox → adapter host call；输出消息再以 `system.agent_message_sent` 回写 memory/pipeline。 | **[已实现事实]** | `src/adapter/telegram-adapter.ts:138-180,452-468`；`src/main.ts:656-938,1056-1223`；`src/main-agent/main-agent-loop.ts:180-425`；`src/subagent/code-act-executor.ts:759-1089`；`src/sandbox/host-call-handler.ts:501-532`。 |
-| Meta 与每 chat 的 CodeAct session 均有可持久化历史；社会记忆使用 SQLite/WAL，并有 Reflection 将消息/interaction 归纳成画像、facts、relationship episodes 与 group feedback。 | **[已实现事实]** | `src/subagent/subagent-manager.ts:63-67,114-211`；`src/subagent/code-act-executor.ts:1542-1625`；`src/memory-v2/memory-v2.ts:204-253,340-657`；`src/memory-v2/reflection.ts:225-610`。 |
-| 其主动性不是“永续世界 Cortex”，而是 attention、reminder/cron、idle、reflection 与可选外部 harness 的多触发编排。 | **[已实现事实]** + **[代码推断]** | `src/main.ts:951-1054,1455-1608,1393-1410`；`src/main-agent/main-agent-loop.ts:264-288`。 |
-| 输出反馈闭环在“Agent 已发送消息”这一层有明确回灌；但不能从 inspected source 证明平台收到/用户理解/关系改善等外部结果被可靠关联到某次行动。 | 前半 **[已实现事实]**；后半 **[无法确认]** | `src/main.ts:665-732`；`src/subagent/code-act-executor.ts:1040-1073`；`src/main-agent/main-agent-loop.ts:191-257`。 |
-| Athena 的 Life/Cortex/Nerve 与 isolate 方向更适合作为多数字生命平台的骨架，但当前缺失持久 Memory、真实 cognition、tool registry、主动 Cortex；CyberGroupmate 的成熟社会 memory 不应倒灌为 Athena 核心架构。 | 前半 **[已实现事实]**；结论 **[评价]** | Athena：`docs/00-overview.md:9-37,60-90`、`docs/02-architecture.md:168-289`、`docs/06-progress-and-roadmap.md:55-68,231-290`；CyberGroupmate 证据如上。 |
+| 结论                                                                                                                                                                                                                                                            | 状态                                       | 核心证据                                                                                                                                                                                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CyberGroupmate 是单进程、配置驱动的多平台群聊社会 Agent application，而不是可被第三方组合的 runtime framework。                                                                                                                                                 | **[已实现事实]** + **[代码推断]**          | `package.json:9-20` 以 `tsx src/main.ts` 为唯一应用入口；`src/main.ts:260-480` 在 bootstrap 中直接装配 config、memory、adapter、Sandbox；`src/adapter/platform-adapter.ts:75-110` 是应用内 adapter interface，而非独立 package/plugin contract。 |
+| 状态的主要隔离单位是 composite `chatId`，但 Discord 的 group model 有意按 guild 聚合；人的 identity/profile 同时有跨群与群内两层。                                                                                                                              | **[已实现事实]**                           | `src/core/chat-id.ts:51-130,188-195`；`src/memory-v2/memory-v2.ts:369-440`。                                                                                                                                                                     |
+| 主链为 adapter 标准化 `nc.message` → 即时 SQLite 落盘/每 chat `GroupSubagent` → `AttentionAccumulator` → `MainAgentLoop`/Meta-CodeAct → per-chat `CodeActExecutor`/Sandbox → adapter host call；输出消息再以 `system.agent_message_sent` 回写 memory/pipeline。 | **[已实现事实]**                           | `src/adapter/telegram-adapter.ts:138-180,452-468`；`src/main.ts:656-938,1056-1223`；`src/main-agent/main-agent-loop.ts:180-425`；`src/subagent/code-act-executor.ts:759-1089`；`src/sandbox/host-call-handler.ts:501-532`。                      |
+| Meta 与每 chat 的 CodeAct session 均有可持久化历史；社会记忆使用 SQLite/WAL，并有 Reflection 将消息/interaction 归纳成画像、facts、relationship episodes 与 group feedback。                                                                                    | **[已实现事实]**                           | `src/subagent/subagent-manager.ts:63-67,114-211`；`src/subagent/code-act-executor.ts:1542-1625`；`src/memory-v2/memory-v2.ts:204-253,340-657`；`src/memory-v2/reflection.ts:225-610`。                                                           |
+| 其主动性不是“永续世界 Cortex”，而是 attention、reminder/cron、idle、reflection 与可选外部 harness 的多触发编排。                                                                                                                                                | **[已实现事实]** + **[代码推断]**          | `src/main.ts:951-1054,1455-1608,1393-1410`；`src/main-agent/main-agent-loop.ts:264-288`。                                                                                                                                                        |
+| 输出反馈闭环在“Agent 已发送消息”这一层有明确回灌；但不能从 inspected source 证明平台收到/用户理解/关系改善等外部结果被可靠关联到某次行动。                                                                                                                      | 前半 **[已实现事实]**；后半 **[无法确认]** | `src/main.ts:665-732`；`src/subagent/code-act-executor.ts:1040-1073`；`src/main-agent/main-agent-loop.ts:191-257`。                                                                                                                              |
+| Athena 的 Life/Cortex/Nerve 与 isolate 方向更适合作为多数字生命平台的骨架，但当前缺失持久 Memory、真实 cognition、tool registry、主动 Cortex；CyberGroupmate 的成熟社会 memory 不应倒灌为 Athena 核心架构。                                                     | 前半 **[已实现事实]**；结论 **[评价]**     | Athena：`docs/00-overview.md:9-37,60-90`、`docs/02-architecture.md:168-289`、`docs/06-progress-and-roadmap.md:55-68,231-290`；CyberGroupmate 证据如上。                                                                                          |
 
 ---
 
@@ -59,15 +59,15 @@
 
 ### 3.1 状态隔离 key 与生命周期（重点）
 
-| 层级 | key / 载体 | 生命周期与隔离 | 证据与判定 |
-| --- | --- | --- | --- |
-| 平台会话 | composite `chatId`，如 `telegram:<id>`、`discord:<guild>:<channel>`、`onebot:group:<id>` | adapter 归一化后作为主路由 key；同一 chat 的 Subagent、session file、KV/todo 都绑定它。 | **[已实现事实]** `src/core/chat-id.ts:43-130,188-205`；`src/subagent/subagent-manager.ts:63-89`；`src/memory-v2/memory-v2.ts:618-639`。 |
-| Discord 社会群体 | `getGroupModelKey(chatId)` | Guild 的多 channel 合用 `discord:<guild>` GroupModel；DM 和其他平台不变。 | **[已实现事实]** `src/core/chat-id.ts:175-195`。 |
-| 单人身份 | composite `userId` | `person_identities` 与 `person_profiles` 以 `user_id` primary key，跨群共享。 | **[已实现事实]** `src/memory-v2/memory-v2.ts:369-395`；入站 user ID 复合化：`src/main.ts:741-744,790-799`。 |
-| 人-群关系 | `(user_id, chat_id)` | `person_group_profiles` 的 composite primary key；含 affinity、Dunbar tier、relation、episodes/merged memory。 | **[已实现事实]** `src/memory-v2/memory-v2.ts:397-416`。 |
-| 群体状态 | group model `chat_id` | `group_models` 保存 norms、role、feedback、taboo/hot topics、quiet/private flag。 | **[已实现事实]** `src/memory-v2/memory-v2.ts:418-440`。 |
-| 短/中期推理 session | `workspace/sessions/<platform>/<chatIdToFileName(chatId)>.json` | `SubagentManager.restoreAll()` 启动扫描恢复；Executor 存 session、execution records、last reply、ContextEngine ledger。实例不做 idle recycling。 | **[已实现事实]** `src/subagent/subagent-manager.ts:48-50,63-67,114-211`；`src/subagent/code-act-executor.ts:1542-1625`。 |
-| 全局元状态 | `workspace/global-state.json` | `GlobalState` 每 30s autosave，负责 scheduler/dispatched tasks/meta history；退出时 dispose/save。 | **[已实现事实]** `src/main.ts:579-594,1455-1589,1769-1782`。 |
+| 层级                | key / 载体                                                                               | 生命周期与隔离                                                                                                                                   | 证据与判定                                                                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 平台会话            | composite `chatId`，如 `telegram:<id>`、`discord:<guild>:<channel>`、`onebot:group:<id>` | adapter 归一化后作为主路由 key；同一 chat 的 Subagent、session file、KV/todo 都绑定它。                                                          | **[已实现事实]** `src/core/chat-id.ts:43-130,188-205`；`src/subagent/subagent-manager.ts:63-89`；`src/memory-v2/memory-v2.ts:618-639`。 |
+| Discord 社会群体    | `getGroupModelKey(chatId)`                                                               | Guild 的多 channel 合用 `discord:<guild>` GroupModel；DM 和其他平台不变。                                                                        | **[已实现事实]** `src/core/chat-id.ts:175-195`。                                                                                        |
+| 单人身份            | composite `userId`                                                                       | `person_identities` 与 `person_profiles` 以 `user_id` primary key，跨群共享。                                                                    | **[已实现事实]** `src/memory-v2/memory-v2.ts:369-395`；入站 user ID 复合化：`src/main.ts:741-744,790-799`。                             |
+| 人-群关系           | `(user_id, chat_id)`                                                                     | `person_group_profiles` 的 composite primary key；含 affinity、Dunbar tier、relation、episodes/merged memory。                                   | **[已实现事实]** `src/memory-v2/memory-v2.ts:397-416`。                                                                                 |
+| 群体状态            | group model `chat_id`                                                                    | `group_models` 保存 norms、role、feedback、taboo/hot topics、quiet/private flag。                                                                | **[已实现事实]** `src/memory-v2/memory-v2.ts:418-440`。                                                                                 |
+| 短/中期推理 session | `workspace/sessions/<platform>/<chatIdToFileName(chatId)>.json`                          | `SubagentManager.restoreAll()` 启动扫描恢复；Executor 存 session、execution records、last reply、ContextEngine ledger。实例不做 idle recycling。 | **[已实现事实]** `src/subagent/subagent-manager.ts:48-50,63-67,114-211`；`src/subagent/code-act-executor.ts:1542-1625`。                |
+| 全局元状态          | `workspace/global-state.json`                                                            | `GlobalState` 每 30s autosave，负责 scheduler/dispatched tasks/meta history；退出时 dispose/save。                                               | **[已实现事实]** `src/main.ts:579-594,1455-1589,1769-1782`。                                                                            |
 
 - **[已实现事实]** SQLite `MemoryStoreV2` 启用 `journal_mode = WAL`、foreign keys，具备 topics、identity/profile、group model、interactions、facts、message log、session digests、FTS5、KV/todo 等表。证据：`src/memory-v2/memory-v2.ts:204-227,340-657`。
 - **[已实现事实]** privacy 是纵向 policy：DM/config/runtime marked-sensitive 由 GroupModel + policy 来判定；memory recall、跨 chat dispatch、外发都在 host-call 层检查。证据：`src/memory-v2/memory-v2.ts:234-262`；`src/sandbox/host-call-handler.ts:501-532,1006-1059`；`config.example.yaml:383-400`。
@@ -197,16 +197,16 @@ TelegramAdapter.messageHandler
 
 ### 9.1 组织原则、抽象边界、运行时模型对照
 
-| 维度 | CyberGroupmate | Athena Harness（当前） | 判断 |
-| --- | --- | --- | --- |
-| 第一性抽象 | chat-bound Subagent + global Meta + Sandbox。 | Life（identity）/ Cortex（survival strategy）/ Nerve（world connection）。 | **[评价]** Athena 的本体边界更适合“多种数字生命”；CyberGroupmate 的 per-chat 边界更适合群聊 companion。 |
-| 事件输入 | adapters → in-memory NC → app orchestrator。 | Nerve/Capability push Cordis events；Cortex 自定 buffer/rhythm。 | **[已实现事实]** Cyber 已有完备 application flow；Athena 有更一般化方向，见 `docs/01-design-philosophy.md:177-228`。 |
-| 多实体隔离 | state mostly keyed by chat/user; one global persona/control plane。 | group `isolate: {life,cortex,message,satori}`，one Cortex per Life。 | **[已实现事实]** Athena 的 service isolation 已落地：`docs/02-architecture.md:215-289`；Cyber 无等价 multi-Life container。 |
-| 认知 | Meta-CodeAct + per-chat CodeAct; background cluster/reflection。 | cortex-chat 仅 echo；AIService/provider registry 已有。 | **[已实现事实]** Cyber 当前能力明显更完整；Athena roadmap 明确未完成 cognition：`docs/06-progress-and-roadmap.md:231-254`。 |
-| Memory | SQLite social memory、reflection、global/local person profile、facts。 | Life 的 `MemoryStub` in-memory，持久化未做。 | **[已实现事实]** 见 Cyber `src/memory-v2/memory-v2.ts:204-227`；Athena `plugins/life/src/life.ts:4-33`。 |
-| 行动 | Sandbox CodeAct → host-call → adapter；callback + outbound re-ingestion。 | `ctx.message.createMessage()` 可用，当前 chat Cortex echo。 | **[已实现事实]** Athena output seam 正确但 tool/action framework 未实现。 |
-| 主动性 | attention signals、reflection, reminders/cron、proactive idle/dreaming。 | target has Chat/World/Interlude Cortex; latter two未实现。 | **[已实现事实]** Cyber 已积累机制；Athena 的多形态设计仍是 roadmap。 |
-| 扩展 | adapter interface、skills/MCP/config；central bootstrap owns composition。 | Cordis managed plugin tree、Capability/Cortex/Nerve package roles。 | **[评价]** Athena 更适合 ecosystem-level composition；Cyber 更适合 product-level feature delivery。 |
+| 维度       | CyberGroupmate                                                             | Athena Harness（当前）                                                     | 判断                                                                                                                        |
+| ---------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 第一性抽象 | chat-bound Subagent + global Meta + Sandbox。                              | Life（identity）/ Cortex（survival strategy）/ Nerve（world connection）。 | **[评价]** Athena 的本体边界更适合“多种数字生命”；CyberGroupmate 的 per-chat 边界更适合群聊 companion。                     |
+| 事件输入   | adapters → in-memory NC → app orchestrator。                               | Nerve/Capability push Cordis events；Cortex 自定 buffer/rhythm。           | **[已实现事实]** Cyber 已有完备 application flow；Athena 有更一般化方向，见 `docs/01-design-philosophy.md:177-228`。        |
+| 多实体隔离 | state mostly keyed by chat/user; one global persona/control plane。        | group `isolate: {life,cortex,message,satori}`，one Cortex per Life。       | **[已实现事实]** Athena 的 service isolation 已落地：`docs/02-architecture.md:215-289`；Cyber 无等价 multi-Life container。 |
+| 认知       | Meta-CodeAct + per-chat CodeAct; background cluster/reflection。           | cortex-chat 仅 echo；AIService/provider registry 已有。                    | **[已实现事实]** Cyber 当前能力明显更完整；Athena roadmap 明确未完成 cognition：`docs/06-progress-and-roadmap.md:231-254`。 |
+| Memory     | SQLite social memory、reflection、global/local person profile、facts。     | Life 的 `MemoryStub` in-memory，持久化未做。                               | **[已实现事实]** 见 Cyber `src/memory-v2/memory-v2.ts:204-227`；Athena `plugins/life/src/life.ts:4-33`。                    |
+| 行动       | Sandbox CodeAct → host-call → adapter；callback + outbound re-ingestion。  | `ctx.message.createMessage()` 可用，当前 chat Cortex echo。                | **[已实现事实]** Athena output seam 正确但 tool/action framework 未实现。                                                   |
+| 主动性     | attention signals、reflection, reminders/cron、proactive idle/dreaming。   | target has Chat/World/Interlude Cortex; latter two未实现。                 | **[已实现事实]** Cyber 已积累机制；Athena 的多形态设计仍是 roadmap。                                                        |
+| 扩展       | adapter interface、skills/MCP/config；central bootstrap owns composition。 | Cordis managed plugin tree、Capability/Cortex/Nerve package roles。        | **[评价]** Athena 更适合 ecosystem-level composition；Cyber 更适合 product-level feature delivery。                         |
 
 ### 9.2 Athena 已明显领先
 
@@ -244,13 +244,13 @@ TelegramAdapter.messageHandler
 
 ### 9.7 可能误导的表面相似点
 
-| 表面相似 | 为什么不等价 |
-| --- | --- |
-| Cyber 的 per-chat `GroupSubagent` 与 Athena 的 Life group 都有独立状态。 | Cyber 的 owner 是一个 chat route；Athena 的 owner 是一个跨 Nerve/Cortex 保持身份连续的 Life。`chatId` 不是 Life ID。 |
-| Cyber 的 global Meta 看似 Athena Cortex。 | Meta 是 central cross-group dispatcher；Cortex 是一个 Life 的完整生存策略，可能 reactive、continuous 或 narrative，未必有 global Meta。 |
-| Cyber platform adapter 与 Athena Nerve。 | adapter 是平台 SDK bridge；Nerve 是一条有 presence、sense 和 act 的 Life-world 双向通道，并通过 Capability 反转依赖。 |
-| Cyber `persona` 与 Athena Life persona。 | Cyber persona 是 application config 注入 prompt；Athena persona 是 Life identity 的组成，但当前实现仍待 durable lifecycle。 |
-| Cyber reflection 与 Athena self-model。 | Cyber reflection主要更新人、群、事实和行为提示；Athena self-model 是实体自身可演化状态，二者只能部分重叠。 |
+| 表面相似                                                                 | 为什么不等价                                                                                                                            |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Cyber 的 per-chat `GroupSubagent` 与 Athena 的 Life group 都有独立状态。 | Cyber 的 owner 是一个 chat route；Athena 的 owner 是一个跨 Nerve/Cortex 保持身份连续的 Life。`chatId` 不是 Life ID。                    |
+| Cyber 的 global Meta 看似 Athena Cortex。                                | Meta 是 central cross-group dispatcher；Cortex 是一个 Life 的完整生存策略，可能 reactive、continuous 或 narrative，未必有 global Meta。 |
+| Cyber platform adapter 与 Athena Nerve。                                 | adapter 是平台 SDK bridge；Nerve 是一条有 presence、sense 和 act 的 Life-world 双向通道，并通过 Capability 反转依赖。                   |
+| Cyber `persona` 与 Athena Life persona。                                 | Cyber persona 是 application config 注入 prompt；Athena persona 是 Life identity 的组成，但当前实现仍待 durable lifecycle。             |
+| Cyber reflection 与 Athena self-model。                                  | Cyber reflection主要更新人、群、事实和行为提示；Athena self-model 是实体自身可演化状态，二者只能部分重叠。                              |
 
 ---
 

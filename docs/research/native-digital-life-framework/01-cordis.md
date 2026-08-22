@@ -14,19 +14,19 @@
 
 ## 关键结论与证据索引
 
-| # | 结论及标签 | 主要证据（路径 / symbol / 行） |
-| --- | --- | --- |
-| 1 | **[已实现事实]** 根 `Context` 构造一个代理根、root Fiber、`ReflectService`、`RegistryService`、事件与 logger；子 scope 用原型链 `extend()` 创建。 | `references/cordis/packages/core/src/context.ts`：`Context.constructor` L36–48，`Context.extend` L55–63。 |
-| 2 | **[已实现事实]** `Service` 构造阶段立即通过 `reflect.provide(name, self)` 把实例绑定到 Service key；该 registration 归入当前 Fiber。 | `references/cordis/packages/core/src/service.ts`：`Service.constructor` L18–35；`reflect.ts`：`ReflectService.provide` L175–203。 |
-| 3 | **[已实现事实]** `inject` 不满足时 Fiber 进入非激活状态；服务出现/消失会 notify 依赖 Fiber，并触发 unload/reload。 | `references/cordis/packages/core/src/reflect.ts`：`notify` L205–227；`fiber.ts`：`Fiber._refresh` L385–397、`_setEpoch` L399–413、`_reload` L415–435。 |
-| 4 | **[已实现事实]** 插件 application 是 `RegistryService.plugin → new Fiber → callback/constructor → [Service.init]`；`inject` 是一个插件 Fiber，不是另造的依赖容器。 | `registry.ts`：`RegistryService.inject` L189–191、`plugin` L193–213；`fiber.ts`：constructor L122–199、runner `execute` L146–162。 |
-| 5 | **[已实现事实]** 生命周期资源统一通过 `fiber.effect()` 收集；子资源以注册逆序 release；Fiber unload 会处理每个 disposer 并记录错误。 | `fiber.ts`：`effect` L275–340、`_unload` L437–458。 |
-| 6 | **[已实现事实]** isolate 为 Context 的某个 Service name 换 Symbol，影响 `provide/get` store key；而 accessor/mixin 使用全局字符串 `props`，不随 isolate 多实例化。 | `context.ts`：`isolate` L65–69；`reflect.ts`：`store/props` L135–148、`provide` L175–203、`accessor/mixin` L229–265。 |
-| 7 | **[已实现事实]** loader 维护可递归的 `EntryTree`，按 entry 动态 import 模块并创建 Fiber；entry 更新、禁用、删除会 dispose/reload 对应 Fiber。 | `loader/src/config/tree.ts`：`EntryTree` L6–122；`entry.ts`：`Entry.update` L100–134、`_init` L158–172；`group.ts`：L47–87。 |
-| 8 | **[已实现事实]** loader isolate 支持 entry-local (`true`) 和 label-shared realm；变更 isolate map 后尝试平移 service impl 并 notify 受影响依赖。 | `loader/src/config/isolate.ts`：`Realm` L25–65，默认 `isolate()` L67–149。 |
-| 9 | **[已实现事实]** Athena 已将 `Life`/`Cortex` 的 one-per-Life 生命周期与 Cordis Service/Fiber 连接，且实际 `cortex-chat` 通过 required `life,message` token 激活。 | `packages/protocol/src/cortex.ts`：`Cortex.[Service.init]` L3–13；`plugins/life/src/life.ts`：`Life.bind` L21–46；`plugins/cortex-chat/src/index.ts` L15–44。 |
-| 10 | **[已实现事实]** Athena 的 `MessageService` 已利用 Cordis isolate 与 `[Context.filter]` 限制 Satori session 的投递 scope；`ctx.satori` 在 group 内由 sibling adapter 共享。 | `plugins/capability-message/src/index.ts`：`MessageService.constructor` L28–69；`docs/02-architecture.md` §3.1 L203–211、§4.1 L215–224。 |
-| 11 | **[已实现事实]** Athena 的 AI provider 插件已用 `inject:['ai']` 与 `ctx.effect()` 注册/注销 provider；但 LLM 尚未接入 Cortex。 | `plugins/provider-openai/src/index.ts` L6–32；`docs/06-progress-and-roadmap.md` L59–68、L231–245。 |
+| #   | 结论及标签                                                                                                                                                                  | 主要证据（路径 / symbol / 行）                                                                                                                                |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **[已实现事实]** 根 `Context` 构造一个代理根、root Fiber、`ReflectService`、`RegistryService`、事件与 logger；子 scope 用原型链 `extend()` 创建。                           | `references/cordis/packages/core/src/context.ts`：`Context.constructor` L36–48，`Context.extend` L55–63。                                                     |
+| 2   | **[已实现事实]** `Service` 构造阶段立即通过 `reflect.provide(name, self)` 把实例绑定到 Service key；该 registration 归入当前 Fiber。                                        | `references/cordis/packages/core/src/service.ts`：`Service.constructor` L18–35；`reflect.ts`：`ReflectService.provide` L175–203。                             |
+| 3   | **[已实现事实]** `inject` 不满足时 Fiber 进入非激活状态；服务出现/消失会 notify 依赖 Fiber，并触发 unload/reload。                                                          | `references/cordis/packages/core/src/reflect.ts`：`notify` L205–227；`fiber.ts`：`Fiber._refresh` L385–397、`_setEpoch` L399–413、`_reload` L415–435。        |
+| 4   | **[已实现事实]** 插件 application 是 `RegistryService.plugin → new Fiber → callback/constructor → [Service.init]`；`inject` 是一个插件 Fiber，不是另造的依赖容器。          | `registry.ts`：`RegistryService.inject` L189–191、`plugin` L193–213；`fiber.ts`：constructor L122–199、runner `execute` L146–162。                            |
+| 5   | **[已实现事实]** 生命周期资源统一通过 `fiber.effect()` 收集；子资源以注册逆序 release；Fiber unload 会处理每个 disposer 并记录错误。                                        | `fiber.ts`：`effect` L275–340、`_unload` L437–458。                                                                                                           |
+| 6   | **[已实现事实]** isolate 为 Context 的某个 Service name 换 Symbol，影响 `provide/get` store key；而 accessor/mixin 使用全局字符串 `props`，不随 isolate 多实例化。          | `context.ts`：`isolate` L65–69；`reflect.ts`：`store/props` L135–148、`provide` L175–203、`accessor/mixin` L229–265。                                         |
+| 7   | **[已实现事实]** loader 维护可递归的 `EntryTree`，按 entry 动态 import 模块并创建 Fiber；entry 更新、禁用、删除会 dispose/reload 对应 Fiber。                               | `loader/src/config/tree.ts`：`EntryTree` L6–122；`entry.ts`：`Entry.update` L100–134、`_init` L158–172；`group.ts`：L47–87。                                  |
+| 8   | **[已实现事实]** loader isolate 支持 entry-local (`true`) 和 label-shared realm；变更 isolate map 后尝试平移 service impl 并 notify 受影响依赖。                            | `loader/src/config/isolate.ts`：`Realm` L25–65，默认 `isolate()` L67–149。                                                                                    |
+| 9   | **[已实现事实]** Athena 已将 `Life`/`Cortex` 的 one-per-Life 生命周期与 Cordis Service/Fiber 连接，且实际 `cortex-chat` 通过 required `life,message` token 激活。           | `packages/protocol/src/cortex.ts`：`Cortex.[Service.init]` L3–13；`plugins/life/src/life.ts`：`Life.bind` L21–46；`plugins/cortex-chat/src/index.ts` L15–44。 |
+| 10  | **[已实现事实]** Athena 的 `MessageService` 已利用 Cordis isolate 与 `[Context.filter]` 限制 Satori session 的投递 scope；`ctx.satori` 在 group 内由 sibling adapter 共享。 | `plugins/capability-message/src/index.ts`：`MessageService.constructor` L28–69；`docs/02-architecture.md` §3.1 L203–211、§4.1 L215–224。                      |
+| 11  | **[已实现事实]** Athena 的 AI provider 插件已用 `inject:['ai']` 与 `ctx.effect()` 注册/注销 provider；但 LLM 尚未接入 Cortex。                                              | `plugins/provider-openai/src/index.ts` L6–32；`docs/06-progress-and-roadmap.md` L59–68、L231–245。                                                            |
 
 ---
 
@@ -198,15 +198,15 @@ flowchart LR
 
 ## 8. 工程质量与风险
 
-| 风险 | 事实边界与证据 | 对 Athena 的含义 |
-| --- | --- | --- |
-| Service key 冲突 | **[已实现事实]** 同 Symbol store slot 的第二次 `provide` 抛错；`reflect.ts` L175–191。 | 多 Life 必须 isolate 每个 per-Life key；`life/cortex/message/satori` 当前已有该设计。 |
-| 全局 accessor/mixin 冲突 | **[已实现事实]** `props` 是 root string dictionary，`accessor()` 重名即抛；`reflect.ts` L135–148、L229–265。 | 不要将三方 `mixin()` 视作 isolate-safe；Athena 已 patch Satori 并在经验文档中禁止该模式。 |
-| Proxy identity / `this.ctx` 重绑定 | **[已实现事实]** Reflect 将返回值 trace 到 receiver Context；`reflect.ts` L67–98、L267–280。**[已实现事实]** Athena 实际为 MessageService 保存 `_self` 并 unwrap `cordis.original`，避免读错 Satori domain。`plugins/capability-message/src/index.ts` L13–24、L31–74。 | 禁止以 `===` 比 service proxy；需要构造 scope 时保留原 Context；具体模式已在 Athena 文档登记。 |
-| 异步工作并发 | **[已实现事实]** event `emit()` 不 await；`events.ts` L96–99。 | 每个 Cortex 负责 locks/queues/cancellation；不要从 DI lifecycle 外推 execution serialization。 |
-| reload 与领域连续性 | **[已实现事实]** loader 可 dispose/update/reload Fiber；`entry.ts` L100–172，`fiber.ts` L399–458。 | reload 只能回收资源，不能保存 in-memory Memory / cognition buffer；更新 Cortex 不能宣称无缝热切换。 |
-| 错误可见性 | **[已实现事实]** Fiber 将 execute/unload error 打 logger；`fiber.ts` L421–425、L437–458。 | logger 是底层诊断而非 digital-life Execution Record；Athena 的 Execution Record 仍未设计。`docs/06-progress-and-roadmap.md` L66–68。 |
-| 进程/安全隔离误用 | **[代码推断]** isolate 的实现在共享 `ReflectService.store` 与 Symbol map 上换 key；`context.ts` L65–69，`reflect.ts` L135–203。 | isolate 不隔离 secret、CPU、network 或 malicious plugin；未来多租户/不可信 Nerve 应另选进程/worker/permission boundary。 |
+| 风险                               | 事实边界与证据                                                                                                                                                                                                                                                         | 对 Athena 的含义                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Service key 冲突                   | **[已实现事实]** 同 Symbol store slot 的第二次 `provide` 抛错；`reflect.ts` L175–191。                                                                                                                                                                                 | 多 Life 必须 isolate 每个 per-Life key；`life/cortex/message/satori` 当前已有该设计。                                                |
+| 全局 accessor/mixin 冲突           | **[已实现事实]** `props` 是 root string dictionary，`accessor()` 重名即抛；`reflect.ts` L135–148、L229–265。                                                                                                                                                           | 不要将三方 `mixin()` 视作 isolate-safe；Athena 已 patch Satori 并在经验文档中禁止该模式。                                            |
+| Proxy identity / `this.ctx` 重绑定 | **[已实现事实]** Reflect 将返回值 trace 到 receiver Context；`reflect.ts` L67–98、L267–280。**[已实现事实]** Athena 实际为 MessageService 保存 `_self` 并 unwrap `cordis.original`，避免读错 Satori domain。`plugins/capability-message/src/index.ts` L13–24、L31–74。 | 禁止以 `===` 比 service proxy；需要构造 scope 时保留原 Context；具体模式已在 Athena 文档登记。                                       |
+| 异步工作并发                       | **[已实现事实]** event `emit()` 不 await；`events.ts` L96–99。                                                                                                                                                                                                         | 每个 Cortex 负责 locks/queues/cancellation；不要从 DI lifecycle 外推 execution serialization。                                       |
+| reload 与领域连续性                | **[已实现事实]** loader 可 dispose/update/reload Fiber；`entry.ts` L100–172，`fiber.ts` L399–458。                                                                                                                                                                     | reload 只能回收资源，不能保存 in-memory Memory / cognition buffer；更新 Cortex 不能宣称无缝热切换。                                  |
+| 错误可见性                         | **[已实现事实]** Fiber 将 execute/unload error 打 logger；`fiber.ts` L421–425、L437–458。                                                                                                                                                                              | logger 是底层诊断而非 digital-life Execution Record；Athena 的 Execution Record 仍未设计。`docs/06-progress-and-roadmap.md` L66–68。 |
+| 进程/安全隔离误用                  | **[代码推断]** isolate 的实现在共享 `ReflectService.store` 与 Symbol map 上换 key；`context.ts` L65–69，`reflect.ts` L135–203。                                                                                                                                        | isolate 不隔离 secret、CPU、network 或 malicious plugin；未来多租户/不可信 Nerve 应另选进程/worker/permission boundary。             |
 
 ---
 
@@ -214,16 +214,16 @@ flowchart LR
 
 ### 逐项矩阵
 
-| 维度 | Cordis 已实现事实 | Athena 已实现事实 | 差距 / 结论 |
-| --- | --- | --- | --- |
-| 组织原则 | 通用 Context + Service/Fiber composition。 | Life/Cortex/Nerve 作为领域三原语，Cordis 为 Layer 0。 | Athena 增加了 Cordis 有意不承担的数字生命语义。 |
-| 世界接口 | Generic events 与 plugin Service，不偏爱 IM。 | Message capability 已封装 Satori；Sandbox Nerve 已跑通。 | 方向一致；非 IM Nerve 尚未实现。 |
-| 状态 | Scope、service store、config intercept；无 persistence semantics。 | Life persona + in-memory MemoryStub + one-Cortex binding。 | persistent Memory/self-model 未完成。 |
-| LLM | 不负责。 | AIService/provider 已完成，Cortex LLM loop 未完成。 | 保持分层，勿把 cognition 下沉 Cordis。 |
-| 行动闭环 | 无 domain action/ack 语义。 | chat createMessage、Sandbox request/dispatch 有部分闭环。 | tool/action result protocol 待定义。 |
+| 维度     | Cordis 已实现事实                                                    | Athena 已实现事实                                                                | 差距 / 结论                                              |
+| -------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 组织原则 | 通用 Context + Service/Fiber composition。                           | Life/Cortex/Nerve 作为领域三原语，Cordis 为 Layer 0。                            | Athena 增加了 Cordis 有意不承担的数字生命语义。          |
+| 世界接口 | Generic events 与 plugin Service，不偏爱 IM。                        | Message capability 已封装 Satori；Sandbox Nerve 已跑通。                         | 方向一致；非 IM Nerve 尚未实现。                         |
+| 状态     | Scope、service store、config intercept；无 persistence semantics。   | Life persona + in-memory MemoryStub + one-Cortex binding。                       | persistent Memory/self-model 未完成。                    |
+| LLM      | 不负责。                                                             | AIService/provider 已完成，Cortex LLM loop 未完成。                              | 保持分层，勿把 cognition 下沉 Cordis。                   |
+| 行动闭环 | 无 domain action/ack 语义。                                          | chat createMessage、Sandbox request/dispatch 有部分闭环。                        | tool/action result protocol 待定义。                     |
 | 生命周期 | Fiber activation/reload/disposal、dependency-driven auto lifecycle。 | Cortex bind disposer、provider unregister、Sandbox resource cleanup 已实际使用。 | Cortex long-running resources 与 graceful drain 待实施。 |
-| 扩展 | loader tree、group、inject/provide、local/shared isolate。 | capability token、per-Life group、reusable providers 已使用。 | tools、non-IM capability、instance workflow 待完成。 |
-| 可靠性 | Fiber-level error logging/reload；无 product SLO/telemetry。 | handler try/catch；Execution Record 未设计。 | 需 Athena-level observability / failure semantics。 |
+| 扩展     | loader tree、group、inject/provide、local/shared isolate。           | capability token、per-Life group、reusable providers 已使用。                    | tools、non-IM capability、instance workflow 待完成。     |
+| 可靠性   | Fiber-level error logging/reload；无 product SLO/telemetry。         | handler try/catch；Execution Record 未设计。                                     | 需 Athena-level observability / failure semantics。      |
 
 ### Athena 已明显领先
 
@@ -261,14 +261,14 @@ flowchart LR
 
 ### 可能误导的表面相似点
 
-| 表面相似点 | 为什么误导 | 正确判读 |
-| --- | --- | --- |
+| 表面相似点                                               | 为什么误导                                                              | 正确判读                                                             |
+| -------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | Cordis `Context` 与 Athena Life group 都可 scope service | Context scope 只是 runtime visible dependency scope，不等于身份持续性。 | group 是 Life 部署边界；identity persistence 仍须 Life/Memory 实现。 |
-| `Service.init` 与 Cortex “启动” | 前者是 Fiber effect hook，后者是数字生命认知策略的开始。 | 用前者管理后者资源，但不要把 Cortex 语义放进 generic lifecycle。 |
-| loader HMR 与“Cortex 热切换” | Fiber reload 不迁移 cognition state。 | Cortex 替换遵循显式 stop/start 与 Life continuity。 |
-| `serial` event 与“消息按顺序思考” | `serial` 仅序列化一轮 listener dispatch。 | Chat/World/Interlude 自己定义跨事件 queue/lock。 |
-| isolate 与多租户隔离 | isolate 只换 Service key Symbol。 | untrusted code、credential、CPU、network 另建安全隔离。 |
-| `cordis.service` metadata 与运行时依赖契约 | 实际 activation 看 JS `inject` 和 provided service。 | metadata 用于 ecosystem discovery/UI；测试真实 `inject` 行为。 |
+| `Service.init` 与 Cortex “启动”                          | 前者是 Fiber effect hook，后者是数字生命认知策略的开始。                | 用前者管理后者资源，但不要把 Cortex 语义放进 generic lifecycle。     |
+| loader HMR 与“Cortex 热切换”                             | Fiber reload 不迁移 cognition state。                                   | Cortex 替换遵循显式 stop/start 与 Life continuity。                  |
+| `serial` event 与“消息按顺序思考”                        | `serial` 仅序列化一轮 listener dispatch。                               | Chat/World/Interlude 自己定义跨事件 queue/lock。                     |
+| isolate 与多租户隔离                                     | isolate 只换 Service key Symbol。                                       | untrusted code、credential、CPU、network 另建安全隔离。              |
+| `cordis.service` metadata 与运行时依赖契约               | 实际 activation 看 JS `inject` 和 provided service。                    | metadata 用于 ecosystem discovery/UI；测试真实 `inject` 行为。       |
 
 ---
 

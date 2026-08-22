@@ -17,10 +17,14 @@ declare module "cordis" {
  */
 const ORIGINAL = Symbol.for("cordis.original");
 
+type Traced<T extends object> = T & { [key: symbol]: T | undefined };
+
 /** Unwrap a cordis traced proxy, returning the object itself if untraced. */
 function unwrap<T extends object>(value: T | undefined): T | undefined {
   if (!value) return value;
-  return ((value as Dict)[ORIGINAL as unknown as string] as T) ?? value;
+  // SAFETY: cordis traced proxies expose the underlying object under Symbol.for("cordis.original").
+  const traced = value as Traced<T>;
+  return traced[ORIGINAL] ?? value;
 }
 
 export interface Config {}
@@ -57,8 +61,8 @@ export default class MessageService extends Service<Config> {
     // context that owns the bot. Comparing against it would make every
     // instance claim every session (last writer wins). Unwrap to the original
     // object first so we read the bot's real context.
-    const messageSymbol = ctx[Context.isolate]["message"] as symbol;
-    const satoriSymbol = ctx[Context.isolate]["satori"] as symbol;
+    const messageSymbol = ctx[Context.isolate]["message"];
+    const satoriSymbol = ctx[Context.isolate]["satori"];
     ctx.on("internal/session", (session: Session) => {
       const bot = unwrap(session.bot);
       if (!bot || bot.ctx[Context.isolate]["satori"] !== satoriSymbol) return;
@@ -70,7 +74,7 @@ export default class MessageService extends Service<Config> {
 
   /** Bots registry — proxy to the Satori bots of this isolation domain */
   get bots(): Bot[] & Dict<Bot> {
-    return this._self.get("satori")?.bots ?? ([] as unknown as Bot[] & Dict<Bot>);
+    return this._self.get("satori")?.bots ?? Object.assign<Bot[], Dict<Bot>>([], {});
   }
 
   /** Send a message (creates message objects) */

@@ -1,6 +1,22 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["lib", "dist", "node_modules", ".specify", ".omp", ".agents", "vendor"],
+  "ignorePatterns": [
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".pi/**",
+    ".omp/**",
+    ".specify/**",
+    "tools/oxlint/anti-slop/**",
+    "**/dist/**",
+    "**/lib/**",
+    "**/node_modules/**",
+    "legacy/**",
+    "vendor/**"
+  ],
   "sortImports": {
     "newlinesBetween": true
   },

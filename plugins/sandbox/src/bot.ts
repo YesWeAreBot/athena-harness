@@ -1,5 +1,5 @@
-import type { MessageSink } from "@athena-ai/protocol";
-import { Bot, MessageEncoder, Time, Universal } from "@satorijs/core";
+import type { JsonValue, MessageSink, SandboxRequestPayload } from "@athena-ai/protocol";
+import { Bot, Time, Universal } from "@satorijs/core";
 import type { Context } from "cordis";
 
 import { SandboxMessenger } from "./message";
@@ -23,7 +23,7 @@ export namespace SandboxBot {
 }
 
 interface Pending {
-  settle: (data: unknown) => void;
+  settle: (data: JsonValue) => void;
   fail: (error: Error) => void;
   timer: NodeJS.Timeout;
 }
@@ -37,15 +37,22 @@ export const REQUEST_TIMEOUT = Time.second * 5;
  * Outgoing messages are pushed over the WebUI socket; every Satori read API is
  * proxied to the page as a `sandbox/request` frame and correlated back by nonce.
  */
-export class SandboxBot extends Bot<SandboxBot.Config> {
-  static inject = ["satori"];
-  static MessageEncoder = SandboxMessenger as unknown as new (
+class SandboxMessageEncoder extends SandboxMessenger {
+  constructor(
     bot: Bot,
     channelId: string,
-    referrer?: unknown,
-    options?: Universal.SendOptions,
-  ) => MessageEncoder;
+    referrer?: ConstructorParameters<NonNullable<typeof Bot.MessageEncoder>>[2],
+    options?: ConstructorParameters<NonNullable<typeof Bot.MessageEncoder>>[3],
+  ) {
+    // SAFETY: Satori invokes this constructor only from SandboxBot.send(), so the Bot instance is the SandboxBot
+    // that owns this encoder; the base static type is intentionally broader than the concrete messenger needs.
+    super(bot as SandboxBot, channelId, referrer, options);
+  }
+}
 
+export class SandboxBot extends Bot<SandboxBot.Config> {
+  static inject = ["satori"];
+  static MessageEncoder = SandboxMessageEncoder;
   hidden = true;
 
   private _pending = new Map<string, Pending>();
@@ -74,7 +81,7 @@ export class SandboxBot extends Bot<SandboxBot.Config> {
   }
 
   /** Resolve a pending `sandbox/request` with the payload echoed by the page. */
-  settle(nonce: string, data: unknown) {
+  settle(nonce: string, data: JsonValue): void {
     const pending = this._pending.get(nonce);
     if (!pending) return;
     this._pending.delete(nonce);
@@ -82,18 +89,17 @@ export class SandboxBot extends Bot<SandboxBot.Config> {
     pending.settle(data);
   }
 
-  async request<T>(method: string, data: Record<string, unknown> = {}): Promise<T> {
+  async request<T>(method: string, payload: SandboxRequestPayload = {}): Promise<T> {
     const nonce = Math.random().toString(36).slice(2);
-    const result = await new Promise<unknown>((resolve, reject) => {
+    const result = await new Promise<JsonValue>((resolve, reject) => {
       const timer = setTimeout(() => {
         this._pending.delete(nonce);
         reject(new Error(`sandbox request timed out: ${method}`));
       }, REQUEST_TIMEOUT);
       this._pending.set(nonce, { settle: resolve, fail: reject, timer });
-      this.config.sink.send({ type: "sandbox/request", body: { method, data, nonce } });
+      this.config.sink.send({ type: "sandbox/request", body: { method, data: payload, nonce } });
     });
-    // Library boundary: the page implements the Satori read APIs and there is
-    // no schema to validate its replies against, so trust the protocol shape.
+    // SAFETY: T is chosen by the caller from the Satori method contract, and the browser returns that method's JSON result.
     return result as T;
   }
 
