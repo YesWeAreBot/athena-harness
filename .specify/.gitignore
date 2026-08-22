@@ -7,3 +7,5 @@ feature.json
 
 # Per-machine extension config overrides.
 extensions/*/local-config.yml
+
+__pycache__
