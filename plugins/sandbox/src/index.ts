@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { extname } from "node:path";
+import path from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
@@ -74,6 +74,19 @@ const DELETE_PREFIX = "__delete:";
  * the frame names. That keeps one sandbox page able to drive many Lives
  * without their Satori domains colliding.
  */
+
+/** Build a sink that stamps `lifeId` on every frame the Nerve emits, so the page can route replies back to the right conversation. */
+function buildSandboxSink(client: Client, lifeId: string): MessageSink {
+  return {
+    send: (frame) => {
+      // SAFETY: frame.body comes from this Hub's own frame construction and is always an object.
+      client.send({
+        type: frame.type,
+        body: { ...(frame.body as JsonObject), lifeId },
+      } as never);
+    },
+  };
+}
 export default class SandboxHub extends Service<Config> implements SandboxHubService {
   public static readonly name = "sandbox";
   public static readonly inject = ["webui"];
@@ -156,19 +169,7 @@ export default class SandboxHub extends Service<Config> implements SandboxHubSer
       );
     };
 
-    /**
-     * Build a sink that stamps `lifeId` on every frame the Nerve emits, so the
-     * page can route replies back to the right conversation.
-     */
-    const sinkFor = (client: Client, lifeId: string): MessageSink => ({
-      send: (frame) => {
-        // SAFETY: frame.body comes from this Hub's own frame construction and is always an object.
-        client.send({
-          type: frame.type,
-          body: { ...(frame.body as JsonObject), lifeId },
-        } as never);
-      },
-    });
+    const sinkFor = buildSandboxSink;
 
     const nerveFor = (lifeId: string): SandboxNerveHandle => {
       const nerve = self._nerves.get(lifeId);
@@ -279,7 +280,7 @@ export default class SandboxHub extends Service<Config> implements SandboxHubSer
           res.text("expected a `file:` url");
           return;
         }
-        res.headers.set("content-type", MIME_TYPES.get(extname(url).toLowerCase()) ?? "application/octet-stream");
+        res.headers.set("content-type", MIME_TYPES.get(path.extname(url).toLowerCase()) ?? "application/octet-stream");
         // SAFETY: Node's Readable.toWeb returns a ReadableStream<any>; this stream emits file bytes.
         res.body = Readable.toWeb(createReadStream(fileURLToPath(url))) as ReadableStream<Uint8Array>;
       });

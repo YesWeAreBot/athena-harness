@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolve as resolvePath } from "node:path";
+import path from "node:path";
 
 import { parse as parseYaml } from "yaml";
 
@@ -52,7 +52,7 @@ export function emptyModelsConfig(): ModelsConfig {
  */
 export function loadModelsConfig(configPath?: string): ModelsConfigLoadResult {
   const warnings: string[] = [];
-  const filePath = resolvePath(configPath ?? DEFAULT_CONFIG_PATH);
+  const filePath = path.resolve(configPath ?? DEFAULT_CONFIG_PATH);
 
   if (!existsSync(filePath)) {
     if (configPath !== undefined) throw new Error(`Models config not found: ${filePath}`);

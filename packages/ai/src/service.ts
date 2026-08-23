@@ -409,6 +409,8 @@ export class AIService extends Service<AIServiceConfig> {
         wrapped = provider.rerankingModel(modelId);
         break;
       }
+      default:
+        throw new Error(`Unknown model type: ${type satisfies never}`);
     }
     // SAFETY: The switch exhaustively dispatches on type, so wrapped matches ModelTypeMap[T].
     return wrapped as ModelTypeMap[T];

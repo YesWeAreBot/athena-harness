@@ -1,5 +1,5 @@
 import { SandboxBot, SELF_ID } from "@athena-ai/plugin-sandbox";
-import type { JsonValue, MessageSink, SandboxDispatchPayload, SandboxNerveHandle, SandboxRequestPayload } from "@athena-ai/protocol";
+import type { JsonValue, MessageSink, SandboxDispatchPayload, SandboxRequestPayload } from "@athena-ai/protocol";
 import { Dict, Universal } from "@satorijs/core";
 import type { Context, Fiber } from "cordis";
 
@@ -163,5 +163,3 @@ export default class SandboxNerve {
 
 /** Marker the Hub uses to tunnel retractions through `dispatch`. */
 const DELETE_PREFIX = "__delete:";
-
-export type { SandboxNerveHandle };
