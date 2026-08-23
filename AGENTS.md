@@ -211,29 +211,6 @@ docs/          本文档体系
 
 ---
 
-## 当前状态（2026-08-21 核验）
-
-|           | 状态                                                                                                                                                                                                                                                                                      |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ 完成   | `core`、`protocol`、`ai`（AIService）、`plugin-life`、`plugin-capability-message`、`plugin-sandbox`、`plugin-sandbox-nerve`、`plugin-provider-openai`、`plugin-provider-deepseek`、`plugin-provider-anthropic`、`plugin-provider-google`；Satori vendoring + mixin 补丁；多 Life 隔离机制 |
-| 🔸 部分   | `plugin-cortex-chat`（仅 echo 骨架，尚未接 AI SDK）                                                                                                                                                                                                                                       |
-| ❌ 未开始 | `ctx.tools`、Hook Protocol 契约、Cortex 侧 AI SDK 集成、Memory 持久化、Persona 文件加载、`cortex-world` / `cortex-interlude`、非 IM capability                                                                                                                                            |
-| 测试      | `npx vitest run` → 13 文件 121 用例全绿                                                                                                                                                                                                                                                   |
-
-### Roadmap 顺序（已确认）
-
-```
-Phase 2-A  AI 基础设施   → ✅ AIService + provider 插件 ｜ ⬜ ctx.tools
-Phase 2-B  Hook 契约     → protocol 中声明五个 hook + 参考插件验证
-Phase 2-C  cortex-chat   → willingness + 缓冲 + generateText tool-loop + Layer 2 tools
-Phase 3    完整数字生命  → Memory 持久化 + Persona 文件 + Instance 工作流 + 真实 IM
-Phase 4    多形态扩展    → cortex-world + capability-minecraft + cortex-interlude
-```
-
-细节与验收标准见 `docs/06-progress-and-roadmap.md` §4。
-
----
-
 ## 工作方式
 
 ### 动手前
@@ -252,12 +229,12 @@ Phase 4    多形态扩展    → cortex-world + capability-minecraft + cortex-i
 
 ### 参考代码（只读）
 
-| 路径                                       | 用途                                   |
-| ------------------------------------------ | -------------------------------------- |
-| `references/cordis`                        | Cordis v4-beta 源码 —— 核验 API 与陷阱 |
-| `references/satori`                        | Satori v5 main —— 对比我们的补丁       |
-| `references/satori-v4`                     | Satori v4 stable —— 对比 API 演进      |
-| `YesImBot/node_modules/@koishijs/core/src` | Koishi 核心 —— 学教训，**不照搬架构**  |
+| 路径                   | 用途                                   |
+| ---------------------- | -------------------------------------- |
+| `references/cordis`    | Cordis v4-beta 源码 —— 核验 API 与陷阱 |
+| `references/satori`    | Satori v5 main —— 对比我们的补丁       |
+| `references/satori-v4` | Satori v4 stable —— 对比 API 演进      |
+| `references/koishi`    | Koishi 核心 —— 学教训，**不照搬架构**  |
 
 读参考代码时区分三类结论：**(a) 值得复用的模式**、**(b) 刻意不采纳的做法及原因**、**(c) 踩过的坑**。
 
@@ -265,15 +242,15 @@ Phase 4    多形态扩展    → cortex-world + capability-minecraft + cortex-i
 
 以下改动**必须**同步更新：
 
-| 改动                            | 更新                                                                                                   |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 新增/移除 package               | `docs/02-architecture.md` §2、`docs/06-progress-and-roadmap.md` §1                                     |
-| 新增 Service / capability token | `docs/02-architecture.md` §6.1、`docs/04-patterns-and-recipes.md`                                      |
-| 修改 vendored 代码              | `docs/02-architecture.md` §11.3、`docs/05-lessons-learned.md`                                          |
-| 踩到新坑并解决                  | `docs/05-lessons-learned.md`（含速查表 §13）                                                           |
-| 完成 roadmap 项                 | `docs/06-progress-and-roadmap.md` §4 勾选 + §1 矩阵                                                    |
-| 修复缺陷                        | `docs/06-progress-and-roadmap.md` §3 移除                                                              |
-| 新的设计决策                    | `.specify/specs/` + `docs/appendix/C-decision-index.md`（从 `D-37` / `M-31` 续号，跳过 `D-24`/`D-25`） |
+| 改动                            | 更新                                                               |
+| ------------------------------- | ------------------------------------------------------------------ |
+| 新增/移除 package               | `docs/02-architecture.md` §2、`docs/06-progress-and-roadmap.md` §1 |
+| 新增 Service / capability token | `docs/02-architecture.md` §6.1、`docs/04-patterns-and-recipes.md`  |
+| 修改 vendored 代码              | `docs/02-architecture.md` §11.3、`docs/05-lessons-learned.md`      |
+| 踩到新坑并解决                  | `docs/05-lessons-learned.md`（含速查表 §13）                       |
+| 完成 roadmap 项                 | `docs/06-progress-and-roadmap.md` §4 勾选 + §1 矩阵                |
+| 修复缺陷                        | `docs/06-progress-and-roadmap.md` §3 移除                          |
+| 新的设计决策                    | `.specify/specs/` + `docs/appendix/C-decision-index.md`            |
 
 ### 沟通
 
