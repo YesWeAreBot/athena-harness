@@ -143,7 +143,7 @@ class TestNerve implements SandboxNerveHandle {
 }
 
 function createEvent(userId: string, channelId: string): Partial<Universal.Event> {
-  const isDirect = channelId === "@" + userId;
+  const isDirect = channelId === `@${userId}`;
   return {
     user: { id: userId, name: userId },
     channel: { id: channelId, type: isDirect ? Universal.Channel.Type.DIRECT : Universal.Channel.Type.TEXT },

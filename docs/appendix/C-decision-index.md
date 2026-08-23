@@ -266,7 +266,7 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 | ----------- | ------ | ------------------------------------------------------------------------------------------------------ |
 | 设计层      | 6      | Memory 基础设施形态、Self-model 表示、Cortex 契约接口规范、可观测性、退化测试形式化、Hook 载荷抽象层级 |
 | 工具模型    | 5      | Bot 归属强制、tool 描述动态化、`ctx.tools` hook、tool 命名空间、Layer 3 机制（D-08）                   |
-| 运行时/运维 | 5      | 多 Life 共享 Bot、adapter 热重载、vendor 维护流程、Cortex Preset 形态、`legacy/` 清理                  |
+| 运行时/运维 | 4      | 多 Life 共享 Bot、adapter 热重载、vendor 维护流程、Cortex Preset 形态                                  |
 
 ---
 

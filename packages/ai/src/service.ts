@@ -60,7 +60,7 @@ interface ProviderOptionsMap {
  * Mirrors the AI SDK's own `mergeObjects` so injected defaults behave exactly like
  * `defaultSettingsMiddleware` does against runtime parameters.
  */
-export function mergeSettings(...layers: (ModelSettings | undefined)[]): ModelSettings {
+export function mergeSettings(...layers: Array<ModelSettings | undefined>): ModelSettings {
   const result: MutableModelSettings = {};
   for (const layer of layers) {
     if (layer) merge(result, layer);

@@ -56,7 +56,7 @@ export interface SandboxConfig {
 }
 
 export const config = useStorage<SandboxConfig>("sandbox", 1.3, () => ({
-  platform: "sandbox:" + Math.random().toString(36).slice(2),
+  platform: `sandbox:${Math.random().toString(36).slice(2)}`,
   user: "",
   index: 0,
   selectedLife: "",
@@ -72,7 +72,7 @@ export function messageKey(lifeId: string, channelId: string): string {
 
 export const channel = computed(() => {
   if (config.value.panelType === "guild") return GUILD_CHANNEL;
-  return "@" + config.value.user;
+  return `@${config.value.user}`;
 });
 
 /** Current message key (lifeId + channel). */

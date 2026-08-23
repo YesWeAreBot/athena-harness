@@ -112,7 +112,7 @@ export default class SandboxHub extends Service<Config> implements SandboxHubSer
     };
   }
 
-  lives(): { id: string; meta: SandboxNerveHandle["meta"] }[] {
+  lives(): Array<{ id: string; meta: SandboxNerveHandle["meta"] }> {
     return [...this._nerves.entries()].map(([id, n]) => ({ id, meta: n.meta }));
   }
 

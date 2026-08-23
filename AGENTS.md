@@ -205,7 +205,6 @@ plugins/
   provider-google/     @athena-ai/plugin-provider-google    — 注册 AI SDK Google provider
   message-store/       @athena-ai/plugin-message-store      — 占位（src 只有 export {}）
 vendor/        satorijs/*（已打补丁）+ cordisjs/url-is-local
-legacy/        被取代的旧包（10 个），可忽略
 docs/          本文档体系
 .specify/specs/ 设计演进记录
 ```
@@ -281,6 +280,44 @@ Phase 4    多形态扩展    → cortex-world + capability-minecraft + cortex-i
 - 讨论用**中文**，技术术语保留**英文**（Life、Cortex、Nerve、Service、inject、isolate、Context、Session…）
 - 发现 spec 与代码冲突 → **明确指出**，以代码/用户指示为准
 - 触及硬约束或退化测试 → **先说明再动手**
+
+---
+
+## 长期记忆（retain / recall / reflect）
+
+Agent 拥有跨会话持久记忆，通过 `retain` / `recall` / `reflect` 三个工具维护。
+
+### 工具签名
+
+| 工具 | 用途 | 调用方式 |
+|------|------|----------|
+| `retain` | 存储持久事实 | `retain({ items: [{ content: "..." }, ...] })` |
+| `recall` | 检索相关记忆 | `recall({ query: "..." })` |
+| `reflect` | 跨记忆综合推理（调 LLM，慢） | `reflect({ query: "..." })` |
+
+### 规则
+
+- **恢复会话时先 `recall`**，不要问用户"我们上次做了什么"
+- **完成重要决策、发现新坑、确认架构变更后立即 `retain`**
+- `retain` 的 `items` **必须**使用对象格式 `{ content: string }`；纯字符串会被后端静默丢弃
+- 单次批量 25–30 条为宜，上限至少 50 条
+- 记忆异步索引，通常秒级可检索
+- `reflect` 内部调用 LLM 合成，可能超时（>30s）；优先用 `recall` 直接检索
+
+### 应当 retain 的内容
+
+- 项目架构决策与硬约束
+- 踩过的坑及解决方式
+- 当前实现状态变更（完成/废弃某模块）
+- 用户明确表达的偏好或约定
+- 跨会话需要延续的上下文
+
+### 不应 retain 的内容
+
+- 临时调试信息
+- 可从代码/文档直接获取的事实
+- 大段原始代码（用路径引用代替）
+
 
 <!-- CODEGRAPH_START -->
 

@@ -148,7 +148,7 @@ export default class SandboxNerve {
   }
 
   private _createEvent(userId: string, channelId: string): Partial<Universal.Event> {
-    const isDirect = channelId === "@" + userId;
+    const isDirect = channelId === `@${userId}`;
     return {
       user: { id: userId, name: userId },
       channel: {

@@ -4,7 +4,7 @@ import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNer
 
 describe("sandbox protocol types", () => {
   it("MessageSink is structurally valid", () => {
-    const frames: { type: string; body: unknown }[] = [];
+    const frames: Array<{ type: string; body: unknown }> = [];
     const sink: MessageSink = {
       send(frame) {
         frames.push(frame);

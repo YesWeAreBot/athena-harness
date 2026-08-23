@@ -83,7 +83,7 @@ export interface SandboxHubService {
    */
   register(lifeId: string, nerve: SandboxNerveHandle): () => void;
   /** List currently registered Lives. */
-  lives(): { id: string; meta: SandboxNerveHandle["meta"] }[];
+  lives(): Array<{ id: string; meta: SandboxNerveHandle["meta"] }>;
   /**
    * Base url of the Hub's file server, or `undefined` when it is disabled.
    * Nerves pass this to their bots so `file:` urls become fetchable links.

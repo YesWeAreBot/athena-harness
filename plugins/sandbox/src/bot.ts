@@ -106,7 +106,7 @@ export class SandboxBot extends Bot<SandboxBot.Config> {
   // -- Direct Channel --
 
   async createDirectChannel(userId: string): Promise<Universal.Channel> {
-    return { id: "@" + userId, type: Universal.Channel.Type.DIRECT };
+    return { id: `@${userId}`, type: Universal.Channel.Type.DIRECT };
   }
 
   // -- Message --

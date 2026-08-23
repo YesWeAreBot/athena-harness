@@ -90,13 +90,13 @@ function createUser() {
     config.value.index %= MAX_USERS;
   } while (users.value.includes(name));
   config.value.user = name;
-  const key = messageKey(config.value.selectedLife, "@" + name);
+  const key = messageKey(config.value.selectedLife, `@${name}`);
   config.value.messages[key] = [];
 }
 
 function removeUser(name: string) {
   const index = users.value.indexOf(name);
-  const key = messageKey(config.value.selectedLife, "@" + name);
+  const key = messageKey(config.value.selectedLife, `@${name}`);
   delete config.value.messages[key];
   if (config.value.user === name) {
     config.value.user = users.value[index] || "";

@@ -59,5 +59,5 @@ export interface ResponsePayload {
 
 /** `sandbox/life-list` — the Hub broadcasts the current Life registry. */
 export interface LifeListPayload {
-  lives: { id: string; name: string; description?: string }[];
+  lives: Array<{ id: string; name: string; description?: string }>;
 }

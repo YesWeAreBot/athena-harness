@@ -65,7 +65,7 @@ export const SETTING_KEYS = [
   "toolChoice",
   "headers",
   "providerOptions",
-] as const satisfies readonly Exclude<keyof ModelSettings, "tools">[];
+] as const satisfies ReadonlyArray<Exclude<keyof ModelSettings, "tools">>;
 
 /** Declarative knowledge about a model, used by a Cortex to pick between candidates. */
 export interface ModelMetadata {

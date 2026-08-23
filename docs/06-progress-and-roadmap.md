@@ -128,10 +128,6 @@
 
 **修复**：按 `plugins/provider-openai` 模板重建（约 30 行），然后删掉 `providers/`。
 
-### P2-1 · `legacy/` 未清理
-
-`legacy/` 含 10 个被取代的包（`harness-core`、`athena-runtime`、`agent`、`agent-loop`、`session`、`tools`、`prompt`、`persist-jsonl`、`onebot-body`）。已在 git 历史中保留，可考虑删除以减少 AI agent 与新贡献者的误读风险。
-
 ### P2-2 · `plugins/message-store` 是纯占位
 
 `src/index.ts` 只有 `export {}`，仅为让 tsc 有输入（否则 `yarn build` 报 "No inputs were found"）。package.json 仍带 satori 依赖。Phase 3 动它之前，它是死重量。
@@ -357,7 +353,6 @@
 | 13  | Adapter config 热重载：改配置后重启 adapter？利用 cordis HMR？ | capability-message      |
 | 14  | Satori v5 vendor 维护流程：如何追踪上游变更并选择性合并        | tech-selection          |
 | 15  | Cortex Preset（内部行为风格动态切换）的形态                    | naming-and-package D-19 |
-| 16  | `legacy/` 是否删除                                             | 本文 §3 P2-3            |
 
 ---
 

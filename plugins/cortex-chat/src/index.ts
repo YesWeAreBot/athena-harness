@@ -38,8 +38,8 @@ export default class CortexChat extends Cortex {
     // v1: echo with persona name prefix
     try {
       await this.ctx.message.createMessage(session.channelId!, `[${persona.name}] Echo: ${content}`, session.bot?.sid);
-    } catch (e) {
-      this.ctx.logger("cortex-chat").warn("Failed to reply:", e);
+    } catch (error) {
+      this.ctx.logger("cortex-chat").warn("Failed to reply:", error);
     }
   }
 }
