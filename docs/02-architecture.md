@@ -93,19 +93,21 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 
 ### 2.1 当前包清单
 
-| 包                                | 路径                         | 提供的 Service | 角色                                                                                                               |
-| --------------------------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `@athena-ai/core`                 | `packages/core`              | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                       |
-| `@athena-ai/protocol`             | `packages/protocol`          | —              | 类型（Persona / LifeService / MemoryProvider / Sandbox 契约）+ `Cortex` abstract class + `declare module "cordis"` |
-| `@athena-ai/ai`                   | `packages/ai`                | `ai`           | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                   |
-| `@athena-ai/plugin-life`          | `plugins/life`               | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                        |
-| `@athena-ai/capability-message`   | `plugins/capability-message` | `message`      | MessageService：安装 Satori、bots 代理、发送便捷方法、事件作用域过滤                                               |
-| `@athena-ai/cortex-chat`          | `plugins/cortex-chat`        | `cortex`       | Reactive Cortex（当前为 echo 骨架）                                                                                |
-| `@athena-ai/plugin-sandbox`       | `plugins/sandbox`            | `sandbox`      | 全局 SandboxHub：WebUI 页面、文件服务器、WS 路由                                                                   |
-| `@athena-ai/sandbox-nerve`        | `plugins/sandbox-nerve`      | —              | per-Life Nerve：注册 Hub、创建 SandboxBot                                                                          |
-| `@athena-ai/provider-openai`      | `plugins/provider-openai`    | —              | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                |
-| `@athena-ai/provider-deepseek`    | `plugins/provider-deepseek`  | —              | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                              |
-| `@athena-ai/plugin-message-store` | `plugins/message-store`      | —              | 占位，未开始（Phase 3 消息持久化）                                                                                 |
+| 包                                | 路径                         | 提供的 Service | 角色                                                                                                                     |
+| --------------------------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `@athena-ai/core`                 | `packages/core`              | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                             |
+| `@athena-ai/protocol`             | `packages/protocol`          | `nerve`        | Nerve 基础契约：Body、NerveEvent、NerveService；既有 Persona / LifeService / MemoryProvider / Sandbox 契约与 Cortex 基类 |
+| `@athena-ai/protocol-im`          | `packages/protocol-im`       | —              | IM 协议扩展：实体类型、Body 方法声明合并与事件契约                                                                       |
+| `@athena-ai/ai`                   | `packages/ai`                | `ai`           | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                         |
+| `@athena-ai/plugin-life`          | `plugins/life`               | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                              |
+| `@athena-ai/capability-message`   | `plugins/capability-message` | `message`      | MessageService：安装 Satori、bots 代理、发送便捷方法、事件作用域过滤                                                     |
+| `@athena-ai/cortex-chat`          | `plugins/cortex-chat`        | `cortex`       | Reactive Cortex（当前为 echo 骨架）                                                                                      |
+| `@athena-ai/plugin-sandbox`       | `plugins/sandbox`            | `sandbox`      | 全局 SandboxHub：WebUI 页面、文件服务器、WS 路由                                                                         |
+| `@athena-ai/sandbox-nerve`        | `plugins/sandbox-nerve`      | —              | per-Life Nerve：注册 Hub、创建 SandboxBot                                                                                |
+| `@athena-ai/provider-openai`      | `plugins/provider-openai`    | —              | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                      |
+| `@athena-ai/provider-deepseek`    | `plugins/provider-deepseek`  | —              | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                    |
+| `@athena-ai/nerve-onebot`         | `plugins/nerve-onebot`       | —              | OneBot v11 Nerve adapter：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket                    |
+| `@athena-ai/plugin-message-store` | `plugins/message-store`      | —              | 占位，未开始（Phase 3 消息持久化）                                                                                       |
 
 ### 2.2 依赖方向
 

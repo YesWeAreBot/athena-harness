@@ -11,12 +11,12 @@
 
 **LLM 的单次推理调用中，应该看到哪些频道的信息？**
 
-| 策略 | 描述 | 代表 |
-|------|------|------|
-| **完全隔离** | 每个频道独立上下文，互不可见 | NachoBot 默认模式 |
-| **共享身份 + 隔离上下文** | 全局 persona，但每个频道独立历史 | NachoBot / MaiBot |
+| 策略                      | 描述                                       | 代表                |
+| ------------------------- | ------------------------------------------ | ------------------- |
+| **完全隔离**              | 每个频道独立上下文，互不可见               | NachoBot 默认模式   |
+| **共享身份 + 隔离上下文** | 全局 persona，但每个频道独立历史           | NachoBot / MaiBot   |
 | **焦点切换 + 上下文交接** | 同一时间只关注一个频道，切换时携带交接信息 | NachoBot Focus 模式 |
-| **全频道同时可见** | 所有频道的消息都进入同一上下文 | 两者均未实现 |
+| **全频道同时可见**        | 所有频道的消息都进入同一上下文             | 两者均未实现        |
 
 ---
 
@@ -46,15 +46,15 @@ HeartFChatting (per-stream runtime)
 
 **关键文件与行号**：
 
-| 环节 | 文件 | 行号 |
-|------|------|------|
-| Adapter normalize | `NachoBot-Koishi-Adapter/adapter.py` | 145-248 |
-| 统一消息协议 | `NachoBot/ncnk_message/message_base.py` | 219-337 |
-| Core 注册 handler | `NachoBot/src/main.py` | 136-138 |
-| ChatBot 单例 | `NachoBot/src/chat/message_receive/bot.py` | 581-582 |
-| Stream ID 生成 | `NachoBot/src/chat/message_receive/chat_stream.py` | 177-200 |
-| HeartFCMessageReceiver | `NachoBot/src/chat/heart_flow/heartflow_message_processor.py` | 61-146 |
-| Heartflow 运行时管理 | `NachoBot/src/chat/heart_flow/heartflow.py` | 21-45 |
+| 环节                   | 文件                                                          | 行号    |
+| ---------------------- | ------------------------------------------------------------- | ------- |
+| Adapter normalize      | `NachoBot-Koishi-Adapter/adapter.py`                          | 145-248 |
+| 统一消息协议           | `NachoBot/ncnk_message/message_base.py`                       | 219-337 |
+| Core 注册 handler      | `NachoBot/src/main.py`                                        | 136-138 |
+| ChatBot 单例           | `NachoBot/src/chat/message_receive/bot.py`                    | 581-582 |
+| Stream ID 生成         | `NachoBot/src/chat/message_receive/chat_stream.py`            | 177-200 |
+| HeartFCMessageReceiver | `NachoBot/src/chat/heart_flow/heartflow_message_processor.py` | 61-146  |
+| Heartflow 运行时管理   | `NachoBot/src/chat/heart_flow/heartflow.py`                   | 21-45   |
 
 ### 2.2 Stream ID 生成逻辑
 
@@ -227,6 +227,7 @@ switch_chat 的完整流程：
 ```
 
 **安全设计**：
+
 - Handoff payload 被标记为 `untrusted_payload`，明确指示 LLM 不得将其视为系统指令
 - 有 token budget 限制（默认 512 tokens，可配置 128-768）
 - `guard_user_content` 防止 prompt injection
@@ -236,13 +237,13 @@ switch_chat 的完整流程：
 
 **[已实现事实]** `ChatScopePolicy`（`focus/scope_policy.py:16-72`）定义了跨频道内容转移的规则：
 
-| 源 | 目标 | 允许内容交接？ |
-|----|------|--------------|
-| Group A | Group B（同组） | \u2705 允许 |
-| Group | Private（同组，配置允许时） | \u2705 允许 |
-| Private | Group | \u274c 只允许 metadata-only 返回 |
-| Private | Private | \u274c 禁止 |
-| 非成员 | 任何 | \u274c 禁止 |
+| 源      | 目标                        | 允许内容交接？                   |
+| ------- | --------------------------- | -------------------------------- |
+| Group A | Group B（同组）             | \u2705 允许                      |
+| Group   | Private（同组，配置允许时） | \u2705 允许                      |
+| Private | Group                       | \u274c 只允许 metadata-only 返回 |
+| Private | Private                     | \u274c 禁止                      |
+| 非成员  | 任何                        | \u274c 禁止                      |
 
 #### 2.4.7 Focus Bypass Gate（低延迟路由）
 
@@ -373,47 +374,49 @@ MaiBot 的"主动性"由以下机制唤醒 session loops（`runtime.py:589-685,1
 
 ### 4.1 多源信息呈现给 LLM 的方式
 
-| 维度 | NachoBot（默认模式） | NachoBot（Focus 模式） | MaiBot |
-|------|---------------------|----------------------|--------|
-| **LLM 看到的频道数** | 1 个（当前 stream） | 1 个（active）+ 事件通知 | 1 个（当前 session） |
-| **跨频道信息注入** | 无 | `<focus_handoff>` XML 块 | 无（默认）；可配置跨 chat memory |
-| **上下文交接格式** | N/A | 结构化 untrusted_payload | N/A |
-| **Persona 来源** | `global_config.personality` | 同左 | `global_config.personality` |
-| **Memory 跨频道** | A_Memorix 可配置 | 同左 | 可配置跨 chat 搜索 |
+| 维度                 | NachoBot（默认模式）        | NachoBot（Focus 模式）   | MaiBot                           |
+| -------------------- | --------------------------- | ------------------------ | -------------------------------- |
+| **LLM 看到的频道数** | 1 个（当前 stream）         | 1 个（active）+ 事件通知 | 1 个（当前 session）             |
+| **跨频道信息注入**   | 无                          | `<focus_handoff>` XML 块 | 无（默认）；可配置跨 chat memory |
+| **上下文交接格式**   | N/A                         | 结构化 untrusted_payload | N/A                              |
+| **Persona 来源**     | `global_config.personality` | 同左                     | `global_config.personality`      |
+| **Memory 跨频道**    | A_Memorix 可配置            | 同左                     | 可配置跨 chat 搜索               |
 
 ### 4.2 Session/Conversation 隔离边界
 
-| 维度 | NachoBot | MaiBot |
-|------|----------|--------|
-| **隔离粒度** | `platform + group/user` \u2192 stream_id | `platform + user + group + account + scope` \u2192 session_id |
-| **account 区分** | \u274c 不进入 key | \u2705 account_id 进入 key |
-| **运行时实体** | `HeartFChatting`（群）/ `BrainChatting`（私聊） | `MaisakaHeartFlowChatting`（统一） |
-| **跨 session 通信** | Focus Group + handoff | 无原生机制 |
-| **多实例支持** | \u274c 单进程单 Agent | \u274c 单进程单 Agent |
+| 维度                | NachoBot                                        | MaiBot                                                        |
+| ------------------- | ----------------------------------------------- | ------------------------------------------------------------- |
+| **隔离粒度**        | `platform + group/user` \u2192 stream_id        | `platform + user + group + account + scope` \u2192 session_id |
+| **account 区分**    | \u274c 不进入 key                               | \u2705 account_id 进入 key                                    |
+| **运行时实体**      | `HeartFChatting`（群）/ `BrainChatting`（私聊） | `MaisakaHeartFlowChatting`（统一）                            |
+| **跨 session 通信** | Focus Group + handoff                           | 无原生机制                                                    |
+| **多实例支持**      | \u274c 单进程单 Agent                           | \u274c 单进程单 Agent                                         |
 
 ### 4.3 注意力/焦点机制对比
 
-| 维度 | NachoBot Focus | MaiBot |
-|------|---------------|--------|
-| **是否存在** | \u2705 完整的 Focus 子系统 | \u274c 无跨频道焦点机制 |
-| **配置方式** | `global_config.focus.groups` 声明式配置 | N/A |
-| **切换决策** | Planner LLM 或 Bypass Gate | N/A |
-| **上下文交接** | `HandoffPayload` + `render_focus_handoffs` | N/A |
-| **安全控制** | Scope Policy + untrusted_payload 标记 | N/A |
-| **持久化** | SQLite（FocusSQLiteStorage） | N/A |
-| **事件累积** | `_PendingAttention`（unread_count, revision） | N/A |
-| **打断机制** | `signal_new_message` + interrupt event | Planner interrupt（per-session） |
+| 维度           | NachoBot Focus                                | MaiBot                           |
+| -------------- | --------------------------------------------- | -------------------------------- |
+| **是否存在**   | \u2705 完整的 Focus 子系统                    | \u274c 无跨频道焦点机制          |
+| **配置方式**   | `global_config.focus.groups` 声明式配置       | N/A                              |
+| **切换决策**   | Planner LLM 或 Bypass Gate                    | N/A                              |
+| **上下文交接** | `HandoffPayload` + `render_focus_handoffs`    | N/A                              |
+| **安全控制**   | Scope Policy + untrusted_payload 标记         | N/A                              |
+| **持久化**     | SQLite（FocusSQLiteStorage）                  | N/A                              |
+| **事件累积**   | `_PendingAttention`（unread_count, revision） | N/A                              |
+| **打断机制**   | `signal_new_message` + interrupt event        | Planner interrupt（per-session） |
 
 ### 4.4 Tradeoffs 总结
 
 #### NachoBot 默认模式（完全隔离）
 
 **优势**：
+
 - 实现简单，每个 stream 独立运行
 - 无跨频道干扰，隐私边界清晰
 - 并发性能好，不同 stream 可并行处理
 
 **劣势**：
+
 - Agent 无法感知其他频道正在发生什么
 - 同一用户在不同平台的身份无法统一感知
 - 无法实现"先处理紧急的私聊，再回来继续群聊"的智能调度
@@ -421,6 +424,7 @@ MaiBot 的"主动性"由以下机制唤醒 session loops（`runtime.py:589-685,1
 #### NachoBot Focus 模式（焦点切换 + 交接）
 
 **优势**：
+
 - 实现了"主意识"的焦点切换，符合人类注意力模型
 - Handoff 机制保留了切换前的上下文（task_summary、known_facts、recent_messages）
 - 安全设计完善（untrusted_payload、scope policy、token budget）
@@ -428,6 +432,7 @@ MaiBot 的"主动性"由以下机制唤醒 session loops（`runtime.py:589-685,1
 - _PendingAttention 事件累积避免了频繁的上下文切换
 
 **劣势**：
+
 - 同一时间只能关注一个频道，其他频道只能排队
 - Handoff 有信息损失（token budget 限制，最多 512 tokens）
 - 配置复杂度高（需要声明 Focus Group、member、scope policy）
@@ -437,12 +442,14 @@ MaiBot 的"主动性"由以下机制唤醒 session loops（`runtime.py:589-685,1
 #### MaiBot（独立 session 运行时）
 
 **优势**：
+
 - 每个 session 独立运行，不存在"主意识"瓶颈
 - session_id 包含 account_id，支持同一平台多账号
 - Memory 可配置跨 chat 搜索，提供隐式的跨频道知识
 - Planner interrupt 机制允许实时响应新消息
 
 **劣势**：
+
 - 没有跨频道注意力协调机制
 - 无法实现"在 A 群聊天时感知 B 群有紧急消息并切换"
 - 全局 `global_config.personality` 意味着所有 session 共享同一人格
@@ -454,6 +461,7 @@ MaiBot 的"主动性"由以下机制唤醒 session loops（`runtime.py:589-685,1
 ### 5.1 当前 Athena 的现状
 
 **[已实现事实]** Athena 已有：
+
 - per-Life event ownership（`plugins/life/src/life.ts:21-46`）
 - one-Cortex-per-Life 生命周期约束（`packages/protocol/src/cortex.ts:3-13`）
 - Cordis group isolate 的 per-Life 边界（`docs/02-architecture.md:215-289`）
@@ -462,27 +470,27 @@ MaiBot 的"主动性"由以下机制唤醒 session loops（`runtime.py:589-685,1
 
 ### 5.2 可借鉴的设计
 
-| 来源 | 设计 | Athena 适用性 |
-|------|------|--------------|
-| NachoBot Focus | `FocusGroupDefinition` 声明式配置 | 可作为 Cortex 的多 Nerve 协调配置 |
-| NachoBot Focus | `_PendingAttention` 事件累积模型 | 适合作为 Nerve 层的事件缓冲 |
-| NachoBot Focus | `HandoffPayload` + `render_focus_handoffs` | 可适配为 Cortex 切换时的上下文交接 |
-| NachoBot Focus | Scope Policy（group\u2192private 内容控制） | 应纳入 Life scope 的 visibility policy |
-| NachoBot Focus | Bypass Gate（低延迟路由） | 可用于 Cortex 的快速响应路径 |
-| NachoBot Focus | `FocusLease` + epoch 防止 stale task | 应作为 Cortex 生命周期管理的参考 |
-| NachoBot Focus | EffectPermit（发送许可/投递回执） | 可作为 Nerve act 的生命周期管理 |
-| MaiBot | session_id 包含 account_id | Athena 的 Nerve 应显式持有 account identity |
-| MaiBot | 可配置跨 chat memory 搜索 | Athena 的 Memory Provider 应支持跨 Nerve 查询 |
-| MaiBot | Planner interrupt + debounce | 可作为 Cortex 的消息打断机制 |
+| 来源           | 设计                                        | Athena 适用性                                 |
+| -------------- | ------------------------------------------- | --------------------------------------------- |
+| NachoBot Focus | `FocusGroupDefinition` 声明式配置           | 可作为 Cortex 的多 Nerve 协调配置             |
+| NachoBot Focus | `_PendingAttention` 事件累积模型            | 适合作为 Nerve 层的事件缓冲                   |
+| NachoBot Focus | `HandoffPayload` + `render_focus_handoffs`  | 可适配为 Cortex 切换时的上下文交接            |
+| NachoBot Focus | Scope Policy（group\u2192private 内容控制） | 应纳入 Life scope 的 visibility policy        |
+| NachoBot Focus | Bypass Gate（低延迟路由）                   | 可用于 Cortex 的快速响应路径                  |
+| NachoBot Focus | `FocusLease` + epoch 防止 stale task        | 应作为 Cortex 生命周期管理的参考              |
+| NachoBot Focus | EffectPermit（发送许可/投递回执）           | 可作为 Nerve act 的生命周期管理               |
+| MaiBot         | session_id 包含 account_id                  | Athena 的 Nerve 应显式持有 account identity   |
+| MaiBot         | 可配置跨 chat memory 搜索                   | Athena 的 Memory Provider 应支持跨 Nerve 查询 |
+| MaiBot         | Planner interrupt + debounce                | 可作为 Cortex 的消息打断机制                  |
 
 ### 5.3 不应照搬的设计
 
-| 设计 | 原因 |
-|------|------|
-| NachoBot 的单进程单 Agent | Athena 的 Life primitive 支持多实例 |
-| MaiBot 的 `global_config.personality` | Athena 的 persona 应属于 Life，不是全局配置 |
-| Focus 的"同一时间只关注一个频道" | Athena 的数字生命可能需要同时感知多个 Nerve（如同时看 Minecraft 和 QQ） |
-| switch_chat 是终止性动作 | Athena 的 Cortex 应能在一个 turn 内处理多个 Nerve 的事件 |
+| 设计                                  | 原因                                                                    |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| NachoBot 的单进程单 Agent             | Athena 的 Life primitive 支持多实例                                     |
+| MaiBot 的 `global_config.personality` | Athena 的 persona 应属于 Life，不是全局配置                             |
+| Focus 的"同一时间只关注一个频道"      | Athena 的数字生命可能需要同时感知多个 Nerve（如同时看 Minecraft 和 QQ） |
+| switch_chat 是终止性动作              | Athena 的 Cortex 应能在一个 turn 内处理多个 Nerve 的事件                |
 
 ### 5.4 推荐的注意力模型
 
@@ -499,44 +507,44 @@ MaiBot 的"主动性"由以下机制唤醒 session loops（`runtime.py:589-685,1
 
 ### NachoBot Focus 子系统
 
-| 文件 | 行数 | 职责 |
-|------|------|------|
-| `src/chat/focus/coordinator.py` | \u2248 1215 | 核心协调器：group 状态、事件路由、切换、lease 管理 |
-| `src/chat/focus/models.py` | \u2248 290 | 领域模型：FocusGroupDefinition、FocusLease、FocusEventSnapshot、HandoffPayload |
-| `src/chat/focus/switch_action.py` | \u2248 180 | switch_chat 动作的规范化与执行 |
-| `src/chat/focus/prompt_renderer.py` | \u2248 130 | Handoff \u2192 LLM prompt 的渲染（untrusted_payload） |
-| `src/chat/focus/bypass_gate.py` | \u2248 140 | 低延迟 Focus 路由门（stay/switch 二选一） |
-| `src/chat/focus/scope_policy.py` | \u2248 100 | 跨频道内容转移的授权策略 |
-| `src/chat/focus/handoff_builder.py` | \u2248 80 | 构建有界、消毒的 Focus handoff |
-| `src/chat/focus/handoff_store.py` | \u2248 100 | Handoff 持久化接口与内存实现 |
-| `src/chat/focus/reply_context.py` | \u2248 200 | Replyer 边界的 handoff 获取与生命周期 |
-| `src/chat/focus/reply_delivery.py` | \u2248 60 | 投递回执结算 |
-| `src/chat/focus/message_repository.py` | \u2248 160 | 基于 row-id 的消息加载（避免时间戳游标跳过） |
-| `src/chat/focus/bootstrap.py` | \u2248 248 | 启动时的 Focus Group 配置解析与注册 |
-| `src/chat/focus/storage/` | \u2248 120 | SQLite 持久化（focus_group_state、focus_event、focus_handoff） |
+| 文件                                   | 行数        | 职责                                                                           |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------------------ |
+| `src/chat/focus/coordinator.py`        | \u2248 1215 | 核心协调器：group 状态、事件路由、切换、lease 管理                             |
+| `src/chat/focus/models.py`             | \u2248 290  | 领域模型：FocusGroupDefinition、FocusLease、FocusEventSnapshot、HandoffPayload |
+| `src/chat/focus/switch_action.py`      | \u2248 180  | switch_chat 动作的规范化与执行                                                 |
+| `src/chat/focus/prompt_renderer.py`    | \u2248 130  | Handoff \u2192 LLM prompt 的渲染（untrusted_payload）                          |
+| `src/chat/focus/bypass_gate.py`        | \u2248 140  | 低延迟 Focus 路由门（stay/switch 二选一）                                      |
+| `src/chat/focus/scope_policy.py`       | \u2248 100  | 跨频道内容转移的授权策略                                                       |
+| `src/chat/focus/handoff_builder.py`    | \u2248 80   | 构建有界、消毒的 Focus handoff                                                 |
+| `src/chat/focus/handoff_store.py`      | \u2248 100  | Handoff 持久化接口与内存实现                                                   |
+| `src/chat/focus/reply_context.py`      | \u2248 200  | Replyer 边界的 handoff 获取与生命周期                                          |
+| `src/chat/focus/reply_delivery.py`     | \u2248 60   | 投递回执结算                                                                   |
+| `src/chat/focus/message_repository.py` | \u2248 160  | 基于 row-id 的消息加载（避免时间戳游标跳过）                                   |
+| `src/chat/focus/bootstrap.py`          | \u2248 248  | 启动时的 Focus Group 配置解析与注册                                            |
+| `src/chat/focus/storage/`              | \u2248 120  | SQLite 持久化（focus_group_state、focus_event、focus_handoff）                 |
 
 ### NachoBot 核心消息路由
 
-| 文件 | 行号 | 职责 |
-|------|------|------|
-| `src/chat/message_receive/bot.py` | 456-574 | ChatBot.message_process 主入口 |
-| `src/chat/message_receive/chat_stream.py` | 177-200 | Stream ID 生成 |
-| `src/chat/heart_flow/heartflow_message_processor.py` | 61-146 | 消息 \u2192 Focus 路由 \u2192 HeartFlow 调度 |
-| `src/chat/heart_flow/heartflow.py` | 21-45 | Heartflow 运行时池管理 |
-| `src/chat/heart_flow/heartFC_chat.py` | 1-200 | HeartFChatting 初始化（含 Focus 集成） |
-| `src/chat/replyer/prompt/replyer_prompt.py` | 17-26 | 群聊 replyer prompt 模板（含 {focus_handoff_block}） |
+| 文件                                                 | 行号    | 职责                                                 |
+| ---------------------------------------------------- | ------- | ---------------------------------------------------- |
+| `src/chat/message_receive/bot.py`                    | 456-574 | ChatBot.message_process 主入口                       |
+| `src/chat/message_receive/chat_stream.py`            | 177-200 | Stream ID 生成                                       |
+| `src/chat/heart_flow/heartflow_message_processor.py` | 61-146  | 消息 \u2192 Focus 路由 \u2192 HeartFlow 调度         |
+| `src/chat/heart_flow/heartflow.py`                   | 21-45   | Heartflow 运行时池管理                               |
+| `src/chat/heart_flow/heartFC_chat.py`                | 1-200   | HeartFChatting 初始化（含 Focus 集成）               |
+| `src/chat/replyer/prompt/replyer_prompt.py`          | 17-26   | 群聊 replyer prompt 模板（含 {focus_handoff_block}） |
 
 ### MaiBot 相关
 
-| 文件 | 行号 | 职责 |
-|------|------|------|
-| `src/platform_io/types.py` | 32-207 | RouteKey、InboundMessageEnvelope |
-| `src/platform_io/manager.py` | 458-514 | 入站路由、去重、分发 |
-| `src/chat/message_receive/chat_manager.py` | 82-199 | session_id 计算（含 account_id、scope） |
-| `src/maisaka/runtime.py` | 139-223 | MaisakaHeartFlowChatting 初始化 |
-| `src/maisaka/runtime.py` | 316-401 | 从 DB 恢复会话上下文 |
-| `src/maisaka/runtime.py` | 589-685 | proactive task 注入 |
-| `src/maisaka/runtime.py` | 1664-1826 | wait timeout 机制 |
-| `src/maisaka/chat_loop_service.py` | 609-773 | 系统 prompt 构建 |
-| `src/maisaka/reasoning_engine.py` | 492-531 | Memory/Profile 注入 |
-| `src/maisaka/memory/heuristic_injector.py` | 184-321 | 跨 chat memory 的 scope 控制 |
+| 文件                                       | 行号      | 职责                                    |
+| ------------------------------------------ | --------- | --------------------------------------- |
+| `src/platform_io/types.py`                 | 32-207    | RouteKey、InboundMessageEnvelope        |
+| `src/platform_io/manager.py`               | 458-514   | 入站路由、去重、分发                    |
+| `src/chat/message_receive/chat_manager.py` | 82-199    | session_id 计算（含 account_id、scope） |
+| `src/maisaka/runtime.py`                   | 139-223   | MaisakaHeartFlowChatting 初始化         |
+| `src/maisaka/runtime.py`                   | 316-401   | 从 DB 恢复会话上下文                    |
+| `src/maisaka/runtime.py`                   | 589-685   | proactive task 注入                     |
+| `src/maisaka/runtime.py`                   | 1664-1826 | wait timeout 机制                       |
+| `src/maisaka/chat_loop_service.py`         | 609-773   | 系统 prompt 构建                        |
+| `src/maisaka/reasoning_engine.py`          | 492-531   | Memory/Profile 注入                     |
+| `src/maisaka/memory/heuristic_injector.py` | 184-321   | 跨 chat memory 的 scope 控制            |

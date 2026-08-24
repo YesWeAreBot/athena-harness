@@ -1,0 +1,42 @@
+{
+  "name": "@athena-ai/plugin-nerve-onebot",
+  "version": "0.0.1",
+  "description": "OneBot v11 adapter for Athena Nerve",
+  "type": "module",
+  "main": "./lib/index.cjs",
+  "module": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@athena-ai/protocol": "workspace:*",
+    "@athena-ai/protocol-im": "workspace:*",
+    "@cordisjs/element": "^0.3.0",
+    "schemastery": "^3.18.0"
+  },
+  "devDependencies": {
+    "cordis": "^4.0.0-rc.8"
+  },
+  "peerDependencies": {
+    "@cordisjs/plugin-http": "*",
+    "cordis": "^4.0.0-rc.8"
+  },
+  "cordis": {
+    "description": {
+      "en": "OneBot v11 adapter for Athena Nerve",
+      "zh": "OneBot v11 适配器"
+    },
+    "service": {
+      "required": [
+        "nerve",
+        "http"
+      ]
+    }
+  }
+}
