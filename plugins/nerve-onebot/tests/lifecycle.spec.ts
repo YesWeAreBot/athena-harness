@@ -3,7 +3,7 @@ import Http from "@cordisjs/plugin-http";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { OneBotBody } from "../src/body.js";
+import { OneBotBody } from "../src/bot/index.js";
 
 const testConfig: OneBotBody.Config = {
   protocol: "ws",

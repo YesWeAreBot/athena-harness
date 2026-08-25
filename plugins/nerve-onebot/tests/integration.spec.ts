@@ -4,8 +4,8 @@ import { Element } from "@cordisjs/element";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { dispatchEvent } from "../src/adapter.js";
-import { OneBotBody } from "../src/body.js";
+import { OneBotBody } from "../src/bot/index.js";
+import { dispatchEvent } from "../src/utils.js";
 
 const testConfig: OneBotBody.Config = {
   protocol: "ws",

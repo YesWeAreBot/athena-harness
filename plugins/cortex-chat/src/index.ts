@@ -1,7 +1,6 @@
 import { Schema } from "@athena-ai/core";
 import { Cortex } from "@athena-ai/protocol";
-import type { IMMessageEvent } from "@athena-ai/protocol-im";
-import { Element } from "@cordisjs/element";
+import { h, type IMMessageEvent } from "@athena-ai/protocol-im";
 import { Context } from "cordis";
 
 declare module "cordis" {
@@ -37,7 +36,7 @@ export default class CortexChat extends Cortex {
 
     // v1: echo with a name prefix
     try {
-      await event.body.sendMessage(event.channelId, [Element("text", { content: `[${name}] Echo: ${content}` })]);
+      await event.body.sendMessage(event.channelId, [h.Element("text", { content: `[${name}] Echo: ${content}` })]);
     } catch (error) {
       this.ctx.logger("cortex-chat").warn("Failed to reply:", error);
     }

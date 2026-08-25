@@ -1,6 +1,6 @@
 import { Element } from "@cordisjs/element";
 
-import type { CQCode as CQCodeEntry } from "./types.js";
+import type { CQCode as CQCodeEntry } from "../types.js";
 
 export interface CQCode extends CQCodeEntry {}
 

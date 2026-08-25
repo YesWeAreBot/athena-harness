@@ -1,119 +1,103 @@
 import type { Session } from "@athena-ai/protocol";
 
-import type { IMSession } from "./session.js";
-import type { Channel, Guild, GuildMember, GuildRole, Login, Message, User } from "./types.js";
+import type { IMBody } from "./body.js";
+import type { Channel, GuildRole, Login, Message, User } from "./types.js";
 
 // ─── Base IM Event ──────────────────────────────────────────────────────────
 
-/** Common fields shared by all IM events. */
-export interface IMEvent extends IMSession {
+/**
+ * Common fields shared by all IM events.
+ * Uses intersection to narrow optional Session fields to required without
+ * conflicting with the class-interface merge on Session.
+ */
+export type IMEvent = Session & {
   /** Channel where the event occurred (narrowed from the accessor). */
   channelId: string;
   /** User who triggered the event (narrowed from the accessor). */
   userId: string;
-}
+  /** Narrow the optional entity fields for IM events. */
+  channel: Channel;
+  user: User;
+  /** The IM body that received this event. */
+  body: IMBody;
+};
 
 // ─── Message Events ─────────────────────────────────────────────────────────
 
-export interface IMMessageEvent extends IMEvent {
+export type IMMessageEvent = IMEvent & {
   type: "message-created";
   messageId: string;
   message: Message;
-}
+  content: string;
+};
 
-export interface IMMessageDeletedEvent extends IMEvent {
+export type IMMessageDeletedEvent = IMEvent & {
   type: "message-deleted";
   messageId: string;
-}
+};
 
-export interface IMMessageUpdatedEvent extends IMEvent {
+export type IMMessageUpdatedEvent = IMEvent & {
   type: "message-updated";
   messageId: string;
   message: Message;
-}
+};
 
 // ─── Send Event (outgoing) ──────────────────────────────────────────────────
 
-export interface IMSendEvent extends IMEvent {
+export type IMSendEvent = IMEvent & {
   type: "send";
   messageId: string;
   message: Message;
-}
+};
 
 // ─── Guild Events ───────────────────────────────────────────────────────────
 
-export interface IMGuildEvent extends IMEvent {
+export type IMGuildEvent = IMEvent & {
   type: "guild-added" | "guild-removed" | "guild-updated";
-}
+};
 
-export interface IMGuildMemberEvent extends IMEvent {
+export type IMGuildMemberEvent = IMEvent & {
   type: "guild-member-added" | "guild-member-removed" | "guild-member-updated";
-}
+};
 
-export interface IMGuildRoleEvent extends IMEvent {
+export type IMGuildRoleEvent = IMEvent & {
   type: "guild-role-created" | "guild-role-deleted" | "guild-role-updated";
   role?: GuildRole;
-}
+};
 
 // ─── Login Events ───────────────────────────────────────────────────────────
 
-export interface IMLoginEvent extends Session {
+export type IMLoginEvent = Session & {
   type: "login-added" | "login-removed" | "login-updated";
   login: Login;
-}
+};
 
 // ─── Request Events ─────────────────────────────────────────────────────────
 
-export interface IMRequestEvent extends IMEvent {
+export type IMRequestEvent = IMEvent & {
   type: "friend-request" | "guild-request" | "guild-member-request";
   messageId: string;
-}
+};
 
 // ─── Friend Events ──────────────────────────────────────────────────────────
 
-export interface IMFriendEvent extends IMEvent {
+export type IMFriendEvent = IMEvent & {
   type: "friend-added";
-}
+};
 
 // ─── Reaction Events ────────────────────────────────────────────────────────
 
-export interface IMReactionEvent extends IMEvent {
+export type IMReactionEvent = IMEvent & {
   type: "reaction-added" | "reaction-removed";
   messageId: string;
   emoji?: { id: string; name?: string };
-}
-
-// ─── Internal/Platform-specific Events ──────────────────────────────────────
-
-export interface IMInternalEvent extends Session {
-  type: "internal";
-  _type: string;
-  _data: unknown;
-}
-
-// ─── Event Data Extension ───────────────────────────────────────────────────
-// The base `Event` payload carries no IM semantics. protocol-im extends it
-// with optional entity references; the IMSession accessors derive the flat
-// views (`channelId`, `userId`, `content`, ...) from these nested objects.
-
-declare module "@athena-ai/protocol" {
-  interface Event {
-    channel?: Channel;
-    guild?: Guild;
-    user?: User;
-    member?: GuildMember;
-    message?: Message;
-    quote?: Message;
-    subtype?: string;
-    /** For internal/platform-specific events. */
-    _type?: string;
-    _data?: unknown;
-  }
-}
+};
 
 // ─── Cordis Events Registration ─────────────────────────────────────────────
 // Single source of truth for IM event signatures (satori pattern):
 // only `cordis.Events` is declared; there is no parallel event map.
+// Internal/platform-specific events are emitted dynamically under their
+// `_type` and are declared by the adapters that produce them.
 
 declare module "cordis" {
   interface Events {
@@ -139,6 +123,5 @@ declare module "cordis" {
     "friend-added"(event: IMFriendEvent): void;
     "reaction-added"(event: IMReactionEvent): void;
     "reaction-removed"(event: IMReactionEvent): void;
-    internal(event: IMInternalEvent): void;
   }
 }

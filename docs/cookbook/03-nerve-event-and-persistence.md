@@ -110,7 +110,7 @@ Cortex 通过 import 哪个包的类型来获得对应的 API 类型。这是编
 
 ## NerveEvent
 
-> **历史演进记录（2026-08-25）**：本节描述的 `NerveEventMap` / plain-interface 方案已被 **Session 信封** 取代——运行时统一用 `Session`（core）/ `IMSession`（protocol-im）传播，`NerveEvent` 类型已删除，具体事件接口（`IMMessageEvent` 等）`extends IMSession` 收窄。事件签名只在 `cordis.Events` 声明。本节保留作设计历程参考，以代码为准。
+> **历史演进记录（2026-08-25）**：本节描述的 `NerveEventMap` / plain-interface 方案已被 **Session 信封** 取代——运行时统一用 `Session`（core）传播，protocol-im 用 `defineAccessor` 把 IM 访问器挂到 `Session.prototype`，`NerveEvent` 类型已删除，具体事件接口（`IMMessageEvent` 等）`extends Session` 收窄。事件签名只在 `cordis.Events` 声明。本节保留作设计历程参考，以代码为准。
 
 NerveEvent 是所有从 Nerve 进入 Cortex 的事件的统一信封。
 

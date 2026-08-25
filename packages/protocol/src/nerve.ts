@@ -27,68 +27,60 @@ export interface Event {
 }
 
 /**
+ * Generic accessor factory — one line per derived property.
+ *
+ * Mirrors Satori's `defineAccessor`: get/set a deep path on the instance
+ * with lazy creation of intermediate objects on set. `undefined` values
+ * are never written (see satorijs/satori#166).
+ */
+// oxlint-disable-next-line anti-slop/no-object-parameters
+export function defineAccessor(prototype: object, name: string, keys: string[]): void {
+  Object.defineProperty(prototype, name, {
+    get() {
+      return keys.reduce((data, key) => data?.[key], this);
+    },
+    set(value) {
+      if (value === undefined) return;
+      const path = keys.slice();
+      const last = path.pop()!;
+      const data = path.reduce((obj, key) => (obj[key] ??= {}), this);
+      data[last] = value;
+    },
+    configurable: true,
+  });
+}
+
+/**
  * Unified runtime envelope for every event travelling from a Nerve Body
  * into Cortex. Follows the Satori Session model: the payload lives in
  * `session.event`, and derived views (`content`, `channelId`, ...) are
- * accessors provided by protocol layers (IMSession in protocol-im).
+ * accessors attached to the prototype by protocol layers (protocol-im via
+ * `defineAccessor`, computed properties via `Object.defineProperty`).
  */
+// oxlint-disable-next-line no-unsafe-declaration-merging -- intentional: interface declares accessor types, class provides runtime envelope (satori Session pattern)
 export class Session {
   /** Unique sequence number within this process. */
   public sn: number;
-  /** Alias of `sn` for backward compatibility. */
-  public id: number;
 
   /** The Body that received this event. */
-  public readonly body: Body;
+  public readonly body: Body<unknown>;
 
   /** The raw event payload. */
   public event: Event;
 
-  constructor(body: Body, event: Partial<Event>) {
+  constructor(body: Body<unknown>, event: Partial<Event>) {
     event.selfId ??= body.selfId;
     event.platform ??= body.platform;
     event.timestamp ??= Date.now();
     // SAFETY: every base field is either provided or defaulted above, so the
     // partial is fully populated and structurally matches Event.
     this.event = event as Event;
-    this.sn = this.id = ++body.ctx.nerve._sessionSeq;
+    this.sn = ++body.ctx.nerve._sessionSeq;
     this.body = body;
   }
 
-  get type(): string {
-    return this.event.type;
-  }
-
-  set type(value: string) {
-    this.event.type = value;
-  }
-
-  get selfId(): string {
-    return this.event.selfId;
-  }
-
-  set selfId(value: string) {
-    this.event.selfId = value;
-  }
-
-  get platform(): string {
-    return this.event.platform;
-  }
-
-  set platform(value: string) {
-    this.event.platform = value;
-  }
-
-  get timestamp(): number {
-    return this.event.timestamp;
-  }
-
-  set timestamp(value: number) {
-    this.event.timestamp = value;
-  }
-
   get sid(): string {
-    return `${this.platform}:${this.selfId}`;
+    return `${this.event.platform}:${this.event.selfId}`;
   }
 
   /** Mark this session as an internal event with a subtype and payload. */
@@ -102,10 +94,24 @@ export class Session {
   }
 }
 
+// Base accessors — always available (satori pattern).
+defineAccessor(Session.prototype, "type", ["event", "type"]);
+defineAccessor(Session.prototype, "selfId", ["event", "selfId"]);
+defineAccessor(Session.prototype, "platform", ["event", "platform"]);
+defineAccessor(Session.prototype, "timestamp", ["event", "timestamp"]);
+
+export interface Session {
+  type: string;
+  selfId: string;
+  platform: string;
+  timestamp: number;
+}
+
 /**
  * Abstract base class for all platform connections.
- * Subclasses implement `connect` / `disconnect` and the IM methods they
- * support; unsupported methods fall back to `_notImplemented`.
+ * Subclasses implement `connect` / `disconnect` and the methods they
+ * support. There are no placeholder methods — a missing capability is
+ * simply absent on the prototype and detected via `supports()`.
  */
 export abstract class Body<T = unknown> {
   public selfId!: string;
@@ -127,7 +133,9 @@ export abstract class Body<T = unknown> {
    * should call `yield* super[Service.init]()` to keep registration.
    */
   *[Service.init](): Generator<unknown, void, unknown> {
-    const unregister = this.ctx.nerve.register(this);
+    // SAFETY: `this` is always a concrete Body subclass; the cast aligns the
+    // generic parameter with the register() signature.
+    const unregister = this.ctx.nerve.register(this as Body<unknown>);
     yield unregister;
     yield () => {
       this.disconnect();
@@ -154,11 +162,6 @@ export abstract class Body<T = unknown> {
     if (error) this.error = error;
   }
 
-  /** Default failure for methods a subclass does not implement. */
-  protected _notImplemented(name: string): Promise<never> {
-    return Promise.reject(new Error(`not implemented: ${name}`));
-  }
-
   /** Factory helper to create a Session envelope. */
   session(event: Partial<Event> = {}): Session {
     return new Session(this, event);
@@ -177,9 +180,30 @@ export abstract class Body<T = unknown> {
   }
 }
 
+// ─── BodyRegistry ───────────────────────────────────────────────────────────
+
+/**
+ * Each Nerve package injects its Body type here via `declare module`.
+ * `NerveService.get()` returns the union of all registered types.
+ *
+ * Example injections:
+ *   protocol-im:  interface BodyRegistry { im: IMBody }
+ *   nerve-onebot: interface BodyRegistry { onebot: OneBotBody }
+ */
+export interface BodyRegistry {
+  // Packages inject their Body types here.
+}
+
+/** Union of all registered Body types. Falls back to Body if the registry is empty. */
+export type AnyBody = BodyRegistry[keyof BodyRegistry] extends never ? Body : BodyRegistry[keyof BodyRegistry];
+
 declare module "cordis" {
   interface Context {
     nerve: NerveService;
+  }
+
+  interface Events {
+    "internal/session"(session: Session): void;
   }
 }
 
@@ -208,10 +232,10 @@ export class NerveService extends Service {
     });
   }
 
-  public bodies: Body[] = [];
+  public bodies: Array<Body<unknown>> = [];
 
   /** Register a Body and return an unregister function. */
-  register(body: Body): () => void {
+  register(body: Body<unknown>): () => void {
     this.bodies.push(body);
     return () => {
       const index = this.bodies.indexOf(body);
@@ -219,14 +243,13 @@ export class NerveService extends Service {
     };
   }
 
-  /** Find a Body by its stable identifier. */
-  get(sid: string): Body | undefined {
-    return this.bodies.find((body) => body.sid === sid);
-  }
-}
-
-declare module "cordis" {
-  interface Events {
-    "internal/session"(session: Session): void;
+  /** Find a Body by its stable identifier. Returns the BodyRegistry union. */
+  get(sid: string): AnyBody | undefined {
+    // SAFETY: every registered Body is an instance of a BodyRegistry member
+    // (each package augments the registry when it registers its body type),
+    // so the find result is always a member of the AnyBody union.
+    const found = this.bodies.find((body) => body.sid === sid);
+    // SAFETY: see above — `found` is a registered Body, hence in the union.
+    return found as AnyBody | undefined;
   }
 }

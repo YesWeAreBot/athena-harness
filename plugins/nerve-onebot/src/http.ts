@@ -3,9 +3,9 @@ import { createHmac } from "node:crypto";
 import type {} from "@cordisjs/plugin-http";
 import type { Context } from "cordis";
 
-import { dispatchEvent } from "./adapter.js";
-import type { OneBotBody } from "./body.js";
+import type { OneBotBody } from "./bot/index.js";
 import type { Payload, Response } from "./types.js";
+import { dispatchEvent } from "./utils.js";
 
 /**
  * HTTP-based OneBot connection.

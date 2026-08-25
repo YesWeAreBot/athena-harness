@@ -869,7 +869,7 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 | 维护平行的 `NerveEventMap` + `cordis.Events` | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式）                                | §14.2                                         |
 | Body 子类各自手写注册到 nerve                | Body 基类提供默认 `*[Service.init]()`；子类 `yield* super[Service.init]()`                 | §14.4                                         |
 | adapter 请求/响应桥用模块级全局 listeners    | 放 Internal/body 实例上（`Map<echo, {resolve, timer}>`）                                   | §14.5                                         |
-| 手搓事件字段（isDirect/guildId）             | 显式填；Nerve 的 `createEvent` 不会像 Satori Session 自动推导                              | §14.6                                         |
+| 手搓事件字段（isDirect/guildId）             | 填**嵌套数据对象**，`session()` 访问器自动推导（satori 模式）                            | §14.6                                         |
 
 ---
 
@@ -911,7 +911,7 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 - `ctx.satori.bots` → `ctx.nerve.get(sid)`（`sid = platform:selfId`）
 - `ctx.message` → 订阅 `cordis.Events` + 用 `event.body` 发送
 - `@satorijs/element` → `@cordisjs/element`（同名 API，纯换 import）
-- `bot.session()` → `bot.createEvent()`
+- `bot.createEvent()` → `body.session()`
 - 事件类型 `message` → `message-created`
 - 删除前先 `grep -rn "@satorijs\|capability-message\|vendor/"` 摸清影响面，含测试和 client
 
@@ -933,7 +933,7 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 
 **现象**：从 Satori Session 迁移到 `createEvent` 后，`isDirect` / `guildId` 变成 undefined。Satori 的 Session 会根据 channel 类型自动推导 `isDirect`、从 guild 推导 `guildId`；Nerve 的 `createEvent` 是纯工厂，**只填 base 字段**（selfId/platform/timestamp/body）。
 
-**结论（2026-08-25 修订）**：迁移到 Session 信封后，这条已被推翻——`IMSession` 访问器按 satori 模式从嵌套数据对象推导：`isDirect` 从 `channel.type === DIRECT`、`guildId` 从 `guild.id`、`channelId` 从 `channel.id`、`content` 从 `message.content`。adapter 只需填嵌套对象，不再手工填派生字段。
+**结论（2026-08-26 修订）**：这条已被推翻——迁移到 Session 信封后，`session()` 工厂 + `defineAccessor` 访问器按 satori 模式从嵌套数据对象推导：`isDirect` 从 `channel.type === DIRECT`、`guildId` 从 `guild.id`、`channelId` 从 `channel.id`、`content` 从 `message.content`。adapter 只需填嵌套对象，不再手工填派生字段。
 
 ### 14.7 协议拆分越薄，删除越容易
 

@@ -3,9 +3,9 @@ import type { IMGuildMemberEvent, IMMessageEvent } from "@athena-ai/protocol-im"
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { dispatchEvent } from "../src/adapter.js";
-import { OneBotBody } from "../src/body.js";
+import { OneBotBody } from "../src/bot/index.js";
 import type * as OneBot from "../src/types.js";
+import { dispatchEvent } from "../src/utils.js";
 
 const testConfig: OneBotBody.Config = {
   protocol: "ws",
@@ -85,8 +85,10 @@ describe("dispatchEvent", () => {
     // test (no internal bridge), so quote stays undefined and the reply
     // element is gone from content.
     expect(received[0].message.quote).toBeUndefined();
-    expect(received[0].message.content).toBe('<at qq="22222"/> hi');
+    // at elements are normalized to the standard `id` attr (koishi parity).
+    expect(received[0].message.content).toBe('<at id="22222"/> hi');
     expect(received[0].message.elements?.[0].type).toBe("at");
+    expect(received[0].message.elements?.[0].attrs.id).toBe("22222");
   });
 
   it("converts private messages to direct channels", async () => {
@@ -327,5 +329,123 @@ describe("dispatchEvent", () => {
 
     expect(received).toHaveLength(1);
     expect(received[0].type).toBe("guild-member-request");
+  });
+
+  it("applies splitMixedContent spacing around images", async () => {
+    const ctx = new Context();
+    await ctx.plugin(NerveService);
+    const body = new OneBotBody(ctx, { ...testConfig, advanced: { splitMixedContent: true } });
+    ctx.nerve.register(body);
+
+    const received: IMMessageEvent[] = [];
+    ctx.on("message-created", (event) => received.push(event));
+
+    await dispatchEvent(body, {
+      post_type: "message",
+      message_type: "group",
+      sub_type: "normal",
+      message_id: 2000,
+      group_id: 67890,
+      user_id: 11111,
+      self_id: 12345,
+      time: 1692000,
+      message: [
+        { type: "text", data: { text: "hello" } },
+        { type: "image", data: { file: "abc.png", url: "http://x/abc.png" } },
+        { type: "text", data: { text: "world" } },
+      ],
+      sender: { user_id: 11111, nickname: "TestUser", sex: "unknown", age: 0 },
+    });
+
+    expect(received).toHaveLength(1);
+    const content = received[0].message.content!;
+    expect(content).toContain("hello ");
+    expect(content).toContain(" world");
+  });
+
+  it("transforms image elements to standard img with src", async () => {
+    const ctx = new Context();
+    await ctx.plugin(NerveService);
+    const body = new OneBotBody(ctx, testConfig);
+    ctx.nerve.register(body);
+
+    const received: IMMessageEvent[] = [];
+    ctx.on("message-created", (event) => received.push(event));
+
+    await dispatchEvent(body, {
+      post_type: "message",
+      message_type: "group",
+      sub_type: "normal",
+      message_id: 2001,
+      group_id: 67890,
+      user_id: 11111,
+      self_id: 12345,
+      time: 1692000,
+      message: [{ type: "image", data: { file: "abc.png", url: "http://x/y.png" } }],
+      sender: { user_id: 11111, nickname: "TestUser", sex: "unknown", age: 0 },
+    });
+
+    expect(received).toHaveLength(1);
+    const els = received[0].message.elements!;
+    expect(els[0].type).toBe("img");
+    expect(els[0].attrs.src).toBe("http://x/y.png");
+    expect(els[0].attrs.file).toBeUndefined();
+  });
+
+  it("maps offline_file to message-created with file element", async () => {
+    const ctx = new Context();
+    await ctx.plugin(NerveService);
+    const body = new OneBotBody(ctx, testConfig);
+    ctx.nerve.register(body);
+
+    const received: IMMessageEvent[] = [];
+    ctx.on("message-created", (event) => received.push(event));
+
+    await dispatchEvent(body, {
+      post_type: "notice",
+      notice_type: "offline_file",
+      sub_type: "",
+      self_id: 12345,
+      time: 1692000,
+      user_id: 33333,
+      message_id: 0,
+      message_type: "private",
+      message: "",
+      sender: { user_id: 33333, nickname: "", sex: "unknown", age: 0 },
+      file: { name: "doc.pdf", size: 1024, url: "http://example.com/doc.pdf" },
+    });
+
+    expect(received).toHaveLength(1);
+    expect(received[0].type).toBe("message-created");
+    expect(received[0].message.elements![0].type).toBe("file");
+    expect(received[0].channelId).toBe("private:33333");
+  });
+
+  it("carries raw onebot payload under session.onebot", async () => {
+    const ctx = new Context();
+    await ctx.plugin(NerveService);
+    const body = new OneBotBody(ctx, testConfig);
+    ctx.nerve.register(body);
+
+    let onebotData: unknown;
+    ctx.on("message-created", (event: IMMessageEvent) => {
+      // Raw payload travels on the underlying Event (session.event.onebot).
+      onebotData = event.event.onebot;
+    });
+
+    await dispatchEvent(body, {
+      post_type: "message",
+      message_type: "group",
+      sub_type: "normal",
+      message_id: 3000,
+      group_id: 67890,
+      user_id: 11111,
+      self_id: 12345,
+      time: 1692000,
+      message: [{ type: "text", data: { text: "test" } }],
+      sender: { user_id: 11111, nickname: "TestUser", sex: "unknown", age: 0 },
+    });
+
+    expect(onebotData).toMatchObject({ post_type: "message", message_id: 3000 });
   });
 });

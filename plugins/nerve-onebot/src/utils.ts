@@ -1,8 +1,9 @@
 import type { Event, Session } from "@athena-ai/protocol";
 import type { Channel, Guild, GuildMember, Message, User } from "@athena-ai/protocol-im";
+import { Element, transform } from "@cordisjs/element";
 
-import type { OneBotBody } from "./body.js";
-import { CQCode } from "./cqcode.js";
+import { CQCode } from "./bot/cqcode.js";
+import type { OneBotBody } from "./bot/index.js";
 import type * as OneBot from "./types.js";
 
 export const PRIVATE_PFX = "private:";
@@ -32,7 +33,50 @@ function decodeGuildChannelId(data: OneBot.Message): [guildId: string | undefine
 }
 
 export async function adaptMessage(body: OneBotBody, data: OneBot.Message): Promise<Message> {
-  const elements = CQCode.parse(data.message);
+  const chain = CQCode.parse(data.message);
+
+  // Auto-insert spaces around images so consecutive mixed content renders sanely.
+  if (body.config.advanced?.splitMixedContent) {
+    chain.forEach((item, index) => {
+      if (item.type !== "image") return;
+      const left = chain[index - 1];
+      if (left && left.type === "text" && left.attrs.content.trimEnd() === left.attrs.content) {
+        left.attrs.content += " ";
+      }
+      const right = chain[index + 1];
+      if (right && right.type === "text" && right.attrs.content.trimStart() === right.attrs.content) {
+        right.attrs.content = ` ${right.attrs.content}`;
+      }
+    });
+  }
+
+  // Normalize CQ-specific attrs to standard element attrs (koishi parity).
+  const elements: Element[] = transform(chain, {
+    at(attrs) {
+      if (attrs.qq !== "all") return Element("at", { id: attrs.qq, name: attrs.name });
+      return Element("at", { type: "all" });
+    },
+    face(attrs) {
+      return Element("face", { id: attrs.id, name: attrs.name, platform: body.platform });
+    },
+    image(attrs) {
+      const { url, file, ...rest } = attrs;
+      return Element("img", { src: url || file, ...rest });
+    },
+    record(attrs) {
+      const { url, file, ...rest } = attrs;
+      return Element("audio", { src: url || file, ...rest });
+    },
+    video(attrs) {
+      const { url, file, ...rest } = attrs;
+      return Element("video", { src: url || file, ...rest });
+    },
+    file(attrs) {
+      const { url, file, ...rest } = attrs;
+      return Element("file", { src: url || file, ...rest });
+    },
+  });
+
   const [guildId, channelId] = decodeGuildChannelId(data);
   const message: Message = {
     id: data.message_id.toString(),
@@ -80,6 +124,13 @@ export function adaptChannel(info: OneBot.GroupInfo): Channel {
 export async function dispatchEvent(body: OneBotBody, data: OneBot.Payload): Promise<void> {
   const session = await adaptSession(body, data);
   if (!session) return;
+  // Raw payload is always available under `session.onebot` (typed via the
+  // module declaration in index.ts); internal events additionally keep their
+  // specific `_type` (e.g. `onebot/poke`) for dispatch purposes.
+  session.event.onebot = data;
+  if (session.type !== "internal") {
+    session.setInternal("onebot", data);
+  }
   body.dispatch(session);
 }
 
@@ -157,8 +208,6 @@ function adaptNoticeEvent(body: OneBotBody, data: OneBot.Payload, base: Partial<
         message: { id: messageId ?? "" },
         subtype: "private",
       });
-    case "guild_channel_recall":
-      return body.session({ ...common, type: "message-deleted", message: { id: messageId ?? "" }, subtype: "guild" });
     case "friend_add":
       return body.session({ ...common, type: "friend-added" });
     case "group_admin":
@@ -190,21 +239,21 @@ function adaptNoticeEvent(body: OneBotBody, data: OneBot.Payload, base: Partial<
       session.setInternal("onebot/message-reactions-updated", data);
       return session;
     }
-    case "channel_created": {
-      const session = body.session({ ...common, type: "internal" });
-      session.setInternal("onebot/channel-created", data);
-      return session;
-    }
-    case "channel_updated": {
-      const session = body.session({ ...common, type: "internal" });
-      session.setInternal("onebot/channel-updated", data);
-      return session;
-    }
-    case "channel_destroyed": {
-      const session = body.session({ ...common, type: "internal" });
-      session.setInternal("onebot/channel-destroyed", data);
-      return session;
-    }
+    case "offline_file":
+      return body.session({
+        ...common,
+        type: "message-created",
+        channel: { id: `${PRIVATE_PFX}${userId}`, type: 1 },
+        message: { id: "", elements: data.file ? [Element("file", data.file)] : [] },
+        subtype: "private",
+      });
+    case "group_upload":
+      return body.session({
+        ...common,
+        type: "message-created",
+        message: { id: "", elements: data.file ? [Element("file", data.file)] : [] },
+        subtype: "group",
+      });
     default:
       return undefined;
   }

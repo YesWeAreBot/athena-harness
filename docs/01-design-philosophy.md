@@ -249,7 +249,7 @@ export class Context extends satori.Context { ... }
 
 ### 4.2 Athena 的做法
 
-IM 是**平级的能力**，不是框架基质。Athena 自研 Nerve 协议：`protocol` 定义极薄的 Body/Session 基类（Session 信封），`protocol-im` 提供 IM 实体、IMSession 访问器与事件契约，平台 adapter（`nerve-onebot`、`sandbox`）继承 `IMBody` 注册进 `ctx.nerve`。Cortex 通过 `cordis.Events` 消费事件，通过事件上的 `body` 引用发送。
+IM 是**平级的能力**，不是框架基质。Athena 自研 Nerve 协议：`protocol` 定义极薄的 Body/Session 基类（Session 信封 + `defineAccessor`），`protocol-im` 提供 IM 实体、IM 访问器与事件契约，平台 adapter（`nerve-onebot`、`sandbox`）继承 `IMBody` 注册进 `ctx.nerve`。Cortex 通过 `cordis.Events` 消费事件，通过事件上的 `body` 引用发送。
 
 | 方面              | Koishi                           | Athena                                  |
 | ----------------- | -------------------------------- | --------------------------------------- |

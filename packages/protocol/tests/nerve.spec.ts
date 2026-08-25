@@ -1,7 +1,13 @@
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
-import { Body, NerveService } from "../src/nerve.js";
+import { Body, NerveService, Session } from "../src/nerve.js";
+
+declare module "cordis" {
+  interface Events {
+    "test-event"(session: Session): void;
+  }
+}
 
 class MockBody extends Body<{ selfId: string }> {
   platform = "mock";
@@ -49,9 +55,9 @@ describe("Body", () => {
     const body = new MockBody(ctx, { selfId: "bot_1" });
     ctx.nerve.register(body);
 
-    const received: Array<{ type: string; body: Body }> = [];
-    ctx.on("test-event", (event) => {
-      received.push(event);
+    const received: Session[] = [];
+    ctx.on("test-event", (session) => {
+      received.push(session);
     });
 
     const session = body.session({ type: "test-event", id: "evt_1" });
@@ -94,9 +100,16 @@ describe("Body", () => {
     await ctx.plugin(NerveService);
     const body = new MockBody(ctx, { selfId: "bot_1" });
     expect(body.status).toBe("offline");
-    await body.connect();
+    expect(body.isActive).toBe(false);
+
+    body.online();
     expect(body.status).toBe("online");
-    await body.disconnect();
+    expect(body.isActive).toBe(true);
+
+    const error = new Error("disconnected");
+    body.offline(error);
     expect(body.status).toBe("offline");
+    expect(body.error).toBe(error);
+    expect(body.isActive).toBe(false);
   });
 });

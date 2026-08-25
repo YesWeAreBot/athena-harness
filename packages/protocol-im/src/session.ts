@@ -1,151 +1,92 @@
 import { Session } from "@athena-ai/protocol";
+import { defineAccessor } from "@athena-ai/protocol";
 
 import type { Channel, Guild, GuildMember, Message, User } from "./types.js";
 import { Channel as ChannelType } from "./types.js";
 
 /**
- * IM-specific Session: the runtime envelope for every IM event, following the
- * Satori Session model. The raw payload lives in `session.event` (extended
- * with IM entity fields via declaration merging), while the derived views
- * below (`content`, `channelId`, `userId`, `guildId`, `isDirect`, ...) are
- * accessors that adapters no longer have to fill in by hand.
+ * IM accessors attached to the base `Session` prototype via
+ * `defineAccessor` (deep-path get/set with lazy creation) and computed
+ * properties. There is no `IMSession` subclass — protocol-im merges the
+ * IM views directly onto the runtime envelope, so adapters only fill the
+ * nested data objects (`channel`/`user`/`guild`/`message`) and every
+ * derived field (`channelId`, `userId`, `content`, `isDirect`, ...) is
+ * inferred automatically.
  */
-export class IMSession extends Session {
-  get channel(): Channel | undefined {
-    return this.event.channel;
-  }
 
-  set channel(value: Channel | undefined) {
-    if (value === undefined) return;
-    this.event.channel = value;
-  }
+// Deep-path accessors (satori pattern: one line per property).
+defineAccessor(Session.prototype, "channel", ["event", "channel"]);
+defineAccessor(Session.prototype, "user", ["event", "user"]);
+defineAccessor(Session.prototype, "guild", ["event", "guild"]);
+defineAccessor(Session.prototype, "message", ["event", "message"]);
+defineAccessor(Session.prototype, "channelId", ["event", "channel", "id"]);
+defineAccessor(Session.prototype, "channelName", ["event", "channel", "name"]);
+defineAccessor(Session.prototype, "userId", ["event", "user", "id"]);
+defineAccessor(Session.prototype, "guildId", ["event", "guild", "id"]);
+defineAccessor(Session.prototype, "guildName", ["event", "guild", "name"]);
+defineAccessor(Session.prototype, "messageId", ["event", "message", "id"]);
+defineAccessor(Session.prototype, "quote", ["event", "message", "quote"]);
+defineAccessor(Session.prototype, "elements", ["event", "message", "elements"]);
+defineAccessor(Session.prototype, "member", ["event", "member"]);
+defineAccessor(Session.prototype, "subtype", ["event", "subtype"]);
 
-  get user(): User | undefined {
-    return this.event.user;
-  }
-
-  set user(value: User | undefined) {
-    if (value === undefined) return;
-    this.event.user = value;
-  }
-
-  get guild(): Guild | undefined {
-    return this.event.guild;
-  }
-
-  set guild(value: Guild | undefined) {
-    if (value === undefined) return;
-    this.event.guild = value;
-  }
-
-  get message(): Message | undefined {
-    return this.event.message;
-  }
-
-  set message(value: Message | undefined) {
-    if (value === undefined) return;
-    this.event.message = value;
-  }
-
-  get channelId(): string | undefined {
-    return this.event.channel?.id;
-  }
-
-  set channelId(value: string | undefined) {
-    if (value === undefined) return;
-    // SAFETY: `event.channel` is an optional field; a lazily-created empty
-    // object plus an assigned `id` is the minimal valid Channel shape.
-    (this.event.channel ??= {} as Channel).id = value;
-  }
-
-  get userId(): string | undefined {
-    return this.event.user?.id;
-  }
-
-  set userId(value: string | undefined) {
-    if (value === undefined) return;
-    // SAFETY: `event.user` is an optional field; a lazily-created empty
-    // object plus an assigned `id` is the minimal valid User shape.
-    (this.event.user ??= {} as User).id = value;
-  }
-
-  get guildId(): string | undefined {
-    return this.event.guild?.id;
-  }
-
-  set guildId(value: string | undefined) {
-    if (value === undefined) return;
-    // SAFETY: `event.guild` is an optional field; a lazily-created empty
-    // object plus an assigned `id` is the minimal valid Guild shape.
-    (this.event.guild ??= {} as Guild).id = value;
-  }
-
-  get messageId(): string | undefined {
-    return this.event.message?.id;
-  }
-
-  set messageId(value: string | undefined) {
-    if (value === undefined) return;
-    // SAFETY: `event.message` is an optional field; a lazily-created empty
-    // object plus an assigned `id` is the minimal valid Message shape.
-    (this.event.message ??= {} as Message).id = value;
-  }
-
-  get content(): string | undefined {
+// Computed accessors that need logic beyond path traversal.
+Object.defineProperty(Session.prototype, "content", {
+  get() {
     return this.event.message?.content;
-  }
-
-  set content(value: string | undefined) {
+  },
+  set(value: string | undefined) {
     // SAFETY: `event.message` is an optional field; a lazily-created empty
     // object plus an assigned `content` is the minimal valid Message shape.
     (this.event.message ??= {} as Message).content = value;
-  }
+  },
+  configurable: true,
+});
 
-  get quote(): Message | undefined {
-    return this.event.message?.quote;
-  }
-
-  set quote(value: Message | undefined) {
-    // SAFETY: `event.message` is an optional field; a lazily-created empty
-    // object plus an assigned `quote` is the minimal valid Message shape.
-    (this.event.message ??= {} as Message).quote = value;
-  }
-
-  get elements(): Message["elements"] {
-    return this.event.message?.elements;
-  }
-
-  set elements(value: Message["elements"]) {
-    // SAFETY: `event.message` is an optional field; a lazily-created empty
-    // object plus an assigned `elements` is the minimal valid Message shape.
-    (this.event.message ??= {} as Message).elements = value;
-  }
-
-  get isDirect(): boolean {
+Object.defineProperty(Session.prototype, "isDirect", {
+  get() {
     return this.event.channel?.type === ChannelType.Type.DIRECT;
-  }
-
-  set isDirect(value: boolean) {
+  },
+  set(value: boolean) {
     // SAFETY: `event.channel` is an optional field; a lazily-created empty
     // object plus an assigned `type` is the minimal valid Channel shape.
     (this.event.channel ??= {} as Channel).type = value ? ChannelType.Type.DIRECT : ChannelType.Type.TEXT;
+  },
+  configurable: true,
+});
+
+// Type-level declarations for the IM views (merged onto Session).
+declare module "@athena-ai/protocol" {
+  // Event payload extension: IM entities as optional fields on the wire event.
+  interface Event {
+    channel?: Channel;
+    guild?: Guild;
+    user?: User;
+    member?: GuildMember;
+    message?: Message;
+    quote?: Message;
+    subtype?: string;
   }
 
-  get subtype(): string | undefined {
-    return this.event.subtype;
-  }
-
-  set subtype(value: string | undefined) {
-    if (value === undefined) return;
-    this.event.subtype = value;
-  }
-
-  get member(): GuildMember | undefined {
-    return this.event.member;
-  }
-
-  set member(value: GuildMember | undefined) {
-    if (value === undefined) return;
-    this.event.member = value;
+  // Session accessor views: derived from Event fields via defineAccessor.
+  interface Session {
+    channel?: Channel;
+    user?: User;
+    guild?: Guild;
+    message?: Message;
+    channelId?: string;
+    channelName?: string;
+    userId?: string;
+    guildId?: string;
+    guildName?: string;
+    messageId?: string;
+    quote?: Message;
+    elements?: Message["elements"];
+    member?: GuildMember;
+    subtype?: string;
+    /** Computed: message content (koishi semantics, elements serialized). */
+    content?: string;
+    /** Computed: whether this is a direct message. */
+    isDirect: boolean;
   }
 }

@@ -3,9 +3,9 @@ import { WsClient } from "@athena-ai/protocol-im";
 import type {} from "@cordisjs/plugin-http";
 import type { Context } from "cordis";
 
-import { dispatchEvent } from "./adapter.js";
-import type { OneBotBody } from "./body.js";
+import type { OneBotBody } from "./bot/index.js";
 import type { Response } from "./types.js";
+import { dispatchEvent } from "./utils.js";
 
 /**
  * Minimal shape of the server service routes used by this adapter.

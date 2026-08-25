@@ -770,7 +770,7 @@ await this.ctx.parallel("cortex/after-enact", results);
 
 ## 3. 定义一个 IM Body（协议实现）
 
-> **架构现状**：`capability-message`（Satori 隔离层）已删除，Satori 已从 `vendor/` 移除。IM 协议自研为 `@athena-ai/protocol-im`，平台接入统一走 **Nerve Body** 模式：继承 `IMBody`、注册进 `ctx.nerve`、用 `createEvent()` + `dispatch()` 发射事件。
+> **架构现状**：`capability-message`（Satori 隔离层）已删除，Satori 已从 `vendor/` 移除。IM 协议自研为 `@athena-ai/protocol-im`，平台接入统一走 **Nerve Body** 模式：继承 `IMBody`、注册进 `ctx.nerve`、用 `session()` + `dispatch()` 发射事件。
 
 ### 3.1 最小 IM Body
 
@@ -802,14 +802,14 @@ export class MyBody extends IMBody<MyBody.Config> {
     this.offline();
   }
 
-  // 只实现平台支持的方法；其余继承 IMBody 的默认实现（抛 not implemented）
+  // 只实现平台支持的方法；不支持的直接不写（features 自动扫描）
   async getLogin(): Promise<Login> {
     const info = await this.internal.getLoginInfo();
     return { user: decodeUser(info), platform: this.platform, status: 1, features: [] };
   }
 
-  async sendMessage(channelId: string, content: Fragment): Promise<string[]> {
-    // ... 平台发送逻辑
+  async createMessage(channelId: string, content: Fragment): Promise<Message[]> {
+    // ... 平台发送逻辑，返回新消息数组
   }
 }
 ```
@@ -817,8 +817,9 @@ export class MyBody extends IMBody<MyBody.Config> {
 **要点**：
 
 - `*[Service.init]()` **不需要**子类实现——Body 基类默认注册进 `ctx.nerve` + 启动连接 + dispose 断开。若覆写必须 `yield* super[Service.init]()`
-- 未实现的方法继承 `IMBody` 的 `_notImplemented` 默认实现，调用时**显式抛错**（而不是 `TypeError: ... is not a function`）
-- 组合方法（`sendMessage` → `createMessage`、`sendPrivateMessage` → `createDirectChannel` + `sendMessage`）基类已实现，子类实现原语即可
+- **零 placeholder**：`IMBody` 不提供 `_notImplemented` 默认实现。不支持的平台方法直接**不写**——它不在原型上，`features` 扫描（satori 模式）自动不包含它，`supports(name)` 返回 `false`
+- `IMBody` 只强制两个抽象原语：`createMessage` / `createDirectChannel`；组合方法（`sendMessage` → `createMessage`、`sendPrivateMessage` → `createDirectChannel` + `sendMessage`）基类已实现，子类无需重写
+- 能力检测：`body.features`（wire 级方法名数组，构造时自动扫描）与 `body.supports("message.get")`；调用前先 `supports()` 判断，避免 `TypeError: ... is not a function`
 
 ### 3.2 发射事件：`session()` + `dispatch`
 
@@ -838,7 +839,7 @@ const session = body.session({
 body.dispatch(session);
 ```
 
-- adapter 只填**嵌套数据对象**（`channel`/`user`/`guild`/`message`）；`channelId`/`userId`/`guildId`/`isDirect`/`content` 由 `IMSession` 访问器推导，不再手工填派生字段
+- adapter 只填**嵌套数据对象**（`channel`/`user`/`guild`/`message`）；`channelId`/`userId`/`guildId`/`isDirect`/`content` 由 Session 的 IM 访问器（`defineAccessor` 挂在 `Session.prototype`，satori 模式）推导，不再手工填派生字段
 - **无事件别名**（`eventAliases` 已删除）；`internal` 子事件用 `session.setInternal(type, data)` 标记，按 `_type` 发射
 
 ### 3.3 事件签名注册（satori 模式）
@@ -855,8 +856,8 @@ declare module "cordis" {
 }
 ```
 
-- 事件接口 `extends IMSession`（IM Session 信封）+ 各自的具体字段收窄（`type` 字面量、必填字段）
-- core 的 `Event` 数据接口（无 IM 语义）用 `declare module "@athena-ai/protocol"` 追加可选实体引用（`channel`/`user`/`guild`/`message`…），`IMSession` 访问器从这些嵌套对象推导派生字段
+- 事件接口直接 `extends Session`（base 信封，protocol-im 已合并 IM 访问器）+ 各自的具体字段收窄（`type` 字面量、必填字段）
+- core 的 `Event` 数据接口（无 IM 语义）用 `declare module "@athena-ai/protocol"` 追加可选实体引用（`channel`/`user`/`guild`/`message`…），Session 的 IM 访问器从这些嵌套对象推导派生字段
 - **没有** `NerveEventMap` 之类的第二注册表——satori/koishi 都只声明 `cordis.Events` 一份
 
 ### 3.4 Internal API 动态生成（koishi 模式）
@@ -886,8 +887,8 @@ export class Internal {
 
 - [ ] `extends IMBody<Config>`，`platform` 只读属性，`static inject` 含 `"nerve"`
 - [ ] 实现 `connect()` / `disconnect()`（基类 `Service.init` 自动调用）
-- [ ] 只实现平台支持的方法；不支持的方法留给基类 `_notImplemented`
-- [ ] 事件用 `createEvent()` + `dispatch()` 发射，类型注册进 `cordis.Events`
+- [ ] 只实现平台支持的方法（含抽象原语 `createMessage` / `createDirectChannel`）；不支持的方法直接不写，`features` 自动扫描
+- [ ] 事件用 `session()` + `dispatch()` 发射，类型注册进 `cordis.Events`
 - [ ] 请求/响应状态放实例，不放模块级全局
 - [ ] package.json 的 `cordis.service.required` 声明（如 `["nerve", "http"]`）
 - [ ] 测试覆盖：`ctx.plugin(Body)` 自动连接、dispose 自动断开、事件派发、CQCode/编码器
@@ -951,7 +952,7 @@ export default class SandboxNerve {
 
     const id = Math.random().toString(36).slice(2);
 
-    // session() 填嵌套数据对象；channelId/userId/isDirect 由 IMSession 访问器推导
+    // session() 填嵌套数据对象；channelId/userId/isDirect 由 Session 的 IM 访问器推导
     const session = bot.session({
       type: "message-created",
       user: { id: user, name: user },
@@ -1019,7 +1020,7 @@ export default class SandboxNerve {
 
 **要点**：
 
-- 外部输入转事件时，**显式填** `isDirect` / `guildId` / `messageId` 等字段——Nerve 的 `createEvent` 不会像 Satori Session 那样自动推导
+- 外部输入转事件时，填**嵌套数据对象**（`user`/`channel`/`guild`/`message`）；`channelId`/`userId`/`isDirect` 等派生字段由 Session 的 IM 访问器自动推导（satori 模式）
 - Body 通过 `ctx.nerve.get(sid)` 查找（`sid = platform:selfId`），不再有 `ctx.satori.bots` 注册表
 - 事件类型用 `message-created`（Nerve 命名），不是 Satori 的 `message`
 
@@ -1069,7 +1070,7 @@ Life Group
 - [ ] 需要 Life 身份时 inject `"life"`
 - [ ] 平台连接、认证、重连在 Body 内部处理（`connect`/`disconnect`）
 - [ ] Body 实例注册进 `ctx.nerve`（基类 `Service.init` 自动完成）
-- [ ] 事件通过 `createEvent()` + `dispatch()` 发射
+- [ ] 事件通过 `session()` + `dispatch()` 发射
 - [ ] 清理逻辑注册在 `ctx.effect()` 或 `*[Service.init]()` 中
 - [ ] **不**提供 service（Nerve 通常不 provide，除非是 Hub）
 

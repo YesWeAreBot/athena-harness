@@ -139,7 +139,7 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 ### 2.3 铁律
 
 1. **Cortex 依赖 `protocol` 的事件契约，永不依赖 `nerve-*` / adapter。** 事件通过 `cordis.Events` 声明消费（如 `message-created`），发送通过事件上的 `body` 引用。
-2. **`protocol` 不依赖 `protocol-im`。** IM 是可选增强：`protocol-im` 声明合并进 `Body` / `Event` / `cordis.Events`，并用 `IMSession extends Session` 提供 IM 访问器。
+2. **`protocol` 不依赖 `protocol-im`。** IM 是可选增强：`protocol-im` 声明合并进 `Body` / `Event` / `cordis.Events`，并用 `defineAccessor` 把 IM 访问器挂到 `Session.prototype` 上。
 3. **`protocol-im` 不依赖 `core`。** 它只依赖 `protocol` + `@cordisjs/element`。
 4. **`cordis` 永远在 `peerDependencies`**，多副本会导致 Symbol 身份不同、隔离静默失效。
 
@@ -489,8 +489,8 @@ await event.body.sendPrivateMessage(userId, content);
 
 **为什么事件类型是具体接口（`IMMessageEvent` 等）？**
 
-- 运行时统一用 **Session 信封**传播（satori 模式），类型层用具体接口收窄——`IMMessageEvent` 等 `extends IMSession`，把 `type` 收窄为字面量、把访问器字段收窄为必填
-- `Session`（core）是基础信封（`event` 数据 + `sn`/`body` + 基础访问器）；`IMSession`（protocol-im）提供 IM 访问器（`content`/`channelId`/`userId`/`guildId`/`isDirect`/`quote`…），由 `session.event` 嵌套对象推导
+- 运行时统一用 **Session 信封**传播（satori 模式），类型层用具体接口收窄——`IMMessageEvent` 等 `extends Session`，把 `type` 收窄为字面量、把访问器字段收窄为必填
+- `Session`（core）是基础信封（`event` 数据 + `sn`/`body` + 基础访问器）；protocol-im 用 `defineAccessor` 把 IM 访问器（`content`/`channelId`/`userId`/`guildId`/`isDirect`/`quote`…）挂到 `Session.prototype`，由 `session.event` 嵌套对象推导
 - 消费方类型精确（`event.channelId: string`），运行时拿到的是带访问器的 Session 实例
 
 ### 7.2 事件契约
@@ -511,7 +511,7 @@ NerveService 归一化器（root 注册）
 cordis.Events 消费者（ctx.on("message-created", ...)）
 ```
 
-- adapter 只需填**嵌套数据对象**（`channel`/`user`/`guild`/`message`），`channelId`/`userId`/`guildId`/`isDirect`/`content` 由 `IMSession` 访问器推导——不再手工填派生字段
+- adapter 只需填**嵌套数据对象**（`channel`/`user`/`guild`/`message`），`channelId`/`userId`/`guildId`/`isDirect`/`content` 由 Session 的 IM 访问器推导——不再手工填派生字段
 - 事件是 **Session 实例**（带访问器），类型上按 `IMMessageEvent` 等接口收窄
 - **无事件别名**（`eventAliases` 已删除）；`internal` 子事件按 `_type` 发射（`onebot/poke` 等）
 

@@ -1,16 +1,16 @@
-import { IMBody } from "@athena-ai/protocol-im";
 import type { Channel, Guild, GuildMember, List, Login, Message, User } from "@athena-ai/protocol-im";
+import { IMBody } from "@athena-ai/protocol-im";
 import type { Element } from "@cordisjs/element";
 import type {} from "@cordisjs/plugin-http";
-import { Context, Service } from "cordis";
+import { Context } from "cordis";
 import Schema from "schemastery";
 
-import { adaptChannel, adaptGuild, adaptMessage, decodeGuildMember, decodeUser, PRIVATE_PFX } from "./adapter.js";
-import { OneBotMessageEncoder } from "./encoder.js";
-import { OneBotHttpServer } from "./http.js";
-import { Internal } from "./types.js";
-import type * as OneBot from "./types.js";
-import { OneBotWsClient, OneBotWsServer } from "./ws.js";
+import { OneBotHttpServer } from "../http.js";
+import type * as OneBot from "../types.js";
+import { Internal } from "../types.js";
+import { adaptChannel, adaptGuild, adaptMessage, decodeGuildMember, decodeUser, PRIVATE_PFX } from "../utils.js";
+import { OneBotWsClient, OneBotWsServer } from "../ws.js";
+import { OneBotMessageEncoder } from "./message.js";
 
 export class OneBotBody extends IMBody<OneBotBody.Config> {
   static inject = ["nerve", "http"];
@@ -30,11 +30,6 @@ export class OneBotBody extends IMBody<OneBotBody.Config> {
       id: config.selfId,
       avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${config.selfId}&spec=640`,
     };
-  }
-
-  *[Service.init]() {
-    // SAFETY: the base implementation registers into ctx.nerve and starts the connection.
-    yield* super[Service.init]();
   }
 
   async connect(): Promise<void> {
@@ -81,16 +76,6 @@ export class OneBotBody extends IMBody<OneBotBody.Config> {
   async createMessage(channelId: string, content: Element[]): Promise<Message[]> {
     const encoder = new OneBotMessageEncoder(this, channelId);
     return encoder.send(content);
-  }
-
-  async sendMessage(channelId: string, content: Element[]): Promise<string[]> {
-    const messages = await this.createMessage(channelId, content);
-    return messages.map((m) => m.id).filter((id): id is string => !!id);
-  }
-
-  async sendPrivateMessage(userId: string, content: Element[], guildId?: string): Promise<string[]> {
-    const channel = await this.createDirectChannel(userId, guildId);
-    return this.sendMessage(channel.id, content);
   }
 
   async getMessage(_channelId: string, messageId: string): Promise<Message> {
@@ -231,6 +216,37 @@ export class OneBotBody extends IMBody<OneBotBody.Config> {
   async handleGuildMemberRequest(messageId: string, approve: boolean, comment?: string): Promise<void> {
     await this.internal.setGroupAddRequest(messageId, "add", approve, comment);
   }
+
+  // ─── Group Operations ──────────────────────────────────────────────────
+
+  /**
+   * OneBot models the owner/admin distinction as two fixed roles.
+   * Mapping the role id back to the corresponding capability keeps the
+   * abstract surface small while preserving the platform's semantics.
+   */
+  async checkPermission(name: string, session: { member?: GuildMember }): Promise<boolean> {
+    if (name === "onebot.group.admin") {
+      return session.member?.roles?.[0]?.id === "admin";
+    }
+    if (name === "onebot.group.owner") {
+      return session.member?.roles?.[0]?.id === "owner";
+    }
+    return false;
+  }
+
+  async setGuildMemberRole(guildId: string, userId: string, roleId: string): Promise<void> {
+    if (roleId !== "admin") {
+      throw new Error(`Unsupported role: ${roleId}`);
+    }
+    await this.internal.setGroupAdmin(guildId, userId, true);
+  }
+
+  async unsetGuildMemberRole(guildId: string, userId: string, roleId: string): Promise<void> {
+    if (roleId !== "admin") {
+      throw new Error(`Unsupported role: ${roleId}`);
+    }
+    await this.internal.setGroupAdmin(guildId, userId, false);
+  }
 }
 
 export namespace OneBotBody {
@@ -245,9 +261,14 @@ export namespace OneBotBody {
     retryTimes: number;
     retryInterval: number;
     retryLazy: number;
+    advanced?: AdvancedConfig;
   }
 
-  const schema = Schema.intersect([
+  export interface AdvancedConfig {
+    splitMixedContent?: boolean;
+  }
+
+  export const Config: Schema<Config> = Schema.intersect([
     Schema.object({
       protocol: Schema.union(["ws", "ws-reverse", "http"]).default("ws").description("Connection protocol."),
       selfId: Schema.string().required().description("Bot QQ number."),
@@ -262,8 +283,19 @@ export namespace OneBotBody {
       retryInterval: Schema.natural().default(5000).description("Retry interval on initial connection (ms)."),
       retryLazy: Schema.natural().default(60000).description("Retry interval after connection drops (ms)."),
     }).description("Reconnection Settings"),
+    Schema.object({
+      advanced: Schema.object({
+        splitMixedContent: Schema.boolean().default(true).description("Auto-insert spaces around images in mixed content."),
+      }).description("Advanced Settings"),
+    }),
   ]);
-  // SAFETY: the schema covers exactly the Config fields, so the narrowed type is accurate.
-  // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY comment is above; rule misses assertions on exported declarations
-  export const Config: Schema<Config> = schema as Schema<Config>;
+}
+
+// ─── BodyRegistry injection ──────────────────────────────────────────────────
+// Enables `body.platform === "onebot"` narrowing on the AnyBody union.
+
+declare module "@athena-ai/protocol" {
+  interface BodyRegistry {
+    onebot: OneBotBody;
+  }
 }

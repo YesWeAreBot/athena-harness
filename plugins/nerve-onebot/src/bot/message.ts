@@ -1,8 +1,8 @@
 import { MessageEncoder } from "@athena-ai/protocol-im";
 import type { Element } from "@cordisjs/element";
 
-import type { OneBotBody } from "./body.js";
 import { CQCode } from "./cqcode.js";
+import type { OneBotBody } from "./index.js";
 
 const PRIVATE_PFX = "private:";
 
@@ -124,6 +124,16 @@ export class OneBotMessageEncoder extends MessageEncoder<OneBotBody> {
         await this.body.internal.uploadGroupFile(this.channelId, file, name);
       }
       this.results.push({ id: "" });
+      // File upload APIs do not return a message_id; dispatch the send event
+      // with an empty id (koishi parity).
+      this.body.dispatch(
+        this.body.session({
+          type: "send",
+          channel: { id: this.channelId, type: this.isDirect ? 1 : 0 },
+          user: { id: this.body.selfId },
+          message: { id: "" },
+        }),
+      );
     } catch (error) {
       this.errors.push(error instanceof Error ? error : new Error(String(error)));
     }
@@ -166,7 +176,11 @@ export class OneBotMessageEncoder extends MessageEncoder<OneBotBody> {
         break;
 
       case "face":
-        this.children.push({ type: "face", data: { id: String(attrs.id ?? "") } });
+        if (attrs.platform && attrs.platform !== this.body.platform) {
+          await this.render(children ?? []);
+        } else {
+          this.children.push({ type: "face", data: { id: String(attrs.id ?? "") } });
+        }
         break;
 
       case "a":

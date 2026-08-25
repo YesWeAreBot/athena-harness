@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CQCode } from "../src/cqcode.js";
+import { CQCode } from "../src/bot/cqcode.js";
 
 describe("CQCode", () => {
   it("escapes special characters", () => {
