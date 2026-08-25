@@ -1,8 +1,9 @@
 import type { JsonValue, MessageSink, SandboxRequestPayload } from "@athena-ai/protocol";
-import { Bot, Time, Universal } from "@satorijs/core";
+import type { Guild, GuildMember, List, Message, User } from "@athena-ai/protocol-im";
+import { Channel, IMBody } from "@athena-ai/protocol-im";
 import type { Context } from "cordis";
 
-import { SandboxMessenger } from "./message";
+import { SandboxMessenger } from "./message.js";
 
 export namespace SandboxBot {
   export interface Config {
@@ -29,41 +30,27 @@ interface Pending {
 }
 
 /** How long the browser has to answer a `sandbox/request` frame. */
-export const REQUEST_TIMEOUT = Time.second * 5;
+export const REQUEST_TIMEOUT = 5000;
 
 /**
- * A bot whose entire "platform" lives in a browser tab.
+ * A body whose entire "platform" lives in a browser tab.
  *
- * Outgoing messages are pushed over the WebUI socket; every Satori read API is
+ * Outgoing messages are pushed over the WebUI socket; every IM read API is
  * proxied to the page as a `sandbox/request` frame and correlated back by nonce.
  */
-class SandboxMessageEncoder extends SandboxMessenger {
-  constructor(
-    bot: Bot,
-    channelId: string,
-    referrer?: ConstructorParameters<NonNullable<typeof Bot.MessageEncoder>>[2],
-    options?: ConstructorParameters<NonNullable<typeof Bot.MessageEncoder>>[3],
-  ) {
-    // SAFETY: Satori invokes this constructor only from SandboxBot.send(), so the Bot instance is the SandboxBot
-    // that owns this encoder; the base static type is intentionally broader than the concrete messenger needs.
-    super(bot as SandboxBot, channelId, referrer, options);
-  }
-}
+export class SandboxBot extends IMBody<SandboxBot.Config> {
+  static inject = ["nerve"];
 
-export class SandboxBot extends Bot<SandboxBot.Config> {
-  static inject = ["satori"];
-  static MessageEncoder = SandboxMessageEncoder;
-  hidden = true;
+  public readonly platform: string;
+  public user: User | undefined;
 
   private _pending = new Map<string, Pending>();
 
   constructor(ctx: Context, config: SandboxBot.Config) {
-    super(ctx, config, "sandbox");
-    // `Bot` seeds `platform` from the adapter name; the sandbox wants one
-    // virtual platform per browser instance so sessions stay separated.
+    super(ctx, config);
     this.platform = config.platform;
+    this.selfId = config.selfId;
     this.user = { id: config.selfId, name: config.selfName };
-    this.internal = {};
   }
 
   async connect() {
@@ -99,20 +86,25 @@ export class SandboxBot extends Bot<SandboxBot.Config> {
       this._pending.set(nonce, { settle: resolve, fail: reject, timer });
       this.config.sink.send({ type: "sandbox/request", body: { method, data: payload, nonce } });
     });
-    // SAFETY: T is chosen by the caller from the Satori method contract, and the browser returns that method's JSON result.
+    // SAFETY: T is chosen by the caller from the IM method contract, and the browser returns that method's JSON result.
     return result as T;
   }
 
   // -- Direct Channel --
 
-  async createDirectChannel(userId: string): Promise<Universal.Channel> {
-    return { id: `@${userId}`, type: Universal.Channel.Type.DIRECT };
+  async createDirectChannel(userId: string): Promise<Channel> {
+    return { id: `@${userId}`, type: Channel.Type.DIRECT };
   }
 
   // -- Message --
 
+  async createMessage(channelId: string, content: import("@cordisjs/element").Fragment): Promise<Message[]> {
+    const encoder = new SandboxMessenger(this, channelId);
+    return encoder.send(content);
+  }
+
   async getMessage(channelId: string, messageId: string) {
-    return this.request<Universal.Message>("getMessage", { channelId, messageId });
+    return this.request<Message>("getMessage", { channelId, messageId });
   }
 
   async deleteMessage(channelId: string, messageId: string) {
@@ -122,31 +114,31 @@ export class SandboxBot extends Bot<SandboxBot.Config> {
   // -- Channel --
 
   async getChannel(channelId: string, guildId?: string) {
-    return this.request<Universal.Channel>("getChannel", { channelId, guildId });
+    return this.request<Channel>("getChannel", { channelId, guildId });
   }
 
   async getChannelList(guildId: string) {
-    return this.request<Universal.List<Universal.Channel>>("getChannelList", { guildId });
+    return this.request<List<Channel>>("getChannelList", { guildId });
   }
 
   // -- Guild --
 
   async getGuild(guildId: string) {
-    return this.request<Universal.Guild>("getGuild", { guildId });
+    return this.request<Guild>("getGuild", { guildId });
   }
 
   async getGuildList() {
-    return this.request<Universal.List<Universal.Guild>>("getGuildList");
+    return this.request<List<Guild>>("getGuildList");
   }
 
   // -- Guild Member --
 
   async getGuildMember(guildId: string, userId: string) {
-    return this.request<Universal.GuildMember>("getGuildMember", { guildId, userId });
+    return this.request<GuildMember>("getGuildMember", { guildId, userId });
   }
 
   async getGuildMemberList(guildId: string) {
-    return this.request<Universal.List<Universal.GuildMember>>("getGuildMemberList", { guildId });
+    return this.request<List<GuildMember>>("getGuildMemberList", { guildId });
   }
 }
 

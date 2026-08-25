@@ -38,7 +38,7 @@
 3. **不需要兼容 Satori 生态** — Athena 不是 Koishi，不需要跑 Koishi 插件。IM adapter 迁移是机械工作，核心稳定后再做
 4. **避免变成另一个 Koishi** — 沿用 IM 平台那一套设计，未来还可能走回 Koishi 的路
 
-Satori 的具体 IM adapter（adapter-onebot、adapter-qq 等）在核心稳定后可以迁移到新协议，工作量不大，都是机械转换。
+✅ **已实现（2026-08-25）**：Satori 的具体 IM adapter 已迁移为 Nerve adapter（`nerve-onebot`），vendor/satorijs 与 capability-message 已删除。迁移确认为机械转换，见 [05-lessons-learned.md](../05-lessons-learned.md) §14。
 
 ---
 
@@ -109,6 +109,8 @@ Cortex 通过 import 哪个包的类型来获得对应的 API 类型。这是编
 ---
 
 ## NerveEvent
+
+> **历史演进记录（2026-08-25）**：本节描述的 `NerveEventMap` / plain-interface 方案已被 **Session 信封** 取代——运行时统一用 `Session`（core）/ `IMSession`（protocol-im）传播，`NerveEvent` 类型已删除，具体事件接口（`IMMessageEvent` 等）`extends IMSession` 收窄。事件签名只在 `cordis.Events` 声明。本节保留作设计历程参考，以代码为准。
 
 NerveEvent 是所有从 Nerve 进入 Cortex 的事件的统一信封。
 
@@ -503,7 +505,7 @@ cortex-state/
 
 3. **protocol-im 的具体实体类型** — Message、Channel、User、Guild 等的字段定义（可参考 Satori protocol 但不必完全一致）
 
-4. **Element 格式** — 是否复用 `@satorijs/element` 的结构化内容格式？还是定义自己的？
+4. **Element 格式** — ✅ **已定**：复用 `@cordisjs/element`（npm 发布版），protocol-im 提供 `at`/`image`/`quote` 等工厂函数
 
 5. **message-store 的存储后端** — SQLite？文件系统？需要权衡查询能力和部署复杂度
 
@@ -517,7 +519,7 @@ cortex-state/
 
 ## 参考来源
 
-- Satori v5（`vendor/satorijs/`）—— Bot/Adapter/Session 抽象的工程参考
+- ~~Satori v5（`vendor/satorijs/`）~~ —— 已移除；Bot/Adapter/Session 抽象的历史参考见 `references/`
 - YesImBot agent-runtime（`/home/workspace/YesImBot/packages/agent-runtime/src/message.ts`）—— WsMessage 设计的直接参考
 - AI SDK v7（`@ai-sdk/provider-utils`）—— ModelMessage 类型定义
 - [01-context-construction.md](./01-context-construction.md) —— 三块模型

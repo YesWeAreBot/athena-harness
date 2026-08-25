@@ -18,14 +18,13 @@
   "peerDependencies": {
     "@athena-ai/plugin-sandbox": "workspace:*",
     "@athena-ai/protocol": "workspace:*",
-    "@satorijs/core": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
   "cordis": {
     "service": {
       "required": [
         "sandbox",
-        "satori",
+        "nerve",
         "life"
       ]
     }

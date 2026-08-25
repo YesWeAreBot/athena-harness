@@ -838,12 +838,13 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 | 错误                                        | 正确做法                                                                        | 详见                                          |
 | ------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------- |
 | 在 Service 构造函数调 `ctx.mixin()`         | 用普通 getter，或让调用方写 `ctx.<svc>.<prop>`                                  | §1                                            |
-| 用 `ctx.bots`                               | 用 `ctx.satori.bots`（domain 内）/ `ctx.message.bots`（Cortex 侧）              | §1.5                                          |
+| 用 `ctx.bots` / `ctx.satori.bots`           | **已不存在**（vendor 移除）。用 `ctx.nerve.get(sid)`                             | §14.3                                         |
+| 用 `ctx.message`（capability-message）      | **已删除**。订阅 `cordis.Events`（`message-created`），发送用 `event.body`       | §14.3                                         |
 | 用 `===` 比较 service 引用                  | 按 `.name` 比较                                                                 | §3.3                                          |
 | 依赖 `this.ctx` 解析 isolate                | 构造时自存 `this._self = ctx`                                                   | §3.4                                          |
 | 直接读 `session.bot.ctx` 判归属             | 先 `unwrap()`                                                                   | §3.5                                          |
 | Life 放在 prelude                           | Life 是 per-group managed plugin                                                | §2.2                                          |
-| 少隔离一个 token                            | 四个都要：`life` / `cortex` / `message` / `satori`                              | §2.3                                          |
+| 少隔离一个 token                            | 三个都要：`life` / `cortex` / `nerve`                                           | §2.3                                          |
 | 在框架层做事件队列                          | Cortex 自管理缓冲                                                               | §4                                            |
 | 为"统一"而包装 Satori / AI SDK              | 直接用；只在需要隔离/作用域时加层                                               | §6                                            |
 | 内核继承领域实现基类                        | 内核用原生 cordis Context                                                       | §7.1                                          |
@@ -851,12 +852,10 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 | tool 依赖注入的 context                     | tool 用参数接收完整寻址                                                         | §9                                            |
 | 全局资源与 per-Life 资源混在一个插件        | 拆 Hub + Nerve                                                                  | §11                                           |
 | `cordis` 放 `dependencies`                  | 放 `peerDependencies` + 部署侧 `resolutions`                                    | §12                                           |
-| 改 vendored 代码不登记                      | 登记到 [02-architecture.md](./02-architecture.md) §11.3                         | §8.4                                          |
 | 测试里 `await` 一个 inject 未满足的 plugin  | 不要 await，直接断言 `ctx.get(...)` undefined                                   | [04](./04-patterns-and-recipes.md) §7.1       |
 | 期望 `Service<T>` 提供 `this.config`        | **不提供。** 自己写 `constructor(ctx, public config: Config)`                   | [A](./appendix/A-cordis-primer.md) §3.1       |
 | `static optional = [...]`                   | cordis v4 没有。用 `ctx.get(name)` 或 `ctx.inject([...], cb)`                   | [A](./appendix/A-cordis-primer.md) §5.2       |
 | `waterfall` 当 reducer 用                   | 是 `next()` 中间件链；调用方要传链尾 `inner`                                    | [A](./appendix/A-cordis-primer.md) §6.3       |
-| `session.stripped.appel`                    | Athena 没有（Koishi 加料）。查 `session.elements` 的 `at` 元素                  | [B](./appendix/B-satori-primer.md) §3.4       |
 | `generateText({ maxSteps })`                | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                                      | [04](./04-patterns-and-recipes.md) §5.2       |
 | tool 的 `execute` 解构参数                  | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                               | [04](./04-patterns-and-recipes.md) §5.2       |
 | `models.yml` 里写 `maxTokens`               | AI SDK 的名字是 `maxOutputTokens`；写错会被 loader 丢掉并 warn                  | [04](./04-patterns-and-recipes.md) §5.7       |
@@ -866,3 +865,75 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 | 用 `Reflect.get` / `Reflect.apply` 访问实现 | 使用公开 getter、类型化属性访问或 `Function.call`                               | [03](./03-code-conventions.md) §类型安全 lint |
 | 指望 `ctx.ai` 内部帮你重试 / failover       | `candidates()` 只给排好序的候选，循环写在 Cortex 里                             | [04](./04-patterns-and-recipes.md) §5.1       |
 | 自己写代码合并模型默认参数                  | 用 AI SDK 的 `defaultSettingsMiddleware`，语义已是"调用方胜出"                  | [02](./02-architecture.md) §9.1               |
+| 在 `*[Service.init]()` 里 `yield` promise   | cordis fiber 只接受 disposer 函数。异步启动用 fire-and-forget（`this.connect()` 不 await） | §14.1                                |
+| 维护平行的 `NerveEventMap` + `cordis.Events` | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式）                     | §14.2                                         |
+| Body 子类各自手写注册到 nerve                | Body 基类提供默认 `*[Service.init]()`；子类 `yield* super[Service.init]()`      | §14.4                                         |
+| adapter 请求/响应桥用模块级全局 listeners    | 放 Internal/body 实例上（`Map<echo, {resolve, timer}>`）                         | §14.5                                         |
+| 手搓事件字段（isDirect/guildId）            | 显式填；Nerve 的 `createEvent` 不会像 Satori Session 自动推导                   | §14.6                                         |
+
+---
+
+## 14. Satori → Nerve 迁移的踩坑记录
+
+2026-08 完成 Satori → Nerve 完整迁移（自研 protocol-im + nerve-onebot，删除 vendor/satorijs 与 capability-message）。以下是过程中付出代价换来的结论。
+
+### 14.1 `*[Service.init]()` 里不能 `yield` promise
+
+**现象**：`yield this.connect()` 抛 `TypeError: Invalid effect`。
+
+**根因**：cordis v4 的 fiber 机制中，`Service.init` generator `yield` 的值只接受 **disposer 函数**（`() => Awaitable<void>`）。`yield promise` / `yield* asyncGen` 不被支持——`safeCollect` 对 promise 走 `then` 分支后 resolve 值再被收集，最终报 Invalid effect（见 `node_modules/cordis/lib/index.js` 的 `safeCollect`）。
+
+**结论**：异步启动副作用用 **fire-and-forget**（不 await）：
+
+```typescript
+*[Service.init]() {
+  const unregister = this.ctx.nerve.register(this);
+  yield unregister;
+  yield () => { this.disconnect(); };
+  this.connect(); // fire-and-forget，连接状态机内部推进
+}
+```
+
+### 14.2 事件注册表只能有一份
+
+**现象**：`NerveEventMap`（protocol 上）和 `cordis.Events`（cordis 上）两处声明 22 个相同事件，改一个要同步两处；且 `NerveEventMap` 全仓库零消费。
+
+**对照 satori/koishi**：它们**只**在 `declare module "cordis" { interface Events }` 声明一份事件签名（参数统一用 Session），没有平行的第二注册表。
+
+**结论**：事件签名只在 `cordis.Events` 声明。具体事件接口 `extends NerveEvent` 承载字段；NerveEvent 的 IM 扩展字段用 `declare module "@athena-ai/protocol"` 追加可选字段。**不要**创建 `XxxEventMap` 之类的东西。
+
+### 14.3 旧 API 的清理面比想象大
+
+**现象**：删除 vendor 后，`ctx.satori.bots`、`ctx.message`、`@satorijs/core` 的引用散落在 cortex-chat / sandbox / sandbox-nerve / 测试 / client vue 文件 / docs 中。
+
+**结论**：
+- `ctx.satori.bots` → `ctx.nerve.get(sid)`（`sid = platform:selfId`）
+- `ctx.message` → 订阅 `cordis.Events` + 用 `event.body` 发送
+- `@satorijs/element` → `@cordisjs/element`（同名 API，纯换 import）
+- `bot.session()` → `bot.createEvent()`
+- 事件类型 `message` → `message-created`
+- 删除前先 `grep -rn "@satorijs\|capability-message\|vendor/"` 摸清影响面，含测试和 client
+
+### 14.4 Body 基类应该默认注册自己
+
+**现象**：`SandboxBot` 迁移到 `IMBody` 后测试失败——`ctx.nerve.get(sid)` 返回 undefined，因为 SandboxBot 没有注册进 nerve。
+
+**根因**：注册逻辑（`ctx.nerve.register`）原本只写在 OneBotBody 的 `Service.init` 里，每个新 Body 都要手写一遍，漏写就静默不注册。
+
+**结论**：**Body 基类提供默认 `*[Service.init]()`**（注册 + connect + dispose 断开）。子类需要定制时 `yield* super[Service.init]()`。新 Body 只需 `static inject = ["nerve"]` + 实现 `connect`/`disconnect`。
+
+### 14.5 adapter 请求/响应桥不要用模块级全局状态
+
+**现象**：ws.ts 用模块级 `let counter = 0; const listeners: Record<number, ...>` 关联 echo。多实例（多 QQ 号）时 echo 冲突、超时清理错乱。
+
+**结论**：把 `listeners`（`Map<echo, { resolve, timer }>`）、`counter`、`nextEcho()`、`accept()` 全部放 **Internal 实例**上。超时定时器在 `accept()` 命中时 `clearTimeout`，未命中时超时自清——不泄漏。
+
+### 14.6 `createEvent` 不会自动推导事件字段（已修订：Session 访问器接管）
+
+**现象**：从 Satori Session 迁移到 `createEvent` 后，`isDirect` / `guildId` 变成 undefined。Satori 的 Session 会根据 channel 类型自动推导 `isDirect`、从 guild 推导 `guildId`；Nerve 的 `createEvent` 是纯工厂，**只填 base 字段**（selfId/platform/timestamp/body）。
+
+**结论（2026-08-25 修订）**：迁移到 Session 信封后，这条已被推翻——`IMSession` 访问器按 satori 模式从嵌套数据对象推导：`isDirect` 从 `channel.type === DIRECT`、`guildId` 从 `guild.id`、`channelId` 从 `channel.id`、`content` 从 `message.content`。adapter 只需填嵌套对象，不再手工填派生字段。
+
+### 14.7 协议拆分越薄，删除越容易
+
+**正面教训**：`protocol`（无 IM 语义：Body 基类 + NerveEvent + NerveService）与 `protocol-im`（IM 增强：实体类型 + IMBody + cordis.Events 声明）的拆分，让"删掉整个 vendored Satori"变成**纯增量替换**——没有一处需要反向迁移。保持协议层"只含类型契约 + 极薄基类"是值得坚持的方向。

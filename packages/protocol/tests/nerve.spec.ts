@@ -43,7 +43,7 @@ describe("NerveService", () => {
 });
 
 describe("Body", () => {
-  it("dispatches NerveEvent to cordis event bus", async () => {
+  it("dispatches a Session to the cordis event bus via internal/session", async () => {
     const ctx = new Context();
     await ctx.plugin(NerveService);
     const body = new MockBody(ctx, { selfId: "bot_1" });
@@ -54,18 +54,32 @@ describe("Body", () => {
       received.push(event);
     });
 
-    body.dispatch({
-      type: "test-event",
-      id: "evt_1",
-      selfId: "bot_1",
-      platform: "mock",
-      timestamp: Date.now(),
-      body,
-    });
+    const session = body.session({ type: "test-event", id: "evt_1" });
+    body.dispatch(session);
 
     expect(received).toHaveLength(1);
     expect(received[0].type).toBe("test-event");
     expect(received[0].body).toBe(body);
+  });
+
+  it("normalizes through internal/session exactly once", async () => {
+    const ctx = new Context();
+    await ctx.plugin(NerveService);
+    const body = new MockBody(ctx, { selfId: "bot_1" });
+    ctx.nerve.register(body);
+
+    let concrete = 0;
+    let internal = 0;
+    ctx.on("internal/session", () => {
+      internal++;
+    });
+    ctx.on("test-event", () => {
+      concrete++;
+    });
+
+    body.dispatch(body.session({ type: "test-event" }));
+    expect(internal).toBe(1);
+    expect(concrete).toBe(1);
   });
 
   it("has correct sid format", async () => {

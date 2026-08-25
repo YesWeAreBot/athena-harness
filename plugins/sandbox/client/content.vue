@@ -1,5 +1,5 @@
 <script lang="ts">
-import { parse } from "@satorijs/element";
+import { parse } from "@cordisjs/element";
 import { defineComponent, h } from "vue";
 
 import { renderElements } from "./render";

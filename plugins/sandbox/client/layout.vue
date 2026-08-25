@@ -50,7 +50,7 @@
 
 <script lang="ts" setup>
 import { message, useContext } from "@cordisjs/client";
-import { unescape } from "@satorijs/element";
+import { unescape } from "@cordisjs/element";
 import { computed, ref } from "vue";
 
 import type { Message } from "../src/shared";

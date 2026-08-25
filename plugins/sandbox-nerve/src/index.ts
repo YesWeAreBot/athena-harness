@@ -1,6 +1,5 @@
 import { SandboxBot, SELF_ID } from "@athena-ai/plugin-sandbox";
 import type { JsonValue, MessageSink, SandboxDispatchPayload, SandboxRequestPayload } from "@athena-ai/protocol";
-import { Dict, Universal } from "@satorijs/core";
 import type { Context, Fiber } from "cordis";
 
 interface BotHandle {
@@ -14,13 +13,13 @@ interface BotHandle {
  * Lives inside a Life's isolated group and owns the `SandboxBot` instances for
  * that Life. It registers itself with the global `sandbox` Hub, which routes
  * browser frames here by `lifeId`, so one sandbox page can drive many Lives
- * without their Satori domains colliding.
+ * without their Nerve domains colliding.
  */
 export default class SandboxNerve {
   public static readonly name = "sandbox-nerve";
-  public static readonly inject = ["sandbox", "satori", "life"];
+  public static readonly inject = ["sandbox", "nerve", "life"];
 
-  private _handles: Dict<BotHandle> = Object.create(null);
+  private _handles: Record<string, BotHandle> = Object.create(null);
   private _lifeId: string;
 
   constructor(private ctx: Context) {
@@ -62,10 +61,8 @@ export default class SandboxNerve {
     // The Hub encodes retractions as a pseudo-content marker so that the wire
     // protocol only needs a single `dispatch` entry point.
     if (content.startsWith(DELETE_PREFIX)) {
-      const session = bot.session(this._createEvent(user, channel));
-      session.type = "message-deleted";
-      session.messageId = content.slice(DELETE_PREFIX.length);
-      bot.dispatch(session);
+      const event = bot.session({ type: "message-deleted", message: { id: content.slice(DELETE_PREFIX.length) } });
+      bot.dispatch(event);
       return;
     }
 
@@ -77,14 +74,17 @@ export default class SandboxNerve {
       body: { id, content, user, channel, platform, lifeId: this._lifeId },
     });
 
-    const session = bot.session(this._createEvent(user, channel));
-    session.type = "message";
-    session.content = content;
-    session.messageId = id;
+    const event = bot.session({
+      type: "message-created",
+      user: { id: user, name: user },
+      channel: { id: channel, type: channel === `@${user}` ? 1 : 0 },
+      guild: channel === `@${user}` ? undefined : { id: channel },
+      message: { id, content, user: { id: user, name: user }, channel: { id: channel, type: channel === `@${user}` ? 1 : 0 } },
+    });
     if (payload.quote) {
-      session.quote = { id: payload.quote.id, content: payload.quote.content };
+      event.quote = { id: payload.quote.id, content: payload.quote.content };
     }
-    bot.dispatch(session);
+    bot.dispatch(event);
   }
 
   private async _request(method: string, payload: SandboxRequestPayload): Promise<JsonValue> {
@@ -120,7 +120,7 @@ export default class SandboxNerve {
   // Internal
   // ---------------------------------------------------------------------------
 
-  /** Ensure a `SandboxBot` exists for `platform` in this Life's Satori domain. */
+  /** Ensure a `SandboxBot` exists for `platform` in this Life's Nerve domain. */
   private _ensureBot(platform: string, sink: MessageSink): BotHandle {
     const existing = this._handles[platform];
     if (existing) return existing;
@@ -136,7 +136,7 @@ export default class SandboxNerve {
 
     const bot = (async () => {
       await fiber;
-      const registered = ctx.satori.bots[`${platform}:${SELF_ID}`];
+      const registered = ctx.nerve.get(`${platform}:${SELF_ID}`);
       if (!registered) throw new Error(`sandbox-nerve: bot was not registered for platform ${platform}`);
       if (!(registered instanceof SandboxBot)) {
         throw new Error(`sandbox-nerve: registered bot has unexpected type for platform ${platform}`);
@@ -145,19 +145,6 @@ export default class SandboxNerve {
     })();
 
     return (this._handles[platform] = { fiber, bot });
-  }
-
-  private _createEvent(userId: string, channelId: string): Partial<Universal.Event> {
-    const isDirect = channelId === `@${userId}`;
-    return {
-      user: { id: userId, name: userId },
-      channel: {
-        id: channelId,
-        type: isDirect ? Universal.Channel.Type.DIRECT : Universal.Channel.Type.TEXT,
-      },
-      guild: isDirect ? undefined : { id: channelId },
-      timestamp: Date.now(),
-    };
   }
 }
 

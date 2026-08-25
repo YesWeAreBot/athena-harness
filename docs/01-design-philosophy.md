@@ -144,33 +144,33 @@ Life 的觉知场
 
 "Adapter" 暗示的是格式转换 —— 单向、无状态、可互换的胶水。而 Nerve 的关键特征是**双向导管**：sensory nerves 传入，motor nerves 传出，这与 Athena 需要的语义完全对应。同时 Nerve 与 Cortex 在解剖学上关系正确 —— 神经把大脑连向外部世界。
 
-粒度也是对的：**一条 nerve = 一条完整的连接通路**。对 IM 来说，一个 Nerve 对应一个 Satori Bot 实例（一个平台上的一个账号）。两个 QQ 账号 = 两个 Bot 实例，各自独立注册进 `ctx.message`。
+粒度也是对的：**一条 nerve = 一条完整的连接通路**。对 IM 来说，一个 Nerve 对应一个 Body 实例（一个平台上的一个账号，如 OneBotBody / SandboxBot）。两个 QQ 账号 = 两个 Body 实例，各自独立注册进 `ctx.nerve`。
 
-#### Nerve 与 Capability 的关系（依赖倒置）
+#### Nerve 与 Body 的关系
 
 ```
-Cortex  ──depends on──►  Capability（抽象契约）
-Nerve   ──implements──►  Capability（提供具体实现）
+Cortex  ──subscribes──►  cordis.Events（message-created 等）
+Body    ──dispatch────►  cordis.Events（发射事件）
+Body    ──register────►  ctx.nerve（多实例注册表，按 sid 寻址）
 ```
 
-**Cortex 永不依赖具体的 Nerve 包。** Capability 包定义带多实例注册表的 Service，多个 Nerve 可以向同一个 capability service 注册实例。
+**Cortex 永不依赖具体的 Nerve 包。** 事件通过 `cordis.Events` 声明消费，发送通过事件上的 `body` 引用。多个 Body 可以同时注册进 `ctx.nerve`。
 
-例：`ctx.message` 中有由不同 Satori adapter 注册的多个 Bot。Cortex 用 `inject = ["message"]`，通过 target 参数寻址具体实例。
+例：`ctx.nerve` 中有由不同 adapter（`nerve-onebot`、`sandbox`）注册的多个 Body。Cortex 订阅 `message-created` 事件，需要回复时直接 `event.body.sendMessage(...)`。
 
-#### 对 IM 而言 Nerve 不需要独立的框架类
+#### IM 的 Nerve 实现 = IMBody
 
-Satori Bot 实例（运行在 `ctx.message` 的隔离域内）已经履行了全部 Nerve 职责：
+`IMBody`（protocol-im）已经履行了全部 Nerve 职责：
 
-| Nerve 职责       | 由谁履行                                |
-| ---------------- | --------------------------------------- |
-| 平台连接生命周期 | Satori Adapter                          |
-| 统一操作接口     | Satori Methods（经 `ctx.message` 暴露） |
-| 事件发射         | `Bot.dispatch` → Cordis events          |
-| 多实例管理       | `ctx.message.bots` registry             |
-| 能力发现         | `bot.features` 数组                     |
-| 内容模型         | `@satorijs/element`                     |
+| Nerve 职责       | 由谁履行                                  |
+| ---------------- | ----------------------------------------- |
+| 平台连接生命周期 | `Body.connect` / `disconnect`（基类 Service.init 自动调用） |
+| 统一操作接口     | `IMBody` 方法（`sendMessage` / `getGuild` …，未实现抛错） |
+| 事件发射         | `body.dispatch(event)` → Cordis events    |
+| 多实例管理       | `ctx.nerve` registry（`get(sid)` 寻址）   |
+| 内容模型         | `@cordisjs/element`（protocol-im 提供工厂函数） |
 
-对非 IM 场景（Minecraft、Live2D、Audio），Nerve = 向对应 capability service 注册连接实例的插件，遵循相同模式。
+对非 IM 场景（Minecraft、Live2D、Audio），Nerve = 继承 `Body` 基类、注册进 `ctx.nerve` 的连接实例，遵循相同模式。
 
 ---
 
@@ -229,9 +229,9 @@ Push-based 的代价是**没有天然的串行化保证** —— 事件可能在
 
 ---
 
-## 4. 为什么隔离 `ctx.satori`
+## 4. 为什么 IM 是"能力"而非"基质"
 
-### 4.1 Koshi 的做法及其后果
+### 4.1 Koishi 的做法及其后果
 
 Koishi 让 Satori 成为**基础基质**，其 `Context` 类字面上继承 `satori.Context`：
 
@@ -249,49 +249,31 @@ export class Context extends satori.Context { ... }
 
 ### 4.2 Athena 的做法
 
-Satori 被当作**可插拔的 capability 实现**。`ctx.message`（`capability-message` 的 MessageService）在内部安装 Satori，Cortex 只能看到 `ctx.message`。
+IM 是**平级的能力**，不是框架基质。Athena 自研 Nerve 协议：`protocol` 定义极薄的 Body/Session 基类（Session 信封），`protocol-im` 提供 IM 实体、IMSession 访问器与事件契约，平台 adapter（`nerve-onebot`、`sandbox`）继承 `IMBody` 注册进 `ctx.nerve`。Cortex 通过 `cordis.Events` 消费事件，通过事件上的 `body` 引用发送。
 
 | 方面              | Koishi                           | Athena                                   |
 | ----------------- | -------------------------------- | ---------------------------------------- |
-| Context 继承      | `Context extends satori.Context` | 原生 cordis `Context`；Satori 隔离在内部 |
-| Satori 可见性     | 全局（处处可见 `ctx.satori`）    | 限定在 Life group 内                     |
-| Bot 访问          | 每个 context 上都有 `ctx.bots`   | 仅 `ctx.message.bots`                    |
+| Context 继承      | `Context extends satori.Context` | 原生 cordis `Context`；Nerve 是独立协议  |
+| IM 协议           | Satori（外部生态）               | 自研 Nerve（protocol + protocol-im）     |
+| Bot 访问          | 每个 context 上都有 `ctx.bots`   | `ctx.nerve.get(sid)` 显式寻址            |
 | 框架身份          | **是**一个 messaging 框架        | **有** messaging 能力                    |
-| 没有 messaging 时 | 无法运行                         | 正常运行（其他 capability + 自主节律）   |
-| 移除 messaging    | 不可能                           | 移除 MessageService 插件即可，框架继续   |
-| 新增非 IM 能力    | 螺在 messaging 之上              | 平级的兄弟 capability                    |
+| 没有 messaging 时 | 无法运行                         | 正常运行（其他能力 + 自主节律）          |
+| 移除 messaging    | 不可能                           | 不装 adapter 插件即可，框架继续          |
+| 新增非 IM 能力    | 螺在 messaging 之上              | 平级的兄弟 Nerve（Minecraft、Live2D…）   |
 
-### 4.3 隔离机制
+### 4.3 事件作用域
 
-MessageService 在自己的 context 上安装 Satori，隔离由外层的 group entry 声明（`isolate: { satori: true }`）。这样同 group 内的 sibling adapter 能共享该 Satori domain，而跨 group 不冲突。
-
-事件作用域通过 `[Context.filter]` 注入实现：
-
-```typescript
-const messageSymbol = ctx[Context.isolate]["message"] as symbol;
-const satoriSymbol = ctx[Context.isolate]["satori"] as symbol;
-ctx.on("internal/session", (session: Session) => {
-  const bot = unwrap(session.bot);
-  // 这个 session 是否属于我的 satori domain？
-  if (!bot || bot.ctx[Context.isolate]["satori"] !== satoriSymbol) return;
-  // 是的话，限定只投递给同 message isolate 的 hook
-  session[Context.filter] = (hookCtx: Context) => {
-    return hookCtx[Context.isolate]["message"] === messageSymbol;
-  };
-});
-```
-
-Koishi 用同一机制做 platform/channel 内容过滤；Athena 用它做**作用域隔离**（哪个 Life 拥有这个事件）。对多 Life 框架来说，这是正确的粒度。
+事件通过 `body.dispatch()` 发射到 Cordis 事件总线，多 Life 隔离由 group 级 `isolate: { life, cortex, nerve }` 保证。事件字段（`channelId`/`userId`/`guildId`…）由 adapter 显式填充，Nerve 协议层不自动推导。
 
 **Cortex 不需要自我过滤。** 框架保证作用域正确的事件投递。
 
 ### 4.4 隔离带来的具体收益
 
-1. **Messaging 是可选的** —— World Cortex 只用 `ctx.minecraft` 就能跑，进程里连 Satori 都没有。这在 Koishi 中架构上不可能。
+1. **Messaging 是可选的** —— World Cortex 只用 `ctx.minecraft` 就能跑，进程里连 adapter 都没有。这在 Koishi 中架构上不可能。
 
-2. **防止形状泄漏** —— Koishi 里每个插件都能 `ctx.bots[0].sendMessage(...)`，框架在每一层都是"satori 形状"的。Athena 里只有显式 `inject: ["message"]` 的代码才能访问。
+2. **防止形状泄漏** —— Koishi 里每个插件都能 `ctx.bots[0].sendMessage(...)`，框架在每一层都是"satori 形状"的。Athena 里只有订阅了事件、拿到 `body` 引用的代码才能访问。
 
-3. **多 capability 平权** —— `ctx.message`、`ctx.minecraft`、`ctx.audio` 结构上完全相同，各自是带内部隔离的 Service。Koishi 里 messaging 是特权基础设施，非 messaging 能力是二等事后想法。
+3. **多 Nerve 平权** —— `nerve-onebot`、`sandbox`、未来的 `nerve-minecraft` 结构上完全相同，各自是 `IMBody`（或 Body）实现。Koishi 里 messaging 是特权基础设施，非 messaging 能力是二等事后想法。
 
 4. **没有 event→response 管道** —— Koishi 提供的 middleware chain、command routing、session management 全部假设"消息进 → 处理 → 消息出"。Athena 提供零个 IM 专用框架流程，Cortex 完全自决如何响应（或不响应）。
 
@@ -304,11 +286,11 @@ Koishi 用同一机制做 platform/channel 内容过滤；Athena 用它做**作�
 |          | Koishi                  | Athena                  |
 | -------- | ----------------------- | ----------------------- |
 | 组合基质 | Cordis                  | Cordis                  |
-| IM 协议  | Satori                  | Satori                  |
+| IM 协议  | Satori（外部生态）      | 自研 Nerve（protocol + protocol-im） |
 | 插件机制 | Cordis plugin lifecycle | Cordis plugin lifecycle |
 | 事件投递 | Cordis events           | Cordis events           |
 
-技术栈完全相同。差异在于**框架对其用户和所服务实体的假设**。
+组合基质与事件投递相同；IM 协议层不同（Athena 自研 Nerve，不依赖 Satori 生态）。差异的核心在于**框架对其用户和所服务实体的假设**。
 
 ### 5.2 Koishi 的核心假设
 
@@ -370,9 +352,9 @@ LLM 消费的 tool 来自三个来源，归属不同：
 
 ### Layer 1：Structured Capabilities（结构化能力）
 
-- **定义方**：Capability / Nerve
+- **定义方**：Nerve（Body 实现）
 - **消费方**：Cortex 代码（程序化调用）
-- **抽象层级**：统一协议（如 `ctx.message.createMessage(channelId, content)`）
+- **抽象层级**：统一协议（如 `event.body.sendMessage(channelId, content)`）
 - **目的**：Cortex 的确定性逻辑依赖这些（输出排队、状态更新、session 管理）
 
 ### Layer 2：Product-Semantic Tools（产品语义工具）

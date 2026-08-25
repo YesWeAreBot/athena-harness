@@ -67,7 +67,7 @@ import { Cortex } from "./cortex";
 **类型增强导入**：为了拿到某个包的 `declare module "cordis"` 类型增强，用空的 type-only import：
 
 ```typescript
-import type {} from "@athena-ai/capability-message"; // 引入 ctx.message 类型
+import type {} from "@athena-ai/protocol-im"; // 引入 IM 事件/方法类型增强
 import type {} from "@cordisjs/plugin-server"; // 引入 server 相关类型
 ```
 
@@ -358,8 +358,8 @@ export function apply(ctx: Context, config: Config) {
 | ------------------------------- | ---------------------------- |
 | `@athena-ai/plugin-life`        | `plugins/life`               |
 | `@athena-ai/plugin-sandbox`     | `plugins/sandbox`            |
-| `@athena-ai/capability-message` | `plugins/capability-message` |
 | `@athena-ai/cortex-chat`        | `plugins/cortex-chat`        |
+| `@athena-ai/nerve-onebot`       | `plugins/nerve-onebot`       |
 | `@athena-ai/sandbox-nerve`      | `plugins/sandbox-nerve`      |
 
 ### 4.3 标识符
@@ -391,7 +391,7 @@ export function apply(ctx: Context, config: Config) {
 | 内容               | 类型、基类、共享库          | 可安装的运行时单元                                     |
 | 是否提供 Service   | 一般不（`ai` 是例外）       | 通常是                                                 |
 | 是否出现在 app.yml | 一般不（`core` 在 prelude） | 是                                                     |
-| 例                 | `core`、`protocol`、`ai`    | `life`、`capability-message`、`cortex-chat`、`sandbox` |
+| 例                 | `core`、`protocol`、`protocol-im`、`ai` | `life`、`cortex-chat`、`nerve-onebot`、`sandbox` |
 
 ### 5.2 单包内部结构
 
@@ -471,9 +471,9 @@ throw new Error("conflict");
 Cortex 的事件处理器**必须**包 try/catch —— 一次回复失败不该杀掉整个 Cortex：
 
 ```typescript
-private async onMessage(session: Session) {
+private async onMessage(event: IMMessageEvent) {
   try {
-    await this.ctx.message.createMessage(session.channelId!, reply, session.bot?.sid);
+    await event.body.sendMessage(event.channelId, [Element("text", { content: reply })]);
   } catch (e) {
     this.ctx.logger("cortex-chat").warn("Failed to reply:", e);
   }
@@ -704,10 +704,11 @@ expect(getCortex(ctx.life)).toBe(mockCortex);
   "dependencies": { "ai": "^7.0.0", "zod": "^3.25.76" },
   "devDependencies": { "@athena-ai/core": "workspace:*", "cordis": "^4.0.0-rc.8" },
   "peerDependencies": {
-    "@athena-ai/capability-message": "workspace:*",
     "@athena-ai/core": "workspace:*",
     "@athena-ai/plugin-life": "workspace:*",
     "@athena-ai/protocol": "workspace:*",
+    "@athena-ai/protocol-im": "workspace:*",
+    "@cordisjs/element": "^0.3.0",
     "cordis": "^4.0.0-rc.8"
   }
 }

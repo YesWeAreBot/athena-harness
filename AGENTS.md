@@ -16,9 +16,9 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 | **Cortex** | "我如何活着？"   | 完整生存策略：rhythm、integration、cognition、enactment、continuation |
 | **Nerve**  | "我存在于何处？" | 与世界的双向通道                                                      |
 
-技术栈：**Cordis v4**（组合基座）+ **Satori v5**（vendored，IM）+ **AI SDK v7**（LLM）。
+技术栈：**Cordis v4**（组合基座）+ **自研 Nerve 协议**（protocol + protocol-im，IM）+ **AI SDK v7**（LLM）。
 
-**不是** Koishi 的分支，**不打算**成为另一个 Koishi。共享砖块（cordis + satori），不同的组织原则。
+**不是** Koishi 的分支，**不打算**成为另一个 Koishi。组合基座与 Koishi 共享（cordis），IM 协议层自研，不同的组织原则。
 
 ---
 
@@ -61,7 +61,8 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 | **改动前避坑（强烈建议）**                 | `docs/05-lessons-learned.md`                                        |
 | 确认进度、挑下一步任务                     | `docs/06-progress-and-roadmap.md`                                   |
 | 查 Cordis API / 陷阱                       | `docs/appendix/A-cordis-primer.md`                                  |
-| 查 Satori API / 我们的补丁                 | `docs/appendix/B-satori-primer.md`                                  |
+| 查 Satori → Nerve 迁移 / 新旧差异 / 遗留   | `docs/appendix/D-satori-to-nerve-migration.md`                      |
+| 查 Satori API（历史参考，已移除）           | `docs/appendix/B-satori-primer.md`                                  |
 | 查某条决策的出处                           | `docs/appendix/C-decision-index.md`                                 |
 | 非技术读者通俗读物                         | `docs/07-athena-harness-book.md`                                    |
 
@@ -73,7 +74,7 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 
 | 错误                                  | 正确做法                                                                                      |
 | ------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `ctx.bots`                            | `ctx.satori.bots`（domain 内）/ `ctx.message.bots`（Cortex 侧）。**类型上存在但运行时不存在** |
+| `ctx.bots` / `ctx.satori.bots` / `ctx.message` | **已不存在**（Satori 与 capability-message 已移除）。用 `ctx.nerve.get(sid)` 寻址、订阅 `cordis.Events` 收事件 |
 | `ctx.mixin()`                         | 不要用。全进程 accessor 名冲突，多 Life 直接崩                                                |
 | `===` 比较 service                    | 按 `.name` 比较。cordis 用 Proxy 包装，identity 不可靠                                        |
 | 依赖 `this.ctx` 解析 isolate          | 构造时自存 `this._self = ctx`                                                                 |
@@ -90,8 +91,8 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 | 期待 `ctx.ai` 帮你重试                | 不会。`candidates()` 只给排好序的候选，failover 循环写在 Cortex 里（D-35）                    |
 | 测试里 `await` inject 未满足的 plugin | 会永久挂住。不要 await，直接断言 `ctx.get(...)` 为 `undefined`                                |
 | `cordis` 放 `dependencies`            | 必须 `peerDependencies`。多副本导致 Symbol 身份不同，隔离静默失效                             |
-| 改 vendored 代码不登记                | 登记到 `docs/02-architecture.md` §11.3                                                        |
-| 顺手格式化 `vendor/`                  | `vendor/` 被 oxfmt 忽略，保持上游格式                                                         |
+| 维护平行事件注册表（NerveEventMap）   | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式），见 `docs/05-lessons-learned.md` §14.2 |
+| 在 `*[Service.init]()` 里 `yield` promise | 会抛 `Invalid effect`。异步启动用 fire-and-forget，见 `docs/05-lessons-learned.md` §14.1 |
 
 ---
 
@@ -176,7 +177,7 @@ yarn format           # oxfmt
 npx vitest run        # ← 跑全部测试（yarn test 当前只拾取一个包，见下）
 ```
 
-> ⚠️ **`yarn test` 目前不跑项目测试** —— yakumo-vitest 只拾取到 `@satorijs/protocol`。验证改动时**用 `npx vitest run`**。这是已登记的 P1 缺陷。
+> ⚠️ **`yarn test` 目前不跑项目测试** —— yakumo-vitest 有 workspace 作用域问题。验证改动时**用 `npx vitest run`**。这是已登记的 P1 缺陷。
 
 运行时（部署配置在外部 boilerplate 仓库）：
 
@@ -191,20 +192,20 @@ cordis run            # cordis.yml(prelude) → app.yml(managed tree)
 ```
 packages/
   core/        @athena-ai/core       — prelude shell，重导出 cordis/cosmokit/Schema
-  protocol/    @athena-ai/protocol   — 类型 + Cortex 基类 + declare module
+  protocol/    @athena-ai/protocol   — Nerve 核心：Body 基类 + Session 信封 + NerveService + Cortex
+  protocol-im/ @athena-ai/protocol-im — IM 协议层：实体类型、Methods 表、事件、MessageEncoder、WsClient
   ai/          @athena-ai/ai         — AIService（ctx.ai：provider registry + models.yml + 模型解析）
 plugins/
   life/                @athena-ai/plugin-life              — ctx.life
-  capability-message/  @athena-ai/plugin-capability-message — ctx.message（Satori 隔离）
   cortex-chat/         @athena-ai/plugin-cortex-chat        — ctx.cortex（当前仅 echo）
-  sandbox/             @athena-ai/plugin-sandbox            — 全局 SandboxHub
+  nerve-onebot/        @athena-ai/plugin-nerve-onebot       — OneBot v11 adapter（IMBody 实现）
+  sandbox/             @athena-ai/plugin-sandbox            — 全局 SandboxHub + SandboxBot（IMBody 实现）
   sandbox-nerve/       @athena-ai/plugin-sandbox-nerve      — per-Life Sandbox 桥
   provider-openai/     @athena-ai/plugin-provider-openai    — 注册 AI SDK OpenAI provider
   provider-deepseek/   @athena-ai/plugin-provider-deepseek  — 注册 AI SDK DeepSeek provider
   provider-anthropic/  @athena-ai/plugin-provider-anthropic — 注册 AI SDK Anthropic provider
   provider-google/     @athena-ai/plugin-provider-google    — 注册 AI SDK Google provider
   message-store/       @athena-ai/plugin-message-store      — 占位（src 只有 export {}）
-vendor/        satorijs/*（已打补丁）+ cordisjs/url-is-local
 docs/          本文档体系
 .specify/specs/ 设计演进记录
 ```
@@ -246,7 +247,7 @@ docs/          本文档体系
 | ------------------------------- | ------------------------------------------------------------------ |
 | 新增/移除 package               | `docs/02-architecture.md` §2、`docs/06-progress-and-roadmap.md` §1 |
 | 新增 Service / capability token | `docs/02-architecture.md` §6.1、`docs/04-patterns-and-recipes.md`  |
-| 修改 vendored 代码              | `docs/02-architecture.md` §11.3、`docs/05-lessons-learned.md`      |
+| 新增/修改 IM 事件或方法         | `protocol-im` 的 `cordis.Events` 声明 + `docs/04-patterns-and-recipes.md` §3.3 |
 | 踩到新坑并解决                  | `docs/05-lessons-learned.md`（含速查表 §13）                       |
 | 完成 roadmap 项                 | `docs/06-progress-and-roadmap.md` §4 勾选 + §1 矩阵                |
 | 修复缺陷                        | `docs/06-progress-and-roadmap.md` §3 移除                          |

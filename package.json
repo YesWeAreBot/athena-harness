@@ -4,8 +4,7 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "plugins/*",
-    "vendor/*/*"
+    "plugins/*"
   ],
   "type": "module",
   "scripts": {

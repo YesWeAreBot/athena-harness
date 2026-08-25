@@ -1,43 +1,50 @@
-import type { Element } from "@cordisjs/element";
+// Re-export Nerve core types for convenience
+export { Body, NerveService } from "@athena-ai/protocol";
+export { Session } from "@athena-ai/protocol";
+export type { Event, Status } from "@athena-ai/protocol";
+// IM Session envelope
+export { IMSession } from "./session.js";
+export type { IMSession as IMSessionType } from "./session.js";
 
-import type { Channel, Guild, GuildMember, List, Message, SendOptions, User } from "./types.js";
+// IM entity types
+export type { BidiList, Direction, Friend, Guild, GuildMember, GuildRole, List, Login, Message, Order, SendOptions, User } from "./types.js";
+// Channel and LoginStatus are both types and const enum values
+export { Channel, LoginStatus } from "./types.js";
 
-declare module "@athena-ai/protocol" {
-  interface NerveEvent {
-    channelId?: string;
-    guildId?: string;
-    userId?: string;
-    messageId?: string;
-    message?: Message;
-    channel?: Channel;
-    guild?: Guild;
-    user?: User;
-    member?: GuildMember;
-    isDirect?: boolean;
-  }
+// IM Methods table (data-driven registry)
+export { Field, Method, Methods } from "./methods.js";
+export type { Field as FieldType, Method as MethodType } from "./methods.js";
 
-  interface Body {
-    sendMessage(channelId: string, content: Element[], options?: SendOptions): Promise<Message[]>;
-    sendPrivateMessage(userId: string, content: Element[], guildId?: string, options?: SendOptions): Promise<string[]>;
-    getMessage(channelId: string, messageId: string): Promise<Message>;
-    getMessageList(channelId: string, next?: string, direction?: "before" | "after"): Promise<List<Message>>;
-    deleteMessage(channelId: string, messageId: string): Promise<void>;
-    createDirectChannel(userId: string, guildId?: string): Promise<Channel>;
-    getChannel(channelId: string): Promise<Channel>;
-    getUser(userId: string): Promise<User>;
-    getGuild(guildId: string): Promise<Guild>;
-    getGuildMember(guildId: string, userId: string): Promise<GuildMember>;
-  }
-}
+// IM Body base class with default implementations
+export { IMBody } from "./body.js";
 
-declare module "cordis" {
-  interface Events {
-    "message-created"(event: import("./events.js").IMMessageEvent): void;
-    "message-deleted"(event: import("./events.js").IMMessageDeletedEvent): void;
-    send(event: import("./events.js").IMSendEvent): void;
-  }
-}
+// IM events — side-effect import registers Event extension and cordis.Events
+import "./events.js";
+export type {
+  IMEvent,
+  IMFriendEvent,
+  IMGuildEvent,
+  IMGuildMemberEvent,
+  IMGuildRoleEvent,
+  IMInternalEvent,
+  IMLoginEvent,
+  IMMessageDeletedEvent,
+  IMMessageEvent,
+  IMMessageUpdatedEvent,
+  IMReactionEvent,
+  IMRequestEvent,
+  IMSendEvent,
+} from "./events.js";
 
+// MessageEncoder base
 export { MessageEncoder } from "./encoder.js";
-export type { IMEvent, IMMessageDeletedEvent, IMMessageEvent, IMSendEvent } from "./events.js";
-export type { Channel, Guild, GuildMember, List, Message, SendOptions, User } from "./types.js";
+
+// WsClient base
+export { DefaultWsClientConfig, WsClient } from "./ws.js";
+export type { WebSocket, WsClientConfig } from "./ws.js";
+
+// Element utilities
+export * as h from "./element.js";
+export { at, atAll, audio, file, image, quote, sharp, video } from "./element.js";
+export type { Element, Fragment } from "./element.js";
+export { normalize, parse } from "./element.js";

@@ -1,10 +1,11 @@
+import { NerveService } from "@athena-ai/protocol";
 import type { JsonObject, MessageSink, SandboxDispatchPayload, SandboxNerveHandle, SandboxRequestPayload } from "@athena-ai/protocol";
-import { Satori, type Session, Universal } from "@satorijs/core";
+import type { IMMessageEvent } from "@athena-ai/protocol-im";
 import { Context, type Fiber } from "cordis";
 import type { Dict } from "cosmokit";
 import { describe, expect, it } from "vitest";
 
-import SandboxHub, { SandboxBot, SELF_ID, SELF_NAME } from "../src/index";
+import SandboxHub, { SandboxBot, SELF_ID, SELF_NAME } from "../src/index.js";
 
 const PLATFORM = "sandbox:test";
 const LIFE_ID = "test-life";
@@ -57,10 +58,10 @@ class FakeWebUI {
 /**
  * A stand-in for `@athena-ai/sandbox-nerve`.
  *
- * The Hub owns no Satori state, so exercising `SandboxBot` and
+ * The Hub owns no Nerve state, so exercising `SandboxBot` and
  * `SandboxMessenger` needs something on the far side of the Hub's routing
  * boundary. This mirrors what the real Nerve does — one bot per platform inside
- * its own Satori domain — without making this package depend on it.
+ * its own Nerve domain — without making this package depend on it.
  */
 class TestNerve implements SandboxNerveHandle {
   readonly meta = { name: "TestLife", description: "A test" };
@@ -83,23 +84,25 @@ class TestNerve implements SandboxNerveHandle {
     bot.config.sink = sink;
 
     if (content.startsWith(DELETE_PREFIX)) {
-      const session = bot.session(createEvent(user, channel));
-      session.type = "message-deleted";
-      session.messageId = content.slice(DELETE_PREFIX.length);
-      bot.dispatch(session);
+      const event = bot.session({ type: "message-deleted", message: { id: content.slice(DELETE_PREFIX.length) } });
+      bot.dispatch(event);
       return;
     }
 
     const id = Math.random().toString(36).slice(2);
     sink.send({ type: "sandbox/message", body: { id, content, user, channel, platform, lifeId: LIFE_ID } });
 
-    const session = bot.session(createEvent(user, channel));
-    session.type = "message";
-    session.content = content;
-    session.messageId = id;
-    if (quote) session.quote = { id: quote.id, content: quote.content };
-    bot.dispatch(session);
+    const event = bot.session({
+      type: "message-created",
+      user: { id: user, name: user },
+      channel: { id: channel, type: channel === `@${user}` ? 1 : 0 },
+      guild: channel === `@${user}` ? undefined : { id: channel },
+      message: { id, content, user: { id: user, name: user }, channel: { id: channel, type: channel === `@${user}` ? 1 : 0 } },
+    });
+    if (quote) event.quote = { id: quote.id, content: quote.content };
+    bot.dispatch(event);
   }
+
   async request(method: string, data: SandboxRequestPayload): Promise<JsonValue> {
     const platform = data.platform;
     if (!platform) throw new Error("sandbox request requires platform");
@@ -123,7 +126,7 @@ class TestNerve implements SandboxNerveHandle {
     this._resolveReleased(platform);
   }
 
-  /** The bot for a platform, for assertions that poke at Satori directly. */
+  /** The bot for a platform, for assertions that poke at Nerve directly. */
   bot(platform = PLATFORM): Promise<SandboxBot> {
     return this._handles[platform].bot;
   }
@@ -134,24 +137,13 @@ class TestNerve implements SandboxNerveHandle {
     const fiber = this.ctx.plugin(SandboxBot, { platform, selfId: SELF_ID, selfName: SELF_NAME, sink });
     const bot = (async () => {
       await fiber;
-      const registered = this.ctx.satori.bots[`${platform}:${SELF_ID}`];
+      const registered = this.ctx.nerve.get(`${platform}:${SELF_ID}`);
       if (!(registered instanceof SandboxBot)) throw new Error("sandbox bot was not registered");
       return registered;
     })();
     return (this._handles[platform] = { fiber, bot });
   }
 }
-
-function createEvent(userId: string, channelId: string): Partial<Universal.Event> {
-  const isDirect = channelId === `@${userId}`;
-  return {
-    user: { id: userId, name: userId },
-    channel: { id: channelId, type: isDirect ? Universal.Channel.Type.DIRECT : Universal.Channel.Type.TEXT },
-    guild: isDirect ? undefined : { id: channelId },
-    timestamp: Date.now(),
-  };
-}
-
 async function setup() {
   const ctx = new Context();
   const webui = new FakeWebUI();
@@ -160,17 +152,16 @@ async function setup() {
 
   // The Hub is global: it needs webui and nothing else.
   await ctx.plugin(SandboxHub, { fileServer: { enabled: false } });
+  await ctx.plugin(NerveService);
 
-  // Mirrors the runtime arrangement: the persona group owns the satori isolate.
-  const inner = ctx.isolate("satori").isolate("bots");
-  await inner.plugin(Satori);
-
-  const sessions: Session[] = [];
-  inner.on("message", (session) => void sessions.push(session));
-  inner.on("message-deleted", (session) => void sessions.push(session));
+  const sessions: IMMessageEvent[] = [];
+  // SAFETY: these events are dispatched by the TestNerve as message-created/message-deleted Sessions.
+  ctx.on("message-created", (event) => void sessions.push(event as IMMessageEvent));
+  // SAFETY: the delete path dispatches a message-deleted Session.
+  ctx.on("message-deleted", (event) => void sessions.push(event as IMMessageEvent));
 
   const hub = ctx.get("sandbox")!;
-  const nerve = new TestNerve(inner);
+  const nerve = new TestNerve(ctx);
   const unregister = hub.register(LIFE_ID, nerve);
 
   const client = new FakeClient();
@@ -182,7 +173,7 @@ async function setup() {
     return listener.call(client, { lifeId: LIFE_ID, ...body });
   };
 
-  return { ctx, inner, webui, client, sessions, invoke, hub, nerve, unregister };
+  return { ctx, webui, client, sessions, invoke, hub, nerve, unregister };
 }
 
 async function sendFromBrowser(user: string, channel: string, content: string) {
@@ -200,7 +191,7 @@ describe("sandbox plugin", () => {
     expect(Object.keys(webui.listeners)).toEqual([]);
   });
 
-  it("echoes browser input back as a bubble and dispatches a session", async () => {
+  it("echoes browser input back as a bubble and dispatches an event", async () => {
     const { client, sessions } = await sendFromBrowser("Alice", "@Alice", "hello");
 
     const echo = client.last("sandbox/message");
@@ -219,7 +210,7 @@ describe("sandbox plugin", () => {
     expect(client.last("sandbox/message")?.body?.lifeId).toBe(LIFE_ID);
   });
 
-  it("treats a guild channel as a non-direct session", async () => {
+  it("treats a guild channel as a non-direct event", async () => {
     const { sessions } = await sendFromBrowser("Alice", "#", "hello");
     expect(sessions[0].isDirect).toBe(false);
     expect(sessions[0].guildId).toBe("#");
@@ -259,20 +250,19 @@ describe("sandbox plugin", () => {
   });
 
   it("reuses one bot per platform and releases it when the client disconnects", async () => {
-    const { inner, webui, client, invoke, ctx, nerve } = await setup();
+    const { ctx, webui, client, invoke, nerve } = await setup();
     await invoke("sandbox/send-message", { platform: PLATFORM, user: "Alice", channel: "@Alice", content: "a" });
     await invoke("sandbox/send-message", { platform: PLATFORM, user: "Alice", channel: "@Alice", content: "b" });
 
-    const satori = inner.get("satori")!;
-    expect(satori.bots).toHaveLength(1);
-    expect(satori.bots[0].status).toBe(Universal.Status.ONLINE);
+    expect(ctx.nerve.bodies).toHaveLength(1);
+    expect(ctx.nerve.bodies[0].status).toBe("online");
 
     delete webui.clients[client.id];
     // SAFETY: The fake Client implements only Hub-used members; `never` bypasses WebUI's complete Client type.
     ctx.emit("webui/connection", client as never);
 
     await expect(nerve.released).resolves.toBe(PLATFORM);
-    expect(satori.bots).toHaveLength(0);
+    expect(ctx.nerve.bodies).toHaveLength(0);
   });
 });
 
@@ -317,10 +307,10 @@ describe("SandboxBot.request", () => {
     await invoke("sandbox/response", {
       platform: PLATFORM,
       nonce: request?.body?.nonce,
-      data: { id: "@Alice", type: Universal.Channel.Type.DIRECT },
+      data: { id: "@Alice", type: 1 },
     });
 
-    await expect(pending).resolves.toEqual({ id: "@Alice", type: Universal.Channel.Type.DIRECT });
+    await expect(pending).resolves.toEqual({ id: "@Alice", type: 1 });
   });
 
   it("ignores a response whose nonce is unknown", async () => {
@@ -344,15 +334,15 @@ describe("SandboxHub service", () => {
   });
 
   it("throws on duplicate lifeId registration", async () => {
-    const { hub, inner } = await setup();
-    expect(() => hub.register(LIFE_ID, new TestNerve(inner))).toThrow(/already registered/);
+    const { hub } = await setup();
+    expect(() => hub.register(LIFE_ID, new TestNerve(new Context()))).toThrow(/already registered/);
   });
 
   it("broadcasts life-list to all clients on register and unregister", async () => {
-    const { hub, inner, client, unregister } = await setup();
+    const { hub, client, unregister } = await setup();
 
     client.frames.length = 0;
-    const second = hub.register("other", new TestNerve(inner));
+    const second = hub.register("other", new TestNerve(new Context()));
 
     expect(livesOf(client.last("sandbox/life-list"))).toEqual([
       { id: LIFE_ID, name: "TestLife", description: "A test" },

@@ -111,12 +111,14 @@ export default class Greeter extends Service<Config> {
 
   /**
    * 可选依赖：cordis v4 无 `static optional`，用 ctx.get() 探测。
-   * 直接写 `this.ctx.message` 会抛 `cannot get property "message" without inject`。
+   * 直接写 `this.ctx.nerve` 会抛 `cannot get property "nerve" without inject`。
    */
   maybeSend(channelId: string, text: string) {
-    const message = this.ctx.get("message");
-    if (!message) return;
-    return message.createMessage(channelId, text);
+    const nerve = this.ctx.get("nerve");
+    if (!nerve) return;
+    const body = nerve.bodies[0];
+    if (!body) return;
+    return body.sendMessage(channelId, text);
   }
 }
 ```
@@ -292,10 +294,10 @@ export function apply(ctx: Context, config: Config) {
 ### 2.1 骨架（对应当前 `cortex-chat` 实现）
 
 ```typescript
-import type {} from "@athena-ai/capability-message";
 import { Schema } from "@athena-ai/core";
 import { Cortex } from "@athena-ai/protocol";
-import { Session } from "@satorijs/core";
+import type { IMMessageEvent } from "@athena-ai/protocol-im";
+import { Element } from "@cordisjs/element";
 import { Context } from "cordis";
 
 declare module "cordis" {
@@ -309,7 +311,7 @@ export interface Config {}
 export default class CortexChat extends Cortex {
   static name = "cortex-chat";
 
-  static inject = ["life", "message"];
+  static inject = ["life", "nerve"];
 
   static Config: Schema<Config> = Schema.object({});
 
@@ -317,20 +319,20 @@ export default class CortexChat extends Cortex {
     super(ctx, "cortex");
 
     // 订阅传入消息
-    ctx.on("message", (session: Session) => {
-      this.onMessage(session);
+    ctx.on("message-created", (event: IMMessageEvent) => {
+      this.onMessage(event);
     });
   }
 
-  private async onMessage(session: Session) {
+  private async onMessage(event: IMMessageEvent) {
     // 跳过自己发的消息
-    if (session.userId === session.selfId) return;
+    if (event.userId === event.selfId) return;
 
     const persona = this.ctx.life.persona;
-    const content = session.content ?? "";
+    const content = event.message?.content ?? event.content ?? "";
 
     try {
-      await this.ctx.message.createMessage(session.channelId!, `[${persona.name}] Echo: ${content}`, session.bot?.sid);
+      await event.body.sendMessage(event.channelId, [Element("text", { content: `[${persona.name}] Echo: ${content}` })]);
     } catch (e) {
       this.ctx.logger("cortex-chat").warn("Failed to reply:", e);
     }
@@ -344,7 +346,7 @@ export default class CortexChat extends Cortex {
 - `super(ctx, "cortex")` —— provide key 固定是 `"cortex"`
 - `static inject` 必须包含 `"life"`（基类要求）+ 你需要的 capability
 - **不要**自己调 `ctx.life.bind()` —— 基类的 `*[Service.init]()` 已处理
-- `import type {} from "@athena-ai/capability-message"` 引入 `ctx.message` 类型增强
+- `import type {} from "@athena-ai/protocol-im"` 引入 IM 事件类型增强（`message-created` 等）
 - 需要读配置时**自己声明** `public config: Config` —— `Cortex` 基类的构造函数签名是 `(ctx, name)`，不传递配置（见 §1.2）
 - 自己覆写 `*[Service.init]()` 时**必须** `yield* super[Service.init]()`，否则 Life 绑定丢失
 
@@ -368,10 +370,9 @@ export abstract class Cortex extends Service {
 ### 2.2 形态一：Reactive / Chat —— willingness + 聚合窗口
 
 ```typescript
-import type {} from "@athena-ai/capability-message";
 import { Schema } from "@athena-ai/core";
 import { Cortex } from "@athena-ai/protocol";
-import type { Session } from "@satorijs/core";
+import type { IMMessageEvent } from "@athena-ai/protocol-im";
 import { Context, Service } from "cordis";
 
 declare module "cordis" {
@@ -394,11 +395,11 @@ export const Config: Schema<Config> = Schema.object({
 
 export default class CortexChat extends Cortex {
   static name = "cortex-chat";
-  static inject = ["life", "message"];
+  static inject = ["life", "nerve"];
   static Config = Config;
 
   /** 按 channel 分组的待处理消息 */
-  private _pending = new Map<string, Session[]>();
+  private _pending = new Map<string, IMMessageEvent[]>();
   /** 按 channel 的聚合窗口定时器 */
   private _timers = new Map<string, ReturnType<typeof setTimeout>>();
   /** 正在认知中的 channel —— 防止并发进入同一 channel 的循环 */
@@ -410,8 +411,8 @@ export default class CortexChat extends Cortex {
   ) {
     super(ctx, "cortex");
 
-    ctx.on("message", (session: Session) => {
-      this.ingest(session);
+    ctx.on("message-created", (event: IMMessageEvent) => {
+      this.ingest(event);
     });
   }
 
@@ -427,17 +428,17 @@ export default class CortexChat extends Cortex {
   }
 
   /** Rhythm：事件到达 → 意愿计算 → 超阈值则开聚合窗口 */
-  private ingest(session: Session) {
-    if (session.userId === session.selfId) return;
+  private ingest(event: IMMessageEvent) {
+    if (event.userId === event.selfId) return;
 
-    const channelId = session.channelId;
+    const channelId = event.channelId;
     if (!channelId) return;
 
     const queue = this._pending.get(channelId) ?? [];
-    queue.push(session);
+    queue.push(event);
     this._pending.set(channelId, queue);
 
-    if (this.willingness(session) < this.config.threshold) return;
+    if (this.willingness(event) < this.config.threshold) return;
     if (this._timers.has(channelId)) return; // 窗口已开，让它继续聚合
 
     const timer = setTimeout(() => {
@@ -451,11 +452,11 @@ export default class CortexChat extends Cortex {
   /**
    * 意愿计算：这里放你的产品逻辑（被 @、关键词、关系亲密度、频率抑制……）
    *
-   * 注意：Satori v5 的 Session **没有** `stripped` / `appel` —— 那是 Koishi
+   * 注意：Nerve 的事件**没有** `stripped` / `appel` —— 那是 Koishi
    * `@koishijs/core` 的加料。原生做法是自己检查 elements 里的 `at` 元素。
    */
-  private willingness(session: Session): number {
-    const mentioned = (session.elements ?? []).some((el) => el.type === "at" && el.attrs.id === session.selfId);
+  private willingness(event: IMMessageEvent): number {
+    const mentioned = (event.message?.elements ?? []).some((el) => el.type === "at" && el.attrs.id === event.selfId);
     return mentioned ? 1 : 0.3;
   }
 
@@ -482,12 +483,12 @@ export default class CortexChat extends Cortex {
     }
   }
 
-  private integrate(batch: Session[]) {
+  private integrate(batch: IMMessageEvent[]) {
     return {
       persona: this.ctx.life.persona,
-      messages: batch.map((s) => ({
-        user: s.author?.name ?? s.userId,
-        content: s.content ?? "",
+      messages: batch.map((event) => ({
+        user: event.user?.name ?? event.userId,
+        content: event.message?.content ?? event.content ?? "",
       })),
     };
   }
@@ -497,9 +498,9 @@ export default class CortexChat extends Cortex {
     return { text: `...` };
   }
 
-  private async enact(channelId: string, batch: Session[], result: { text: string }) {
+  private async enact(channelId: string, batch: IMMessageEvent[], result: { text: string }) {
     if (!result.text) return; // 「不回复」是一等决策
-    await this.ctx.message.createMessage(channelId, result.text, batch.at(-1)?.bot?.sid);
+    await batch.at(-1)?.body.sendMessage(channelId, result.text);
   }
 }
 ```
@@ -514,7 +515,7 @@ export interface Config {
 
 export default class CortexWorld extends Cortex {
   static name = "cortex-world";
-  static inject = ["life", "message"];
+  static inject = ["life", "nerve"];
   // 可选的 minecraft capability 不写进 inject —— 见 §1.3，用 ctx.get() 或 ctx.inject() 子 fiber
 
   /** 感知邮箱 —— 心跳之间累积，心跳时 drain */
@@ -604,9 +605,9 @@ export interface Config {
 
 export default class CortexInterlude extends Cortex {
   static name = "cortex-interlude";
-  static inject = ["life", "message"];
+  static inject = ["life", "nerve"];
 
-  private _buffer: Session[] = [];
+  private _buffer: IMMessageEvent[] = [];
   private _timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -615,9 +616,9 @@ export default class CortexInterlude extends Cortex {
   ) {
     super(ctx, "cortex");
 
-    ctx.on("message", (session: Session) => {
-      if (session.userId === session.selfId) return;
-      this._buffer.push(session);
+    ctx.on("message-created", (event: IMMessageEvent) => {
+      if (event.userId === event.selfId) return;
+      this._buffer.push(event);
 
       if (this._buffer.length >= this.config.maxBuffer) {
         this.fire();
@@ -648,7 +649,7 @@ export default class CortexInterlude extends Cortex {
   }
 
   /** Cognition：单次 structured-output，而非多步 tool-loop */
-  private async narrate(batch: Session[]) {
+  private async narrate(batch: IMMessageEvent[]) {
     try {
       // 见 §5.3 —— generateObject
       const turn = await this.generateNarrativeTurn(batch);
@@ -660,16 +661,16 @@ export default class CortexInterlude extends Cortex {
     }
   }
 
-  private async generateNarrativeTurn(batch: Session[]): Promise<{ speech: string }> {
+  private async generateNarrativeTurn(batch: IMMessageEvent[]): Promise<{ speech: string }> {
     return { speech: "" };
   }
 
   private async applyStoryMutation(turn: { speech: string }) {}
 
-  private async speak(batch: Session[], turn: { speech: string }) {
+  private async speak(batch: IMMessageEvent[], turn: { speech: string }) {
     if (!turn.speech) return;
     const last = batch.at(-1)!;
-    await this.ctx.message.createMessage(last.channelId!, turn.speech, last.bot?.sid);
+    await last.body.sendMessage(last.channelId, turn.speech);
   }
 }
 ```
@@ -767,149 +768,137 @@ await this.ctx.parallel("cortex/after-enact", results);
 
 ---
 
-## 3. 定义一个 Capability Service
+## 3. 定义一个 IM Body（协议实现）
 
-Capability 是 Cortex 依赖的抽象契约。以 `capability-message` 为参考实现。
+> **架构现状**：`capability-message`（Satori 隔离层）已删除，Satori 已从 `vendor/` 移除。IM 协议自研为 `@athena-ai/protocol-im`，平台接入统一走 **Nerve Body** 模式：继承 `IMBody`、注册进 `ctx.nerve`、用 `createEvent()` + `dispatch()` 发射事件。
 
-### 3.1 完整参考：MessageService
+### 3.1 最小 IM Body
+
+平台 adapter 继承 `IMBody`（protocol-im），实现 `connect` / `disconnect` 和它支持的方法子集：
 
 ```typescript
-import { Schema } from "@athena-ai/core";
-import { Satori, Bot, Session, Dict } from "@satorijs/core";
-import type { Fragment } from "@satorijs/element";
-import type { Message, SendOptions } from "@satorijs/protocol";
-import { Context, Service } from "cordis";
+import { IMBody } from "@athena-ai/protocol-im";
+import type { Channel, Guild, Message, User } from "@athena-ai/protocol-im";
 
-declare module "cordis" {
-  interface Context {
-    message: MessageService;
-  }
-}
+export class MyBody extends IMBody<MyBody.Config> {
+  static inject = ["nerve", "http"];
+  public readonly platform = "myplatform";
 
-/**
- * Cordis wraps values passed through event hooks in traced proxies so that
- * `.ctx` follows the receiver. `Symbol.for("cordis.original")` is the proxy's
- * escape hatch back to the underlying object.
- */
-const ORIGINAL = Symbol.for("cordis.original");
-
-/** Unwrap a cordis traced proxy, returning the object itself if untraced. */
-function unwrap<T extends object>(value: T | undefined): T | undefined {
-  if (!value) return value;
-  return ((value as Dict)[ORIGINAL as unknown as string] as T) ?? value;
-}
-
-export interface Config {}
-
-export default class MessageService extends Service<Config> {
-  public static readonly Config: Schema<Config> = Schema.object({});
-
-  private _self: Context;
-
-  constructor(ctx: Context) {
-    super(ctx, "message");
-    this._self = ctx;
-
-    // 在自己的 context 上安装实现库。
-    // 隔离由外层 group entry 声明（isolate: { satori: true }），
-    // 这样同 group 的 sibling adapter 能共享这个 domain。
-    ctx.plugin(Satori);
-
-    // 事件作用域过滤 —— 见下方 §3.2
-    const messageSymbol = ctx[Context.isolate]["message"] as symbol;
-    const satoriSymbol = ctx[Context.isolate]["satori"] as symbol;
-    ctx.on("internal/session", (session: Session) => {
-      const bot = unwrap(session.bot);
-      if (!bot || bot.ctx[Context.isolate]["satori"] !== satoriSymbol) return;
-      session[Context.filter] = (hookCtx: Context) => {
-        return hookCtx[Context.isolate]["message"] === messageSymbol;
-      };
-    });
+  constructor(ctx: Context, config: MyBody.Config) {
+    super(ctx, config);
+    this.selfId = config.selfId;
   }
 
-  /** 多实例容器 —— 暴露给 Cortex 做寻址 */
-  get bots(): Bot[] & Dict<Bot> {
-    return this._self.get("satori")?.bots ?? ([] as unknown as Bot[] & Dict<Bot>);
+  // 连接生命周期：Body 基类的 *[Service.init]() 会自动调用 connect()，
+  // 并在 dispose 时调用 disconnect()。子类只需实现这两个方法。
+  async connect(): Promise<void> {
+    this.status = "connecting";
+    // ... 建立连接
+    this.online();
   }
 
-  /** 便捷方法：自动解析 bot */
-  async createMessage(channelId: string, content: Fragment, botSid?: string, options?: SendOptions): Promise<Message[]> {
-    const bot = this._resolveBot(botSid);
-    return bot.createMessage(channelId, content, undefined, options);
+  async disconnect(): Promise<void> {
+    // ... 断开连接
+    this.offline();
   }
 
-  async sendMessage(channelId: string, content: Fragment, botSid?: string, options?: SendOptions): Promise<string[]> {
-    const bot = this._resolveBot(botSid);
-    return bot.sendMessage(channelId, content, undefined, options);
+  // 只实现平台支持的方法；其余继承 IMBody 的默认实现（抛 not implemented）
+  async getLogin(): Promise<Login> {
+    const info = await this.internal.getLoginInfo();
+    return { user: decodeUser(info), platform: this.platform, status: 1, features: [] };
   }
 
-  async sendPrivateMessage(userId: string, content: Fragment, guildId?: string, botSid?: string, options?: SendOptions): Promise<string[]> {
-    const bot = this._resolveBot(botSid);
-    return bot.sendPrivateMessage(userId, content, guildId, options);
-  }
-
-  /** 寻址：显式指定 → 唯一活跃 → 多义则报错 */
-  private _resolveBot(sid?: string): Bot {
-    if (sid) {
-      const bot = this.bots.find((b) => b.sid === sid);
-      if (!bot) throw new Error(`Bot not found: ${sid}`);
-      return bot;
-    }
-    const active = this.bots.filter((b) => b.isActive);
-    if (active.length === 0) throw new Error("No active bots available");
-    if (active.length === 1) return active[0];
-    throw new Error(`Multiple bots available (${active.map((b) => b.sid).join(", ")}); specify botSid`);
+  async sendMessage(channelId: string, content: Fragment): Promise<string[]> {
+    // ... 平台发送逻辑
   }
 }
 ```
 
-### 3.2 事件作用域过滤模板
+**要点**：
 
-任何在内部隔离域中安装实现库、且实现库会广播事件的 Capability，都需要这段：
+- `*[Service.init]()` **不需要**子类实现——Body 基类默认注册进 `ctx.nerve` + 启动连接 + dispose 断开。若覆写必须 `yield* super[Service.init]()`
+- 未实现的方法继承 `IMBody` 的 `_notImplemented` 默认实现，调用时**显式抛错**（而不是 `TypeError: ... is not a function`）
+- 组合方法（`sendMessage` → `createMessage`、`sendPrivateMessage` → `createDirectChannel` + `sendMessage`）基类已实现，子类实现原语即可
+
+### 3.2 发射事件：`session()` + `dispatch`
+
+收到平台事件时，构造 Session 信封并 dispatch 到 Cordis 事件总线：
 
 ```typescript
-// 1. 捕获自己的 isolate symbol
-const mySymbol = ctx[Context.isolate]["<capability-token>"] as symbol;
-const implSymbol = ctx[Context.isolate]["<impl-token>"] as symbol;
-
-// 2. 在实现库的「原始事件」上判断归属，并注入 filter
-ctx.on("<impl>/internal-event", (payload: SomePayload) => {
-  const owner = unwrap(payload.owner);
-  // 这个 payload 属于我的 domain 吗？
-  if (!owner || owner.ctx[Context.isolate]["<impl-token>"] !== implSymbol) return;
-  // 是的话，限定只投递给同 capability isolate 的 hook
-  payload[Context.filter] = (hookCtx: Context) => {
-    return hookCtx[Context.isolate]["<capability-token>"] === mySymbol;
-  };
+// 工厂：填充 selfId / platform / timestamp / sn / body + 嵌套数据对象
+const session = body.session({
+  type: "message-created",
+  channel: { id: channelId, type: isDirect ? 1 : 0 },
+  user: { id: userId, name },
+  guild: guildId ? { id: guildId } : undefined,
+  message: { id: messageId, content },
 });
+
+// 广播：emit("internal/session") → 归一化 → emit(session.type, session)
+body.dispatch(session);
 ```
 
-**必须 unwrap**：`Session` / `Bot` 声明了 `[Service.tracker] = { property: "ctx" }`，导致 `payload.owner.ctx` 解析为接收方 context。不 unwrap 会让每个实例都认领每个事件。
+- adapter 只填**嵌套数据对象**（`channel`/`user`/`guild`/`message`）；`channelId`/`userId`/`guildId`/`isDirect`/`content` 由 `IMSession` 访问器推导，不再手工填派生字段
+- **无事件别名**（`eventAliases` 已删除）；`internal` 子事件用 `session.setInternal(type, data)` 标记，按 `_type` 发射
 
-### 3.3 新建 Capability 的检查清单
+### 3.3 事件签名注册（satori 模式）
 
-- [ ] 定义稳定的 capability token（`'message'` / `'minecraft'` / `'audio'`），并在 [02-architecture.md](./02-architecture.md) §6.1 登记
-- [ ] `declare module "cordis"` 增加 `ctx.<token>`
-- [ ] 多实例容器（`get instances()` / `get bots()`）
-- [ ] 便捷方法处理「唯一实例」情形，多义时报错并列出候选
-- [ ] 事件作用域过滤（若实现库广播事件）
-- [ ] 保留 `_self` 引用（若需解析 isolate symbol）
-- [ ] package.json 的 `cordis.service.implements` 声明
-- [ ] **不依赖** `@athena-ai/core` 之外的 athena 包
-- [ ] 在 group isolate 清单中加入该 token 与其实现 token
+**只在 `declare module "cordis" { interface Events }` 声明一份**，不要维护平行的事件映射表：
+
+```typescript
+// protocol-im/src/events.ts
+declare module "cordis" {
+  interface Events {
+    "message-created"(event: IMMessageEvent): void;
+    // ...
+  }
+}
+```
+
+- 事件接口 `extends IMSession`（IM Session 信封）+ 各自的具体字段收窄（`type` 字面量、必填字段）
+- core 的 `Event` 数据接口（无 IM 语义）用 `declare module "@athena-ai/protocol"` 追加可选实体引用（`channel`/`user`/`guild`/`message`…），`IMSession` 访问器从这些嵌套对象推导派生字段
+- **没有** `NerveEventMap` 之类的第二注册表——satori/koishi 都只声明 `cordis.Events` 一份
+
+### 3.4 Internal API 动态生成（koishi 模式）
+
+OneBot 这类平台 API 数量大、签名规律，用 `interface` 声明类型 + `class` 动态生成实现（koishi 的 `Internal.define/defineExtract` 模式）：
+
+```typescript
+export interface Internal {
+  sendGroupMsg(groupId: Id, message: string, autoEscape?: boolean): Promise<number>;
+  // ...
+}
+
+// oxlint-disable-next-line no-unsafe-declaration-merging -- interface 声明类型，class 动态实现（koishi 模式）
+export class Internal {
+  static define(name: string, ...params: string[]): void { /* ... */ }
+  static defineExtract(name: string, key: string, ...params: string[]): void { /* ... */ }
+}
+```
+
+- 请求/响应桥（`_request`）、echo 关联（`nextEcho`/`accept`）、超时清理都放 **Internal 实例**上，**不要用模块级全局状态**（多实例会冲突）
+
+### 3.5 新建 IM Body 的检查清单
+
+- [ ] `extends IMBody<Config>`，`platform` 只读属性，`static inject` 含 `"nerve"`
+- [ ] 实现 `connect()` / `disconnect()`（基类 `Service.init` 自动调用）
+- [ ] 只实现平台支持的方法；不支持的方法留给基类 `_notImplemented`
+- [ ] 事件用 `createEvent()` + `dispatch()` 发射，类型注册进 `cordis.Events`
+- [ ] 请求/响应状态放实例，不放模块级全局
+- [ ] package.json 的 `cordis.service.required` 声明（如 `["nerve", "http"]`）
+- [ ] 测试覆盖：`ctx.plugin(Body)` 自动连接、dispose 自动断开、事件派发、CQCode/编码器
 
 ---
 
 ## 4. 定义一个 Nerve
 
-Nerve 向 Capability 注册实例。以 `sandbox-nerve` 为参考实现。
+Nerve 把外部输入转成 Session 信封喂给 Life 的 Body。以 `sandbox-nerve` 为参考实现。
 
-### 4.1 参考：SandboxNerve（非 Satori adapter 路径）
+### 4.1 参考：SandboxNerve（非平台 adapter 路径）
 
 ```typescript
 import { SandboxBot, SELF_ID } from "@athena-ai/plugin-sandbox";
 import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
-import { Dict, Universal } from "@satorijs/core";
 import type { Context, Fiber } from "cordis";
 
 interface BotHandle {
@@ -919,9 +908,9 @@ interface BotHandle {
 
 export default class SandboxNerve {
   public static readonly name = "sandbox-nerve";
-  public static readonly inject = ["sandbox", "satori", "life"];
+  public static readonly inject = ["sandbox", "nerve", "life"];
 
-  private _handles: Dict<BotHandle> = Object.create(null);
+  private _handles: Record<string, BotHandle> = Object.create(null);
   private _lifeId: string;
 
   constructor(private ctx: Context) {
@@ -949,7 +938,7 @@ export default class SandboxNerve {
     }, "sandbox-nerve.cleanup");
   }
 
-  /** 把外部输入变成 Satori Session 并 dispatch 进本 Life 的事件空间 */
+  /** 把外部输入变成 Session 并 dispatch 进本 Life 的事件空间 */
   private async _dispatch(payload: SandboxDispatchPayload): Promise<void> {
     const { platform, user, channel, content, sink } = payload;
     const bot = await this._ensureBot(platform, sink).bot;
@@ -958,17 +947,21 @@ export default class SandboxNerve {
 
     const id = Math.random().toString(36).slice(2);
 
-    const session = bot.session(this._createEvent(user, channel));
-    session.type = "message";
-    session.content = content;
-    session.messageId = id;
+    // session() 填嵌套数据对象；channelId/userId/isDirect 由 IMSession 访问器推导
+    const session = bot.session({
+      type: "message-created",
+      user: { id: user, name: user },
+      channel: { id: channel, type: channel === `@${user}` ? 1 : 0 },
+      guild: channel === `@${user}` ? undefined : { id: channel },
+      message: { id, content, user: { id: user, name: user }, channel: { id: channel, type: channel === `@${user}` ? 1 : 0 } },
+    });
     if (payload.quote) {
       session.quote = { id: payload.quote.id, content: payload.quote.content };
     }
     bot.dispatch(session); // ← 从这里进入 Cordis 事件系统
   }
 
-  /** 懒创建：为每个 platform 在本 Life 的 satori domain 中装一个 Bot */
+  /** 懒创建：为每个 platform 在本 Life 的 nerve domain 中装一个 Body */
   private _ensureBot(platform: string, sink: MessageSink): BotHandle {
     const existing = this._handles[platform];
     if (existing) return existing;
@@ -984,7 +977,7 @@ export default class SandboxNerve {
 
     const bot = (async () => {
       await fiber;
-      const registered = ctx.satori.bots[`${platform}:${SELF_ID}`];
+      const registered = ctx.nerve.get(`${platform}:${SELF_ID}`);
       if (!registered) {
         throw new Error(`sandbox-nerve: bot was not registered for platform ${platform}`);
       }
@@ -1001,39 +994,46 @@ export default class SandboxNerve {
     await handle.fiber.dispose();
   }
 
-  private _createEvent(userId: string, channelId: string): Partial<Universal.Event> {
+  private _createEvent(userId: string, channelId: string): Partial<import("@athena-ai/protocol-im").IMEvent> & { type: string } {
     const isDirect = channelId === "@" + userId;
     return {
+      type: "message-created",
+      userId,
+      isDirect,
       user: { id: userId, name: userId },
       channel: {
         id: channelId,
-        type: isDirect ? Universal.Channel.Type.DIRECT : Universal.Channel.Type.TEXT,
+        type: isDirect ? 1 : 0,
       },
       guild: isDirect ? undefined : { id: channelId },
+      guildId: isDirect ? undefined : channelId,
       timestamp: Date.now(),
     };
   }
 }
 ```
 
-### 4.2 IM Nerve = Satori Adapter
+**要点**：
 
-对标准 IM 平台，Nerve 就是普通的 Satori adapter，作为 group 内的 sibling entry 安装：
+- 外部输入转事件时，**显式填** `isDirect` / `guildId` / `messageId` 等字段——Nerve 的 `createEvent` 不会像 Satori Session 那样自动推导
+- Body 通过 `ctx.nerve.get(sid)` 查找（`sid = platform:selfId`），不再有 `ctx.satori.bots` 注册表
+- 事件类型用 `message-created`（Nerve 命名），不是 Satori 的 `message`
+
+### 4.2 IM 平台接入 = Nerve adapter
+
+标准 IM 平台 adapter（如 `nerve-onebot`）作为 group 内的 sibling entry 安装：
 
 ```yaml
 - name: "@cordisjs/plugin-group"
   label: Alice
-  isolate: { life: true, cortex: true, message: true, satori: true }
+  isolate: { life: true, cortex: true, nerve: true }
   config:
     - name: "@athena-ai/plugin-life"
       config: { persona: { name: Alice, description: "...", traits: {} } }
-    - name: "@athena-ai/capability-message" # 提供 satori domain
     - name: "@athena-ai/cortex-chat"
-    - name: "@athena-ai/adapter-onebot" # ← Nerve，inject: ['satori']
+    - name: "@athena-ai/nerve-onebot" # ← Nerve adapter，inject: ['nerve', 'http']
       config: { selfId: "123", endpoint: "ws://localhost:6700", protocol: ws }
 ```
-
-Adapter 侧只需 `inject: ["satori"]` 并把 Bot 注册进 `ctx.satori.bots`。**注意 `ctx.bots` 在 Athena 中不存在**（vendored Satori 已移除 mixin），一律用 `ctx.satori.bots`。
 
 ### 4.3 Hub + Nerve 分离模式
 
@@ -1061,11 +1061,11 @@ Life Group
 
 ### 4.4 新建 Nerve 的检查清单
 
-- [ ] `static inject` 包含目标 capability 的 impl token（如 `"satori"`）
+- [ ] `static inject` 包含 `"nerve"`（Body 注册需要）
 - [ ] 需要 Life 身份时 inject `"life"`
-- [ ] 平台连接、认证、重连在 Nerve 内部处理
-- [ ] 实例注册进 capability 容器，**不**直接暴露给 Cortex
-- [ ] 事件通过 capability 的机制发射（IM 用 `bot.dispatch(session)`）
+- [ ] 平台连接、认证、重连在 Body 内部处理（`connect`/`disconnect`）
+- [ ] Body 实例注册进 `ctx.nerve`（基类 `Service.init` 自动完成）
+- [ ] 事件通过 `createEvent()` + `dispatch()` 发射
 - [ ] 清理逻辑注册在 `ctx.effect()` 或 `*[Service.init]()` 中
 - [ ] **不**提供 service（Nerve 通常不 provide，除非是 Hub）
 
@@ -1186,7 +1186,9 @@ private layer2Tools() {
       }),
       // ⚠️ 用单个 `input` 参数，不要解构 —— 见下方「类型推导陷阱」
       execute: async (input) => {
-        const ids = await this.ctx.message.sendMessage(input.channelId, input.content, input.botSid);
+        const body = input.botSid ? this.ctx.nerve.get(input.botSid) : this.ctx.nerve.bodies[0];
+        if (!body) throw new Error(`No body available for ${input.botSid ?? "any sid"}`);
+        const ids = await body.sendMessage(input.channelId, input.content);
         return { messageIds: ids };
       },
     }),
@@ -1222,12 +1224,14 @@ error TS2769: No overload matches this call.
 ```typescript
 // ❌ 解构 + 转发可选字段 → 推导失败
 execute: async ({ channelId, content, botSid }) => {
-  return this.ctx.message.sendMessage(channelId, content, botSid);
+  const body = botSid ? this.ctx.nerve.get(botSid) : this.ctx.nerve.bodies[0];
+  return body?.sendMessage(channelId, content);
 }
 
 // ✅ 单个 input 参数
 execute: async (input) => {
-  return this.ctx.message.sendMessage(input.channelId, input.content, input.botSid);
+  const body = input.botSid ? this.ctx.nerve.get(input.botSid) : this.ctx.nerve.bodies[0];
+  return body?.sendMessage(input.channelId, input.content);
 }
 
 // ✅ 或解构但显式标注参数类型
@@ -1243,7 +1247,7 @@ execute: async ({ channelId, botSid }: z.infer<typeof schema>) => { ... }
 import { generateObject } from "ai";
 import { z } from "zod";
 
-private async generateNarrativeTurn(batch: Session[]) {
+private async generateNarrativeTurn(batch: IMMessageEvent[]) {
   const model = this.ctx.ai.language(this.config.model);
 
   const { object } = await generateObject({
@@ -1341,7 +1345,7 @@ generateText({
 })
 ```
 
-Layer 1（结构化能力，如 `ctx.message.createMessage`）**不**进 tool 集合 —— 它由 Cortex 代码程序化调用，是 Layer 2 tool 的实现手段。
+Layer 1（结构化能力，如 `event.body.sendMessage`）**不**进 tool 集合 —— 它由 Cortex 代码程序化调用，是 Layer 2 tool 的实现手段。
 
 > **已知缺口**：provider 内建 tool（`client.tools.webSearch()` 之类）目前**不经过** `ctx.ai` —— `register()` 只收 `ProviderV4`，而内建 tool 挂在各家 client 的自有字段上，不属于 `ProviderV4` 契约。需要时由 Cortex 自己 `createOpenAI()` 取，或等后续为此设计入口。
 
@@ -1440,8 +1444,7 @@ groups: # 仅 language model
   isolate:
     life: true
     cortex: true
-    message: true
-    satori: true
+    nerve: true
   config:
     - name: "@athena-ai/plugin-life"
       config:
@@ -1450,10 +1453,9 @@ groups: # 仅 language model
           description: A curious and friendly digital life.
           traits:
             personality: curious, friendly, helpful
-    - name: "@athena-ai/capability-message"
     - name: "@athena-ai/cortex-chat"
     - name: "@athena-ai/sandbox-nerve"
-    - name: "@athena-ai/adapter-onebot"
+    - name: "@athena-ai/nerve-onebot"
       config:
         selfId: "123"
         endpoint: "ws://localhost:6700"
@@ -1465,8 +1467,7 @@ groups: # 仅 language model
   isolate:
     life: true
     cortex: true
-    message: true
-    satori: true
+    nerve: true
   config:
     - name: "@athena-ai/plugin-life"
       config:
@@ -1475,10 +1476,9 @@ groups: # 仅 language model
           description: A thoughtful digital philosopher.
           traits:
             personality: contemplative
-    - name: "@athena-ai/capability-message"
     - name: "@athena-ai/cortex-chat"
     - name: "@athena-ai/sandbox-nerve"
-    - name: "@athena-ai/adapter-onebot"
+    - name: "@athena-ai/nerve-onebot"
       config:
         selfId: "456"
         endpoint: "ws://localhost:6701"
@@ -1491,7 +1491,7 @@ groups: # 仅 language model
 # app.yml
 - name: "@cordisjs/plugin-group"
   label: Alice
-  isolate: { life: true, cortex: true, message: true, satori: true }
+  isolate: { life: true, cortex: true, nerve: true }
   config:
     - name: "@cordisjs/plugin-include"
       config:
@@ -1506,7 +1506,6 @@ groups: # 仅 language model
     memory:
       backend: sqlite
       path: ./data/alice.db
-- name: "@athena-ai/capability-message"
 - name: "@athena-ai/cortex-chat"
   config:
     model: deepseek:deepseek-chat
@@ -1532,7 +1531,7 @@ groups: # 仅 language model
 ### 7.1 Service 安装与依赖
 
 ```typescript
-import MessageService from "@athena-ai/capability-message";
+import { NerveService } from "@athena-ai/protocol";
 import { Life } from "@athena-ai/plugin-life";
 import { Context } from "cordis";
 import { describe, it, expect } from "vitest";
@@ -1540,22 +1539,22 @@ import { describe, it, expect } from "vitest";
 import CortexChat from "../src/index";
 
 describe("CortexChat", () => {
-  it("activates when both life and message are available", async () => {
+  it("activates when both life and nerve are available", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
-    await ctx.plugin(MessageService, {});
+    await ctx.plugin(NerveService);
     await ctx.plugin(CortexChat);
     expect(ctx.cortex).toBeInstanceOf(CortexChat);
   });
 
-  it("does not activate without message service", async () => {
+  it("does not activate without nerve service", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
-    // 不要 await —— 'message' inject 未满足，fiber 停在 PENDING
+    // 不要 await —— 'nerve' inject 未满足，fiber 停在 PENDING
     ctx.plugin(CortexChat);
     expect(ctx.get("cortex")).toBeUndefined();
   });
@@ -1565,7 +1564,7 @@ describe("CortexChat", () => {
     await ctx.plugin(Life, {
       persona: { name: "Alice", description: "Test", traits: {} },
     });
-    await ctx.plugin(MessageService, {});
+    await ctx.plugin(NerveService);
     await ctx.plugin(CortexChat);
     expect(Reflect.get(ctx.life, "_cortex")).toBeInstanceOf(CortexChat);
   });
@@ -1803,7 +1802,7 @@ private _ensureBot(platform: string, sink: MessageSink): BotHandle {
 
   const bot = (async () => {
     await fiber;                                     // 等 fiber 激活
-    const registered = this.ctx.satori.bots[`${platform}:${SELF_ID}`];
+    const registered = this.ctx.nerve.get(`${platform}:${SELF_ID}`);
     if (!registered) throw new Error(`bot was not registered for ${platform}`);
     return registered as SandboxBot;
   })();
@@ -1814,37 +1813,38 @@ private _ensureBot(platform: string, sink: MessageSink): BotHandle {
 
 `ctx.plugin()` 返回 `Fiber`，可 await 等其激活完成。
 
-### 8.7 构造 Satori Session 并注入事件空间
+### 8.7 构造 Session 并注入事件空间
 
 ```typescript
 const session = bot.session({
+  type: "message-created",
   user: { id: userId, name: userId },
   channel: {
     id: channelId,
-    type: isDirect ? Universal.Channel.Type.DIRECT : Universal.Channel.Type.TEXT,
+    type: isDirect ? 1 : 0,
   },
   guild: isDirect ? undefined : { id: channelId },
-  timestamp: Date.now(),
 });
-session.type = "message";
-session.content = content;
-session.messageId = id;
-bot.dispatch(session);
+session.content = content;   // 访问器 setter → message.content
+session.messageId = id;      // 访问器 setter → message.id
+event.message = { id, content, user: { id: userId, name: userId }, channel: { id: channelId, type: isDirect ? 1 : 0 } };
+bot.dispatch(session);       // internal/session → 归一化 → session.type
 ```
 
 ### 8.8 富文本内容
 
 ```typescript
-import { h } from "@satorijs/element";
+import { Element } from "@cordisjs/element";
+import { quote, at } from "@athena-ai/protocol-im";
 
-// 纯文本
-await ctx.message.createMessage(channelId, "hello");
+// 纯文本（Fragment 接受 string / Element / 数组）
+await body.sendMessage(channelId, "hello");
 
 // 图片
-await ctx.message.createMessage(channelId, h("img", { src: "https://..." }));
+await body.sendMessage(channelId, Element("img", { src: "https://..." }));
 
 // 混合
-await ctx.message.createMessage(channelId, [h("quote", { id: session.messageId }), h("at", { id: session.userId }), " 你好"]);
+await body.sendMessage(channelId, [quote(messageId), at(userId), " 你好"]);
 ```
 
 ### 8.9 Cortex 中的串行化保护

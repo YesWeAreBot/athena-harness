@@ -45,7 +45,7 @@ Life ──owns──► Cortex ──┼─── Nerve (Minecraft)  ──┼�
 | 层          | 选型                       | 版本             | 角色                                   |
 | ----------- | -------------------------- | ---------------- | -------------------------------------- |
 | 组合基座    | **Cordis**                 | `^4.0.0-rc.8`    | DI、Service、Fiber lifecycle、事件系统 |
-| IM 协议     | **Satori v5**              | vendored (alpha) | Bot / Adapter / Session / Methods      |
+| IM 协议     | **自研 Nerve**             | —                | protocol（Body/Session）+ protocol-im（IM 实体/事件） |
 | LLM 层      | **AI SDK v7**              | `^7.0.0`         | `generateText` / `streamText` / `tool` |
 | 配置 schema | **schemastery**            | `^3.18.0`        | 插件 Config 校验                       |
 | 构建        | **yakumo** + esbuild + tsc | —                | monorepo 构建                          |
@@ -53,7 +53,7 @@ Life ──owns──► Cortex ──┼─── Nerve (Minecraft)  ──┼�
 | 测试        | **Vitest**                 | `^4.1.10`        | 单元测试                               |
 | 包管理      | **Yarn**                   | `4.12.0`         | workspaces                             |
 
-关键原则：**不重新发明成熟生态已提供的东西。** Satori 负责 IM，AI SDK 负责 LLM，Cordis 负责组合 —— 三者都直接使用，不做包装层。
+关键原则：**不重新发明成熟生态已提供的东西。** 协议层自研（Nerve 三原语），AI SDK 负责 LLM，Cordis 负责组合 —— LLM 与组合直接使用，不做包装层。IM 平台接入统一走 Nerve Body（`IMBody`）模式。
 
 ---
 
@@ -63,24 +63,21 @@ Life ──owns──► Cortex ──┼─── Nerve (Minecraft)  ──┼�
 athena-harness/
 ├── packages/                   ← 库与协议层（不直接提供运行时行为）
 │   ├── core/                   @athena-ai/core — prelude shell + 重导出
-│   ├── protocol/               @athena-ai/protocol — 类型 + Cortex 基类
+│   ├── protocol/               @athena-ai/protocol — Nerve 核心：Body + Session + NerveService + Cortex
+│   ├── protocol-im/            @athena-ai/protocol-im — IM 协议层：实体类型、IMBody、事件契约
 │   └── ai/                     @athena-ai/ai — AIService（provider registry + models.yml + 模型解析）
 │
 ├── plugins/                    ← 可安装的运行时插件
 │   ├── life/                   @athena-ai/plugin-life — 提供 ctx.life
-│   ├── capability-message/     @athena-ai/plugin-capability-message — 提供 ctx.message
 │   ├── cortex-chat/            @athena-ai/plugin-cortex-chat — 提供 ctx.cortex
-│   ├── sandbox/                @athena-ai/plugin-sandbox — 全局 SandboxHub
+│   ├── nerve-onebot/           @athena-ai/plugin-nerve-onebot — OneBot v11 adapter（IMBody 实现）
+│   ├── sandbox/                @athena-ai/plugin-sandbox — 全局 SandboxHub + SandboxBot
 │   ├── sandbox-nerve/          @athena-ai/plugin-sandbox-nerve — per-Life Sandbox 桥
 │   ├── provider-openai/        @athena-ai/plugin-provider-openai — 注册 AI SDK OpenAI provider
 │   ├── provider-deepseek/      @athena-ai/plugin-provider-deepseek — 注册 AI SDK DeepSeek provider
 │   ├── provider-anthropic/     @athena-ai/plugin-provider-anthropic — 注册 AI SDK Anthropic provider
 │   ├── provider-google/        @athena-ai/plugin-provider-google — 注册 AI SDK Google provider
 │   └── message-store/          @athena-ai/plugin-message-store（占位，未开始）
-│
-├── vendor/                     ← 从 git 直接内置的上游代码
-│   ├── satorijs/               core / protocol / element / adapter-* （已修补）
-│   └── cordisjs/url-is-local/
 │
 ├── docs/                       ← 本文档体系
 ├── .specify/specs/             ← 设计规格与决策记录（历史演进）
@@ -134,7 +131,8 @@ cordis run
 | 知道现在做到哪、接下来做什么         | [06-progress-and-roadmap.md](./06-progress-and-roadmap.md)     |
 | 非技术读者通俗读物                   | [07-athena-harness-book.md](./07-athena-harness-book.md)       |
 | 快速查 Cordis v4 概念                | [appendix/A-cordis-primer.md](./appendix/A-cordis-primer.md)   |
-| 快速查 Satori v5 在 Athena 中的用法  | [appendix/B-satori-primer.md](./appendix/B-satori-primer.md)   |
+| 查 Satori → Nerve 迁移 / 新旧差异    | [appendix/D-satori-to-nerve-migration.md](./appendix/D-satori-to-nerve-migration.md) |
+| 查 Satori API（历史参考，已移除）    | [appendix/B-satori-primer.md](./appendix/B-satori-primer.md)   |
 | 查某条设计决策的出处                 | [appendix/C-decision-index.md](./appendix/C-decision-index.md) |
 
 ---

@@ -13,7 +13,7 @@
 | 包                       | 状态                  | 实现内容                                                                                                                                                                                                                              | 对应 spec                                |
 | ------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | `@athena-ai/core`        | ✅ 完成（有意最小化） | 空 `apply()` + 重导出 cordis / cosmokit / schemastery                                                                                                                                                                                 | M-23                                     |
-| `@athena-ai/protocol`    | ✅ 完成               | `Body` / `NerveEvent` / `NerveService`（`ctx.nerve`）及既有 Persona / LifeService / MemoryProvider / Sandbox 契约、`Cortex` abstract class                                                                                            | M-22；2026-08-25 Nerve Protocol & OneBot |
+| `@athena-ai/protocol`    | ✅ 完成               | `Body` / `Session` 信封 / `NerveService`（`ctx.nerve`）及既有 Persona / LifeService / MemoryProvider / Sandbox 契约、`Cortex` abstract class                                                                                            | M-22；2026-08-25 Nerve Protocol & OneBot |
 | `@athena-ai/protocol-im` | ✅ 完成               | IM 协议扩展：Message / Channel / User 等实体类型、`Body` 方法与 IM 事件的 declaration merging、MessageEncoder 基类                                                                                                                    | 2026-08-25 Nerve Protocol & OneBot       |
 | `@athena-ai/ai`          | ✅ 完成               | `AIService`（provides `ai`，root 级全局单例）：Provider Registry、`models.yml` 加载与校验、六个模态的解析、`defaultSettingsMiddleware` 注入、`candidates()` / `ModelGroup` / 断路器 / 三种策略、`default()` / `metadata()` / `list()` | D-33~D-35                                |
 
@@ -22,13 +22,13 @@
 | 包                                                 | 状态        | 实现内容                                                                                                                                                                                                   | 对应 spec                          |
 | -------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | `@athena-ai/plugin-life`                           | ✅ 核心完成 | `ctx.life`；`persona` 解析（仅 inline）；`bind(cortex)` → disposer；`MemoryStub`（in-memory Map）                                                                                                          | M-16, M-25                         |
-| capability-message（`plugins/capability-message`） | ✅ 核心完成 | MessageService：`ctx.plugin(Satori)`、`bots` getter、`createMessage` / `sendMessage` / `sendPrivateMessage`、`_resolveBot` 寻址、`[Context.filter]` 事件作用域注入、cordis proxy unwrap                    | M-01(修订), M-02~M-05              |
-| `@athena-ai/cortex-chat`                           | 🔸 骨架     | 继承 `Cortex`、`inject: ["life","message"]`、订阅 `message`、echo 回复（`[persona.name] Echo: content`）。**无 LLM、无 willingness、无缓冲**                                                               | D-29                               |
-| `@athena-ai/plugin-sandbox`                        | ✅ 完成     | SandboxHub：`/sandbox` WebUI 页面、`/sandbox/file` 文件服务器（含 MIME 表）、WS 监听器、`register` / `lives` / `fileBase`、按 lifeId 路由、Vue 前端（layout / message / input / content / render / icons） | M-27~M-30                          |
-| `@athena-ai/sandbox-nerve`                         | ✅ 完成     | per-Life Nerve：向 Hub 注册、懒创建 `SandboxBot`、`dispatch` / `request` / `release`、`ctx.effect` 清理、message-deleted 隧道                                                                              | M-27~M-29                          |
+| ~~capability-message~~                             | ❌ 已删除   | 2026-08-25 Satori → Nerve 迁移中整包删除（`ctx.message` 由 `cordis.Events` + `event.body` 替代）                                                                                                            | 2026-08-25 Nerve Protocol & OneBot |
+| `@athena-ai/cortex-chat`                           | 🔸 骨架     | 继承 `Cortex`、`inject: ["life","nerve"]`、订阅 `message-created`、echo 回复（`[persona.name] Echo: content`）。**无 LLM、无 willingness、无缓冲**                                                           | D-29                               |
+| `@athena-ai/plugin-sandbox`                        | ✅ 完成     | SandboxHub + SandboxBot（IMBody 实现）：`/sandbox` WebUI 页面、`/sandbox/file` 文件服务器（含 MIME 表）、WS 监听器、`register` / `lives` / `fileBase`、按 lifeId 路由、Vue 前端（layout / message / input / content / render / icons） | M-27~M-30                          |
+| `@athena-ai/sandbox-nerve`                         | ✅ 完成     | per-Life Nerve：向 Hub 注册、懒创建 `SandboxBot`、`dispatch` / `request` / `release`、`ctx.effect` 清理、message-deleted 隧道；`ctx.nerve.get()` 寻址                                                                              | M-27~M-29                          |
 | `@athena-ai/provider-openai`                       | ✅ 完成     | `createOpenAI()` → `ctx.ai.register(config.id, provider)`；`reusable`（官方 key + 内部网关可共存）；`ctx.effect` 注销                                                                                      | D-34                               |
 | `@athena-ai/provider-deepseek`                     | ✅ 完成     | 同上，`createDeepSeek()`                                                                                                                                                                                   | D-34                               |
-| `@athena-ai/nerve-onebot`                          | ✅ 完成     | OneBot v11 消息接收适配、Element → CQ 编码、Body 生命周期与有限 IM API                                                                                                                                     | 2026-08-25 Nerve Protocol & OneBot |
+| `@athena-ai/nerve-onebot`                          | ✅ 完成     | OneBot v11 完整 adapter（IMBody 实现）：事件适配、CQCode、MessageEncoder、Internal API 动态生成、WS/WS-reverse/HTTP 三模式、自动连接生命周期                                                                 | 2026-08-25 Nerve Protocol & OneBot |
 | `@athena-ai/plugin-message-store`                  | ❌ 占位     | `src/index.ts` 只有 `export {}` + 说明注释（占位以免 tsc 报 "No inputs were found"）；Phase 3 消息持久化用                                                                                                 | —                                  |
 
 ### 1.3 providers/
@@ -42,17 +42,19 @@
 | provider-google                              | `providers/google`    | ❌ 未迁移                                | 同上                                              |
 | provider-deepseek                            | `providers/deepseek`  | ⏹️ 已被 `plugins/provider-deepseek` 取代 | —                                                 |
 
-### 1.4 vendor/
+### 1.4 vendor/（已移除）
 
-| 包                          | 状态                   | 备注                                                     |
-| --------------------------- | ---------------------- | -------------------------------------------------------- |
-| `@satorijs/core`            | ✅ vendored + 已打补丁 | 移除 `ctx.mixin`；`ctx.bots` → `ctx.satori.bots`（3 处） |
-| `@satorijs/protocol`        | ✅ vendored            | 有测试（唯一被 `yarn test` 拾取的）                      |
-| `@satorijs/element`         | ✅ vendored            | —                                                        |
-| `@satorijs/adapter-satori`  | ✅ vendored            | Satori Protocol 客户端（Koishi bridge 用）               |
-| `@athena-ai/adapter-onebot` | ✅ vendored + 已改名   | 从 `@satorijs/adapter-onebot` 改为 athena scope          |
-| `@satorijs/adapter-qq`      | ✅ vendored + 已打补丁 | `ctx.bots` → `ctx.satori.bots`                           |
-| `@cordisjs/url-is-local`    | ✅ vendored            | 辅助包                                                   |
+**2026-08-25 已整体删除**。Satori → Nerve 迁移完成后，vendored Satori（core / protocol / element / adapter-*）不再需要：
+
+| 曾 vendored 的包           | 去向                                        |
+| -------------------------- | ------------------------------------------- |
+| `@satorijs/core`           | 由 `@athena-ai/protocol` + `protocol-im` 替代 |
+| `@satorijs/protocol`       | 类型并入 `@athena-ai/protocol-im`            |
+| `@satorijs/element`        | 用 npm 的 `@cordisjs/element`                |
+| `@satorijs/adapter-onebot` | 由 `@athena-ai/nerve-onebot` 替代            |
+| `@satorijs/adapter-qq`     | 未迁移（QQ 官方 adapter 待自研）             |
+| `@satorijs/adapter-satori` | 不需要（Satori 协议服务端）                  |
+| `@cordisjs/url-is-local`   | 不再需要                                     |
 
 ### 1.5 尚未开始
 
@@ -71,7 +73,7 @@
 
 ### 1.6 测试现状
 
-`npx vitest run` 结果：**13 个测试文件全部通过（121 个测试）**。
+`npx vitest run` 结果：**18 个测试文件全部通过（143 个测试）**。
 
 | 测试文件                                           | 状态                                                                 |
 | -------------------------------------------------- | -------------------------------------------------------------------- |
@@ -79,17 +81,19 @@
 | `packages/ai/tests/service.spec.ts`                | ✅ 24 个用例（注册、各模态解析、alias/defaults、strict、middleware） |
 | `packages/ai/tests/group.spec.ts`                  | ✅ 16 个用例（断路器、candidates 三路径、三种策略、降级行为）        |
 | `packages/ai/tests/integration.spec.ts`            | ✅ 7 个用例（真实 provider 插件 + models.yml 端到端，无网络）        |
-| `packages/protocol/tests/cortex.spec.ts`           | ✅                                                                   |
-| `packages/protocol/tests/sandbox.spec.ts`          | ✅                                                                   |
+| `packages/protocol-im/tests/types.spec.ts`         | ✅ 类型契约（IMBody 默认实现、组合方法、Methods 表、事件接口）       |
 | `plugins/life/tests/life.spec.ts`                  | ✅ 5 个用例                                                          |
-| `plugins/capability-message/tests/service.spec.ts` | ✅ 8 个用例（含隔离与事件归属）                                      |
-| `plugins/cortex-chat/tests/cortex-chat.spec.ts`    | ✅ 4 个用例                                                          |
-| `plugins/sandbox/tests/sandbox.spec.ts`            | ✅                                                                   |
-| `plugins/sandbox-nerve/tests/nerve.spec.ts`        | ✅                                                                   |
+| `plugins/cortex-chat/tests/cortex-chat.spec.ts`    | ✅ 4 个用例（inject nerve/life 激活、Cortex 绑定）                   |
+| `plugins/nerve-onebot/tests/adapter.spec.ts`       | ✅ 9 个用例（事件适配：message/notice/request 全分支）               |
+| `plugins/nerve-onebot/tests/cqcode.spec.ts`        | ✅ 6 个用例（转义 / 解析 / round-trip）                              |
+| `plugins/nerve-onebot/tests/integration.spec.ts`   | ✅ 2 个用例（端到端消息管线、sid 寻址）                              |
+| `plugins/nerve-onebot/tests/lifecycle.spec.ts`     | ✅ 3 个用例（自动连接 / dispose 断开 / 注册）                        |
+| `plugins/sandbox/tests/sandbox.spec.ts`            | ✅ 18 个用例（Hub 路由、Bot 生命周期、Messenger、request 关联）      |
+| `plugins/sandbox-nerve/tests/nerve.spec.ts`        | ✅ 6 个用例（Hub 注册、dispatch、delete 隧道、释放）                 |
 | `plugins/provider-openai/tests/provider.spec.ts`   | ✅ 4 个用例（注册、注销、多实例、ID 重复失败）                       |
 | `plugins/provider-deepseek/tests/provider.spec.ts` | ✅ 2 个用例                                                          |
 
-`yarn test`（经 yakumo-vitest）只拾取到 `@satorijs/protocol` 一个文件 —— yakumo 的 workspace 作用域与 vitest 的文件发现不一致。**这是一个需要修的 tooling 缺口**：`yarn test` 当前不会跑 athena 自己的测试，验证改动请用 `npx vitest run`。
+`yarn test`（经 yakumo-vitest）存在 workspace 作用域问题，验证改动请用 `npx vitest run`（AGENTS.md 已登记）。
 
 无覆盖率数据（未配置 coverage）。
 

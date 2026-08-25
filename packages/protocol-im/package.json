@@ -1,7 +1,11 @@
 {
   "name": "@athena-ai/protocol-im",
-  "version": "0.0.1",
-  "description": "IM protocol extensions for Athena Nerve — types, Body methods, events",
+  "version": "0.1.0",
+  "description": "IM protocol layer for Athena Nerve — types, Body method extensions, events, MessageEncoder, WsClient",
+  "files": [
+    "lib",
+    "src"
+  ],
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./lib/index.js",
@@ -15,14 +19,15 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@cordisjs/element": "^0.3.0"
+    "@athena-ai/protocol": "workspace:*",
+    "@cordisjs/element": "^0.3.0",
+    "cosmokit": "^1.8.1"
   },
   "devDependencies": {
-    "@athena-ai/protocol": "workspace:*",
+    "@cordisjs/plugin-http": "^1.3.0",
     "cordis": "^4.0.0-rc.8"
   },
   "peerDependencies": {
-    "@athena-ai/protocol": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   }
 }

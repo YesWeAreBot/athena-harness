@@ -37,7 +37,7 @@
 - Cortex 是“剧本”。
 - Nerve 是“神经”或“与世界之间的通道”。
 - Cordis 是“舞台管理”。
-- Satori 是“翻译官”。
+- Body 是“具体的神经末梢”——每个平台账号一个。
 
 你只需要把这些名字当成角色、剧本、房间、电话线、前台和后台来理解。
 
@@ -224,7 +224,7 @@ Athena Harness 不是只有一个大程序，而是由许多部件共同组成�
 2. 把平台消息翻译成角色能理解的统一形式。
 3. 把角色想说的话翻译回平台形式。
 
-不同平台有不同语言。Athena Harness 借助一套叫 Satori 的通用翻译规则，让连接器可以共用同一种理解方式。
+不同平台有不同语言。Athena Harness 自研了一套 Nerve 协议作为通用翻译规则（`protocol-im` 定义统一的实体与事件），让连接器可以共用同一种理解方式。
 
 例如 OneBot 连接器负责接入一类常见聊天平台。以后也可以有 Discord、Telegram、游戏世界等连接器。
 
@@ -677,7 +677,7 @@ Athena Harness 如果发生下面这些变化，就可能失去自己的特点�
 | 词            | 日常理解                 |
 | ------------- | ------------------------ |
 | Cordis        | 舞台管理                 |
-| Satori        | 平台翻译官               |
+| Nerve 协议    | 平台翻译规则（自研）     |
 | OneBot        | 一种常见聊天平台连接方式 |
 | WebUI         | 网页控制台               |
 | Sandbox       | 浏览器里的虚拟聊天世界   |
@@ -702,9 +702,8 @@ Athena Harness 如果发生下面这些变化，就可能失去自己的特点�
 可以在仓库里搜索这些名字：
 
 - `@athena-ai/plugin-life`：角色身份。
-- `@athena-ai/capability-message`：消息能力。
+- `@athena-ai/nerve-onebot`：OneBot 平台连接器（消息能力）。
 - `@athena-ai/cortex-chat`：聊天剧本。
-- `@athena-ai/adapter-onebot`：平台连接。
 - `@athena-ai/plugin-sandbox`：沙盒前台。
 - `@athena-ai/sandbox-nerve`：沙盒后台。
 

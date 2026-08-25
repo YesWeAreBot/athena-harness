@@ -13,11 +13,6 @@
     },
     "./package.json": "./package.json"
   },
-  "dependencies": {
-    "@satorijs/core": "workspace:*",
-    "@satorijs/element": "workspace:*",
-    "@satorijs/protocol": "workspace:*"
-  },
   "devDependencies": {
     "@athena-ai/core": "workspace:*",
     "cordis": "^4.0.0-rc.8"

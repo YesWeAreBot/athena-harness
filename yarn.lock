@@ -100,24 +100,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@athena-ai/adapter-onebot@workspace:vendor/satorijs/adapter-onebot":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/adapter-onebot@workspace:vendor/satorijs/adapter-onebot"
-  dependencies:
-    "@cordisjs/plugin-http": "npm:^1.5.0"
-    "@cordisjs/plugin-server": "npm:^1.7.0"
-    "@satorijs/core": "workspace:*"
-    cordis: "npm:^4.0.0-rc.8"
-    qface: "npm:^1.4.1"
-    schemastery: "npm:^3.18.0"
-  peerDependencies:
-    "@cordisjs/plugin-http": ^1.5.0
-    "@cordisjs/plugin-server": ^1.7.0
-    "@satorijs/core": "workspace:*"
-    cordis: ^4.0.0-rc.8
-  languageName: unknown
-  linkType: soft
-
 "@athena-ai/ai@workspace:*, @athena-ai/ai@workspace:packages/ai":
   version: 0.0.0-use.local
   resolution: "@athena-ai/ai@workspace:packages/ai"
@@ -137,24 +119,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@athena-ai/core@workspace:packages/core"
   dependencies:
+    "@athena-ai/protocol": "workspace:^"
     cordis: "npm:^4.0.0-rc.8"
     cosmokit: "npm:^1.8.1"
     schemastery: "npm:^3.18.0"
-  languageName: unknown
-  linkType: soft
-
-"@athena-ai/plugin-capability-message@workspace:plugins/capability-message":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/plugin-capability-message@workspace:plugins/capability-message"
-  dependencies:
-    "@athena-ai/core": "workspace:*"
-    "@satorijs/core": "workspace:*"
-    "@satorijs/element": "workspace:*"
-    "@satorijs/protocol": "workspace:*"
-    cordis: "npm:^4.0.0-rc.8"
-  peerDependencies:
-    "@athena-ai/core": "workspace:*"
-    cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
 
@@ -165,10 +133,11 @@ __metadata:
     "@athena-ai/core": "workspace:*"
     cordis: "npm:^4.0.0-rc.8"
   peerDependencies:
-    "@athena-ai/capability-message": "workspace:*"
     "@athena-ai/core": "workspace:*"
     "@athena-ai/plugin-life": "workspace:*"
     "@athena-ai/protocol": "workspace:*"
+    "@athena-ai/protocol-im": "workspace:*"
+    "@cordisjs/element": ^0.3.0
     cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
@@ -188,9 +157,6 @@ __metadata:
   resolution: "@athena-ai/plugin-message-store@workspace:plugins/message-store"
   dependencies:
     "@athena-ai/core": "workspace:*"
-    "@satorijs/core": "workspace:*"
-    "@satorijs/element": "workspace:*"
-    "@satorijs/protocol": "workspace:*"
     cordis: "npm:^4.0.0-rc.8"
   peerDependencies:
     "@athena-ai/core": "workspace:*"
@@ -206,6 +172,7 @@ __metadata:
     "@athena-ai/protocol-im": "workspace:*"
     "@cordisjs/element": "npm:^0.3.0"
     cordis: "npm:^4.0.0-rc.8"
+    cosmokit: "npm:^1.8.1"
     schemastery: "npm:^3.18.0"
   peerDependencies:
     "@cordisjs/plugin-http": "*"
@@ -283,7 +250,6 @@ __metadata:
   peerDependencies:
     "@athena-ai/plugin-sandbox": "workspace:*"
     "@athena-ai/protocol": "workspace:*"
-    "@satorijs/core": "workspace:*"
     cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
@@ -293,12 +259,11 @@ __metadata:
   resolution: "@athena-ai/plugin-sandbox@workspace:plugins/sandbox"
   dependencies:
     "@athena-ai/core": "workspace:*"
+    "@athena-ai/protocol-im": "workspace:*"
     "@cordisjs/client": "npm:^0.8.2"
+    "@cordisjs/element": "npm:^0.3.0"
     "@cordisjs/plugin-server": "npm:^1.7.0"
     "@cordisjs/plugin-webui": "npm:^0.8.2"
-    "@satorijs/core": "workspace:*"
-    "@satorijs/element": "workspace:*"
-    "@satorijs/protocol": "workspace:*"
     "@vueuse/core": "npm:^14.3.0"
     cordis: "npm:^4.0.0-rc.8"
     vue: "npm:^3.5.33"
@@ -316,14 +281,15 @@ __metadata:
   dependencies:
     "@athena-ai/protocol": "workspace:*"
     "@cordisjs/element": "npm:^0.3.0"
+    "@cordisjs/plugin-http": "npm:^1.3.0"
     cordis: "npm:^4.0.0-rc.8"
+    cosmokit: "npm:^1.8.1"
   peerDependencies:
-    "@athena-ai/protocol": "workspace:*"
     cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
 
-"@athena-ai/protocol@workspace:*, @athena-ai/protocol@workspace:packages/protocol":
+"@athena-ai/protocol@workspace:*, @athena-ai/protocol@workspace:^, @athena-ai/protocol@workspace:packages/protocol":
   version: 0.0.0-use.local
   resolution: "@athena-ai/protocol@workspace:packages/protocol"
   dependencies:
@@ -418,6 +384,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@cordisjs/element@npm:^0.2.0":
+  version: 0.2.0
+  resolution: "@cordisjs/element@npm:0.2.0"
+  dependencies:
+    cosmokit: "npm:^1.7.4"
+  checksum: 10c0/ee3841c99755cb5e44bf87e17b4826e90e52e0ab9ded8cf2527308dc9f787d791db0fda8ffe9482a866fe0080ceaed8722bb7d640d08328ade4e1a7a4ddefec2
+  languageName: node
+  linkType: hard
+
 "@cordisjs/element@npm:^0.3.0":
   version: 0.3.0
   resolution: "@cordisjs/element@npm:0.3.0"
@@ -460,7 +435,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cordisjs/plugin-http@npm:^1.3.0, @cordisjs/plugin-http@npm:^1.5.0":
+"@cordisjs/plugin-http@npm:^1.3.0":
   version: 1.5.1
   resolution: "@cordisjs/plugin-http@npm:1.5.1"
   dependencies:
@@ -505,20 +480,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cordisjs/plugin-logger@npm:^1.0.2":
-  version: 1.0.2
-  resolution: "@cordisjs/plugin-logger@npm:1.0.2"
-  dependencies:
-    cosmokit: "npm:^1.8.1"
-    reggol: "npm:^2.1.0"
-    schemastery: "npm:^3.18.0"
-  peerDependencies:
-    cordis: ^4.0.0-rc.1
-  checksum: 10c0/c89d502247151e8093e47cd470e43d0ac93f33615f2a30118af6e5c589a74ddb57957c18c3c0b9f67009ef57fdf9034d7adadb760a7e4597fd0039ec902a4166
-  languageName: node
-  linkType: hard
-
-"@cordisjs/plugin-server@npm:^1.4.0, @cordisjs/plugin-server@npm:^1.7.0":
+"@cordisjs/plugin-server@npm:^1.7.0":
   version: 1.7.0
   resolution: "@cordisjs/plugin-server@npm:1.7.0"
   dependencies:
@@ -566,12 +528,6 @@ __metadata:
   checksum: 10c0/8bbca57c69ce7b6f3c88f0db93fedcdefe25a0126b8a70468f2d1c85ce093a5790ad13a0d7ffa4ebe271a1862560dae3a47377ea12b331db69ed26c60191d542
   languageName: node
   linkType: hard
-
-"@cordisjs/url-is-local@npm:^1.0.0, @cordisjs/url-is-local@workspace:vendor/cordisjs/url-is-local":
-  version: 0.0.0-use.local
-  resolution: "@cordisjs/url-is-local@workspace:vendor/cordisjs/url-is-local"
-  languageName: unknown
-  linkType: soft
 
 "@ctrl/tinycolor@npm:^3.4.1":
   version: 3.6.1
@@ -912,13 +868,6 @@ __metadata:
     "@emnapi/core": ^1.7.1 || ^2.0.0-alpha.4
     "@emnapi/runtime": ^1.7.1 || ^2.0.0-alpha.4
   checksum: 10c0/6da0a4bf9df79e9abfb3e3d462f6a5d42889be39426040038c9dd5925865585d7dbd06dd439c2ffc20f49ef2751412da5bd748cfb3c5b049142d72c0550f6f79
-  languageName: node
-  linkType: hard
-
-"@noble/ed25519@npm:^2.3.0":
-  version: 2.3.0
-  resolution: "@noble/ed25519@npm:2.3.0"
-  checksum: 10c0/5ecbb66bdf4f1376002711e6ee4acb0db1d5dc62bd1543d45135b772e5296d72db0d03228d3b1da5c662240520369d5d8d4846e128a50bc789b316d0a228a6c1
   languageName: node
   linkType: hard
 
@@ -1824,81 +1773,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@satorijs/adapter-qq@workspace:vendor/satorijs/adapter-qq":
-  version: 0.0.0-use.local
-  resolution: "@satorijs/adapter-qq@workspace:vendor/satorijs/adapter-qq"
+"@satorijs/element@npm:^4.0.0-alpha.0":
+  version: 4.0.0-alpha.0
+  resolution: "@satorijs/element@npm:4.0.0-alpha.0"
   dependencies:
-    "@cordisjs/plugin-http": "npm:^1.3.0"
-    "@cordisjs/plugin-logger": "npm:^1.0.2"
-    "@cordisjs/plugin-server": "npm:^1.4.0"
-    "@cordisjs/url-is-local": "npm:^1.0.0"
-    "@noble/ed25519": "npm:^2.3.0"
-    "@satorijs/core": "npm:^5.0.0-alpha.0"
-    "@satorijs/element": "npm:^4.0.0-alpha.0"
-    cordis: "npm:^4.0.0-rc.3"
-    schemastery: "npm:^3.18.0"
-  peerDependencies:
-    "@cordisjs/plugin-http": ^1.3.0
-    "@cordisjs/plugin-logger": ^1.0.2
-    "@cordisjs/plugin-server": ^1.4.0
-    "@satorijs/core": ^5.0.0-alpha.0
-    "@satorijs/element": ^4.0.0-alpha.0
-  languageName: unknown
-  linkType: soft
-
-"@satorijs/adapter-satori@workspace:vendor/satorijs/adapter-satori":
-  version: 0.0.0-use.local
-  resolution: "@satorijs/adapter-satori@workspace:vendor/satorijs/adapter-satori"
-  dependencies:
-    "@cordisjs/plugin-http": "npm:^1.3.0"
-    "@cordisjs/plugin-logger": "npm:^1.0.2"
-    "@satorijs/core": "npm:^5.0.0-alpha.0"
-    cordis: "npm:^4.0.0-rc.3"
-    schemastery: "npm:^3.18.0"
-  peerDependencies:
-    "@cordisjs/plugin-http": ^1.3.0
-    "@cordisjs/plugin-logger": ^1.0.2
-    "@satorijs/core": ^5.0.0-alpha.0
-  languageName: unknown
-  linkType: soft
-
-"@satorijs/core@npm:^5.0.0-alpha.0, @satorijs/core@workspace:*, @satorijs/core@workspace:vendor/satorijs/core":
-  version: 0.0.0-use.local
-  resolution: "@satorijs/core@workspace:vendor/satorijs/core"
-  dependencies:
-    "@cordisjs/plugin-http": "npm:^1.3.0"
-    "@satorijs/element": "npm:^4.0.0-alpha.0"
-    "@satorijs/protocol": "npm:^2.0.0-alpha.0"
-    cordis: "npm:^4.0.0-rc.3"
-    cosmokit: "npm:^1.8.1"
-    path-to-regexp: "npm:^8.3.0"
-    path-to-regexp-typed: "npm:^8.0.0"
-    schemastery: "npm:^3.18.0"
-  peerDependencies:
-    cordis: ^4.0.0-rc.3
-  languageName: unknown
-  linkType: soft
-
-"@satorijs/element@npm:^4.0.0-alpha.0, @satorijs/element@workspace:*, @satorijs/element@workspace:vendor/satorijs/element":
-  version: 0.0.0-use.local
-  resolution: "@satorijs/element@workspace:vendor/satorijs/element"
-  dependencies:
-    "@cordisjs/element": "npm:^0.3.0"
-    "@types/chai": "npm:^5.2.3"
-    chai: "npm:^5.3.3"
-    chai-shape: "npm:^1.1.0"
-    cosmokit: "npm:^1.8.1"
-  languageName: unknown
-  linkType: soft
-
-"@satorijs/protocol@npm:^2.0.0-alpha.0, @satorijs/protocol@workspace:*, @satorijs/protocol@workspace:vendor/satorijs/protocol":
-  version: 0.0.0-use.local
-  resolution: "@satorijs/protocol@workspace:vendor/satorijs/protocol"
-  dependencies:
-    "@cordisjs/element": "npm:^0.3.0"
-    cosmokit: "npm:^1.8.1"
-  languageName: unknown
-  linkType: soft
+    "@cordisjs/element": "npm:^0.2.0"
+    cosmokit: "npm:^1.7.4"
+  checksum: 10c0/7f1a888367022ee517015a1ea96c32734443a7c39d20eb6f64dfc3dc8391a6a5e579473995913ece66a5365a4f7bfa9bfcb1bd726091504cc07eafa9066e26dc
+  languageName: node
+  linkType: hard
 
 "@sec-ant/readable-stream@npm:^0.4.1":
   version: 0.4.1
@@ -1955,7 +1838,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/chai@npm:^5.2.2, @types/chai@npm:^5.2.3":
+"@types/chai@npm:^5.2.2":
   version: 5.2.3
   resolution: "@types/chai@npm:5.2.3"
   dependencies:
@@ -2707,28 +2590,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chai-shape@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "chai-shape@npm:1.1.0"
-  peerDependencies:
-    chai: ^4 || ^5
-  checksum: 10c0/13e148ca3507486aade4942cfb9a97228481e383f490882d58a83e1ba5338a278b1d95c6283e3e4bca23cb7c8c5f1b024a0ad91e1b4a084fcc498729d7062794
-  languageName: node
-  linkType: hard
-
-"chai@npm:^5.3.3":
-  version: 5.3.3
-  resolution: "chai@npm:5.3.3"
-  dependencies:
-    assertion-error: "npm:^2.0.1"
-    check-error: "npm:^2.1.1"
-    deep-eql: "npm:^5.0.1"
-    loupe: "npm:^3.1.0"
-    pathval: "npm:^2.0.0"
-  checksum: 10c0/b360fd4d38861622e5010c2f709736988b05c7f31042305fa3f4e9911f6adb80ccfb4e302068bf8ed10e835c2e2520cba0f5edc13d878b886987e5aa62483f53
-  languageName: node
-  linkType: hard
-
 "chai@npm:^6.2.2":
   version: 6.2.2
   resolution: "chai@npm:6.2.2"
@@ -2740,13 +2601,6 @@ __metadata:
   version: 5.6.2
   resolution: "chalk@npm:5.6.2"
   checksum: 10c0/99a4b0f0e7991796b1e7e3f52dceb9137cae2a9dfc8fc0784a550dc4c558e15ab32ed70b14b21b52beb2679b4892b41a0aa44249bcb996f01e125d58477c6976
-  languageName: node
-  linkType: hard
-
-"check-error@npm:^2.1.1":
-  version: 2.1.3
-  resolution: "check-error@npm:2.1.3"
-  checksum: 10c0/878e99038fb6476316b74668cd6a498c7e66df3efe48158fa40db80a06ba4258742ac3ee2229c4a2a98c5e73f5dff84eb3e50ceb6b65bbd8f831eafc8338607d
   languageName: node
   linkType: hard
 
@@ -2817,7 +2671,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cordis@npm:^4.0.0-rc.3, cordis@npm:^4.0.0-rc.4, cordis@npm:^4.0.0-rc.6, cordis@npm:^4.0.0-rc.8":
+"cordis@npm:^4.0.0-rc.4, cordis@npm:^4.0.0-rc.6, cordis@npm:^4.0.0-rc.8":
   version: 4.0.0-rc.8
   resolution: "cordis@npm:4.0.0-rc.8"
   dependencies:
@@ -2837,7 +2691,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cosmokit@npm:^1.7.3, cosmokit@npm:^1.8.0, cosmokit@npm:^1.8.1":
+"cosmokit@npm:^1.7.4, cosmokit@npm:^1.8.0, cosmokit@npm:^1.8.1":
   version: 1.8.1
   resolution: "cosmokit@npm:1.8.1"
   checksum: 10c0/56b0294572efc7793d5854b0022243fab9899d0ab6ce7da873839572b4dc8c6d3ba8d6ff5b61231dca2e9d821af73a2be5d502d9ea52af2671374711a93620aa
@@ -2895,13 +2749,6 @@ __metadata:
     supports-color:
       optional: true
   checksum: 10c0/d79136ec6c83ecbefd0f6a5593da6a9c91ec4d7ddc4b54c883d6e71ec9accb5f67a1a5e96d00a328196b5b5c86d365e98d8a3a70856aaf16b4e7b1985e67f5a6
-  languageName: node
-  linkType: hard
-
-"deep-eql@npm:^5.0.1":
-  version: 5.0.2
-  resolution: "deep-eql@npm:5.0.2"
-  checksum: 10c0/7102cf3b7bb719c6b9c0db2e19bf0aa9318d141581befe8c7ce8ccd39af9eaa4346e5e05adef7f9bd7015da0f13a3a25dcfe306ef79dc8668aedbecb658dd247
   languageName: node
   linkType: hard
 
@@ -3774,13 +3621,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"loupe@npm:^3.1.0":
-  version: 3.2.1
-  resolution: "loupe@npm:3.2.1"
-  checksum: 10c0/910c872cba291309664c2d094368d31a68907b6f5913e989d301b5c25f30e97d76d77f23ab3bf3b46d0f601ff0b6af8810c10c31b91d2c6b2f132809ca2cc705
-  languageName: node
-  linkType: hard
-
 "magic-regexp@npm:^0.10.0":
   version: 0.10.0
   resolution: "magic-regexp@npm:0.10.0"
@@ -4008,13 +3848,6 @@ __metadata:
     path-key: "npm:^4.0.0"
     unicorn-magic: "npm:^0.3.0"
   checksum: 10c0/b223c8a0dcd608abf95363ea5c3c0ccc3cd877daf0102eaf1b0f2390d6858d8337fbb7c443af2403b067a7d2c116d10691ecd22ab3c5273c44da1ff8d07753bd
-  languageName: node
-  linkType: hard
-
-"object-inspect@npm:^1.13.4":
-  version: 1.13.4
-  resolution: "object-inspect@npm:1.13.4"
-  checksum: 10c0/d7f8711e803b96ea3191c745d6f8056ce1f2496e530e6a19a0e92d89b0fa3c76d910c31f0aa270432db6bd3b2f85500a376a83aaba849a8d518c8845b3211692
   languageName: node
   linkType: hard
 
@@ -4382,13 +4215,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pathval@npm:^2.0.0":
-  version: 2.0.1
-  resolution: "pathval@npm:2.0.1"
-  checksum: 10c0/460f4709479fbf2c45903a65655fc8f0a5f6d808f989173aeef5fdea4ff4f303dc13f7870303999add60ec49d4c14733895c0a869392e9866f1091fa64fd7581
-  languageName: node
-  linkType: hard
-
 "perfect-debounce@npm:^2.1.0":
   version: 2.1.0
   resolution: "perfect-debounce@npm:2.1.0"
@@ -4479,13 +4305,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"qface@npm:^1.4.1":
-  version: 1.4.1
-  resolution: "qface@npm:1.4.1"
-  checksum: 10c0/64f84389b120c3a9b3408eacbedf1eac895ab19abdf4341a8610cdc6eff1b1c92024083b342ea091f2fe897544aefb57bd5a509f4483daeee41403065d7a389c
-  languageName: node
-  linkType: hard
-
 "quansync@npm:^1.0.0":
   version: 1.0.0
   resolution: "quansync@npm:1.0.0"
@@ -4513,17 +4332,6 @@ __metadata:
   bin:
     regexp-tree: bin/regexp-tree
   checksum: 10c0/f636f44b4a0d93d7d6926585ecd81f63e4ce2ac895bc417b2ead0874cd36b337dcc3d0fedc63f69bf5aaeaa4340f36ca7e750c9687cceaf8087374e5284e843c
-  languageName: node
-  linkType: hard
-
-"reggol@npm:^2.1.0":
-  version: 2.1.0
-  resolution: "reggol@npm:2.1.0"
-  dependencies:
-    cosmokit: "npm:^1.7.3"
-    object-inspect: "npm:^1.13.4"
-    supports-color: "npm:^10.0.0"
-  checksum: 10c0/708441e574d9abbf9d9c6991ceeed4f15e89427d814c7e2449d7bf514525c2bc49537270225cfa66325cb38c460187b21a6e29b746610fc3b030c30179729e7b
   languageName: node
   linkType: hard
 
@@ -4888,13 +4696,6 @@ __metadata:
   dependencies:
     "@tokenizer/token": "npm:^0.3.0"
   checksum: 10c0/8d2477b239054c9f1f5b14a65d531147ca158ab9887fdc2d0938e77b7ec8891fb683b58254c7643afd5d98a421a59207534d491762b111f58c795071ecbe9fd1
-  languageName: node
-  linkType: hard
-
-"supports-color@npm:^10.0.0":
-  version: 10.2.2
-  resolution: "supports-color@npm:10.2.2"
-  checksum: 10c0/fb28dd7e0cdf80afb3f2a41df5e068d60c8b4f97f7140de2eaed5b42e075d82a0e980b20a2c0efd2b6d73cfacb55555285d8cc719fa0472220715aefeaa1da7c
   languageName: node
   linkType: hard
 

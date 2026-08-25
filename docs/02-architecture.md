@@ -18,9 +18,8 @@
 ├───────────────────────────────────────────────────────────────────┤
 │  Layer 2: app.yml managed plugin tree                             │  ← 用户可配置
 │    · @athena-ai/plugin-life（provides 'life'）                    │
-│    · @athena-ai/capability-message（provides 'message'）          │
 │    · @athena-ai/cortex-chat（provides 'cortex'）                  │
-│    · @athena-ai/adapter-*（安装在 satori domain 内）              │
+│    · @athena-ai/nerve-*（Body 实现，注册进 ctx.nerve）            │
 │    · @cordisjs/plugin-webui / -hmr / -database-sqlite 等生态插件  │
 └───────────────────────────────────────────────────────────────────┘
 ```
@@ -32,7 +31,7 @@ Cordis loader 区分两类插件安装：
 | 类别        | 何时加载                       | 由谁管理                    | 用户能卸载吗           | 例                                                       |
 | ----------- | ------------------------------ | --------------------------- | ---------------------- | -------------------------------------------------------- |
 | **Prelude** | loader 解析 `app.yml` **之前** | 硬编码在 `cordis.yml` / CLI | ❌ WebUI 中不可见      | `plugin-env`、`plugin-logger-console`、`@athena-ai/core` |
-| **Managed** | loader 启动后，来自 `app.yml`  | Loader + WebUI              | ✅ 可通过 UI 禁用/移除 | `capability-message`、`cortex-chat`                      |
+| **Managed** | loader 启动后，来自 `app.yml`  | Loader + WebUI              | ✅ 可通过 UI 禁用/移除 | `nerve-onebot`、`cortex-chat`                            |
 
 **`@athena-ai/core` 是 prelude 级安装。** 它在 managed plugin tree 之前加载，在插件管理 UI 中不可见，无法被"卸载"。
 
@@ -47,7 +46,7 @@ koishi start（品牌 CLI）              cordis run（复用 cordis CLI；自�
 app.yml plugins（可卸载）             app.yml plugins（可卸载）
 ```
 
-**身份差异**：Koishi core 继承 `satori.Context` → 框架身份 = messaging。Athena core **不**继承 `satori.Context` → 框架身份 = digital life。Messaging 是 Layer 2 的 managed plugin，不是内核的一部分。
+**身份差异**：Koishi core 继承 `satori.Context` → 框架身份 = messaging。Athena core **不**继承任何 IM 上下文 → 框架身份 = digital life。Messaging 是 Layer 2 的 managed plugin（Nerve adapter），不是内核的一部分。
 
 ### 1.2 独立性判据
 
@@ -96,17 +95,16 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 | 包                                | 路径                         | 提供的 Service | 角色                                                                                                                     |
 | --------------------------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `@athena-ai/core`                 | `packages/core`              | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                             |
-| `@athena-ai/protocol`             | `packages/protocol`          | `nerve`        | Nerve 基础契约：Body、NerveEvent、NerveService；既有 Persona / LifeService / MemoryProvider / Sandbox 契约与 Cortex 基类 |
-| `@athena-ai/protocol-im`          | `packages/protocol-im`       | —              | IM 协议扩展：实体类型、Body 方法声明合并与事件契约                                                                       |
+| `@athena-ai/protocol`             | `packages/protocol`          | `nerve`        | Nerve 核心：Body 基类、Session 信封、NerveService；既有 Persona / LifeService / MemoryProvider / Sandbox 契约与 Cortex 基类 |
+| `@athena-ai/protocol-im`          | `packages/protocol-im`       | —              | IM 协议层：实体类型、Methods 表、IMBody 默认实现、事件契约、MessageEncoder、WsClient                                     |
 | `@athena-ai/ai`                   | `packages/ai`                | `ai`           | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                         |
 | `@athena-ai/plugin-life`          | `plugins/life`               | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                              |
-| `@athena-ai/capability-message`   | `plugins/capability-message` | `message`      | MessageService：安装 Satori、bots 代理、发送便捷方法、事件作用域过滤                                                     |
-| `@athena-ai/cortex-chat`          | `plugins/cortex-chat`        | `cortex`       | Reactive Cortex（当前为 echo 骨架）                                                                                      |
-| `@athena-ai/plugin-sandbox`       | `plugins/sandbox`            | `sandbox`      | 全局 SandboxHub：WebUI 页面、文件服务器、WS 路由                                                                         |
-| `@athena-ai/sandbox-nerve`        | `plugins/sandbox-nerve`      | —              | per-Life Nerve：注册 Hub、创建 SandboxBot                                                                                |
+| `@athena-ai/cortex-chat`          | `plugins/cortex-chat`        | `cortex`       | Reactive Cortex（当前为 echo 骨架，消费 `message-created` 事件）                                                         |
+| `@athena-ai/plugin-sandbox`       | `plugins/sandbox`            | `sandbox`      | 全局 SandboxHub + SandboxBot（IMBody 实现）：WebUI 页面、文件服务器、WS 路由                                             |
+| `@athena-ai/sandbox-nerve`        | `plugins/sandbox-nerve`      | —              | per-Life Nerve：注册 Hub、创建 SandboxBot（`ctx.nerve` 注册）                                                            |
 | `@athena-ai/provider-openai`      | `plugins/provider-openai`    | —              | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                      |
 | `@athena-ai/provider-deepseek`    | `plugins/provider-deepseek`  | —              | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                    |
-| `@athena-ai/nerve-onebot`         | `plugins/nerve-onebot`       | —              | OneBot v11 Nerve adapter：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket                    |
+| `@athena-ai/nerve-onebot`         | `plugins/nerve-onebot`       | —              | OneBot v11 Nerve adapter（IMBody 实现）：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket      |
 | `@athena-ai/plugin-message-store` | `plugins/message-store`      | —              | 占位，未开始（Phase 3 消息持久化）                                                                                       |
 
 ### 2.2 依赖方向
@@ -118,23 +116,20 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
                     （re-export shell）
                             │
                     @athena-ai/protocol
-              （types + Cortex 基类 + module augmentation）
-                    ↑                  ↑
-        ┌───────────┘                  └───────────┐
-        │                                          │
-@athena-ai/plugin-life              @athena-ai/cortex-chat
-（provides 'life'）                  （inject: ['life', 'message']）
-                                               ↑
-                                               │ peer
-                              @athena-ai/capability-message
-                              （provides 'message'；依赖 vendor/satorijs）
-                                               ↑
-                                    @athena-ai/adapter-*
-                                    （inject: ['satori']）
+              （Body 基类 + NerveService + module augmentation）
+                            ↑
+                    @athena-ai/protocol-im
+              （IMBody + 实体类型 + cordis.Events 声明）
+              ↑                    ↑
+        ┌─────┘                    └──────┐
+        │                                 │
+@athena-ai/nerve-onebot        @athena-ai/cortex-chat
+（IMBody 实现，inject:        （inject: ['life', 'nerve']）
+ ['nerve', 'http']）
 
-@athena-ai/plugin-sandbox（provides 'sandbox'，root 级）
-        ↑
-@athena-ai/sandbox-nerve（inject: ['sandbox', 'satori', 'life']，per-Life）
+@athena-ai/plugin-life（provides 'life'）        @athena-ai/plugin-sandbox（provides 'sandbox'，root 级）
+        ↑                                                ↑
+@athena-ai/cortex-chat（inject: ['life', 'nerve']）  @athena-ai/sandbox-nerve（inject: ['sandbox', 'nerve', 'life']，per-Life）
 
 @athena-ai/ai（provides 'ai'，root 级全局单例）
         ↑
@@ -143,12 +138,10 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 
 ### 2.3 铁律
 
-1. **Cortex 依赖 `capability-*`，永不依赖 `nerve-*` / `adapter-*`。** 这是依赖倒置的核心。
-2. **Capability 不依赖 `@athena-ai/core`。** Capability 是纯 cordis + 实现库的包。连接发生在 Cortex 层（双 inject）。
-3. **`protocol` 不依赖任何 capability 或 plugin。** 它只依赖 `core`（为了 `Service` / `Context` 类型）。
-4. **Vendor 包只被 capability 引用**，不被 Cortex 直接引用。
-
-> ⚠️ **当前偏差**：`cortex-chat/src/index.ts` 有 `import type {} from "@athena-ai/capability-message"`（为了 `ctx.message` 的类型增强）和 `import { Session } from "@satorijs/core"`。前者符合"Cortex 依赖 capability"；后者是对 vendor 类型的直接引用，属于可接受的类型级耦合（Satori 类型由 capability 契约重导出是更干净的做法，见 [06-progress-and-roadmap.md](./06-progress-and-roadmap.md)）。
+1. **Cortex 依赖 `protocol` 的事件契约，永不依赖 `nerve-*` / adapter。** 事件通过 `cordis.Events` 声明消费（如 `message-created`），发送通过事件上的 `body` 引用。
+2. **`protocol` 不依赖 `protocol-im`。** IM 是可选增强：`protocol-im` 声明合并进 `Body` / `Event` / `cordis.Events`，并用 `IMSession extends Session` 提供 IM 访问器。
+3. **`protocol-im` 不依赖 `core`。** 它只依赖 `protocol` + `@cordisjs/element`。
+4. **`cordis` 永远在 `peerDependencies`**，多副本会导致 Symbol 身份不同、隔离静默失效。
 
 ### 2.4 包命名规则
 
@@ -177,27 +170,23 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 │  全局 Hub: @athena-ai/plugin-sandbox（provides 'sandbox'）                  │
 │                                                                             │
 │  ┌─ Life Group Context（@cordisjs/plugin-group）──────────────────────——┐   │
-│  │  isolate: { life, cortex, message, satori }                          │   │
-│  │                                                                      │   │
-│  │  ctx.life = Life                       ← persona / memory            │   │
-│  │                                                                      │   │
-│  │  ctx.message = MessageService          ← Cortex 唯一的 IM 入口       │   │
-│  │    └── ctx.satori = Satori             ← group 内可见（adapter 需要）│   │
-│  │          └── bots: [Bot, Bot, ...]     ← 经 ctx.message.bots 访问    │   │
-│  │                                                                      │   │
-│  │  ctx.cortex = CortexChat               ← inject: ['life','message']  │   │
-│  │    ├── ctx.on('message', ...)                                        │   │
-│  │    ├── ctx.message.createMessage(...)                                │   │
-│  │    └── ctx.life.persona                                              │   │
-│  │                                                                      │   │
-│  │  Adapter 插件（onebot / satori / qq ...）  ← inject: ['satori']      │   │
-│  │    └── 注册 Bot 进 ctx.satori.bots                                   │   │
-│  │                                                                      │   │
-│  │  @athena-ai/sandbox-nerve              ← inject:['sandbox','satori', │   │
-│  │    └── 向 root 的 Hub 注册，本地创建 SandboxBot         'life']      │   │
-│  │                                                                      │   │
-│  │  ❌ ctx.bots → undefined（vendored Satori 已移除 mixin）             │   │
-│  │  ✅ ctx.satori.bots → 可用（service 访问，非 mixin）                 │   │
+│  │  isolate: { life, cortex, nerve }                                 │   │
+│  │                                                                   │   │
+│  │  ctx.life = Life                       ← persona / memory         │   │
+│  │                                                                   │   │
+│  │  ctx.nerve = NerveService              ← Body 注册表              │   │
+│  │    └── bodies: [OneBotBody, SandboxBot, ...]  ← 按 sid 寻址        │   │
+│  │                                                                   │   │
+│  │  ctx.cortex = CortexChat               ← inject: ['life','nerve'] │   │
+│  │    ├── ctx.on('message-created', ...)                             │   │
+│  │    ├── event.body.sendMessage(...)                                │   │
+│  │    └── ctx.life.persona                                           │   │
+│  │                                                                   │   │
+│  │  Nerve adapter（nerve-onebot / sandbox ...）  ← inject: ['nerve'] │   │
+│  │    └── 继承 IMBody，基类 Service.init 自动注册进 ctx.nerve        │   │
+│  │                                                                   │   │
+│  │  @athena-ai/sandbox-nerve              ← inject:['sandbox','nerve',│   │
+│  │    └── 向 root 的 Hub 注册，本地创建 SandboxBot        'life']    │   │
 │  └────────────────────────────────────────────────────────────────────——┘   │
 └──────────────────────────────────────────────────────────────────────────——─┘
 ```
@@ -218,21 +207,20 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 
 ### 4.1 载体形态
 
-- **容器**：`@cordisjs/plugin-group`，配置 `isolate: { life: true, cortex: true, message: true, satori: true }`
+- **容器**：`@cordisjs/plugin-group`，配置 `isolate: { life: true, cortex: true, nerve: true }`
 - **Service**：`@athena-ai/plugin-life` 提供 `'life'`，每 group 一个 fiber
 - **生命周期**：
   - 启动：group → Life 激活 → Cortex inject life → `bind()` → Cortex 激活
   - 销毁：group disposed → Cortex fiber dispose → yielded disposer 触发 → `_cortex = null` → Life fiber dispose
 - **资源回收**：cordis fiber dispose 自动执行所有收集到的 disposable
 
-### 4.2 为什么这四个 key 都要隔离
+### 4.2 为什么这三个 key 都要隔离
 
-| Key       | 不隔离的后果                                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------ |
-| `life`    | 两个 group 共享同一个 Life 实例 → 第二个 Cortex `bind()` 抛 `Only one Cortex per Life`                             |
-| `cortex`  | 第二个 CortexChat 的 `provide('cortex', self)` 撞上已存在的 store slot → 抛 `service "cortex" has been registered` |
-| `message` | 两个 MessageService 撞车；且事件作用域过滤失效（filter 比较的就是 message symbol）                                 |
-| `satori`  | 两个 `provide('satori', ...)` 冲突；adapter 无法区分该注册进哪个 domain                                            |
+| Key      | 不隔离的后果                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `life`   | 两个 group 共享同一个 Life 实例 → 第二个 Cortex `bind()` 抛 `Only one Cortex per Life`                             |
+| `cortex` | 第二个 CortexChat 的 `provide('cortex', self)` 撞上已存在的 store slot → 抛 `service "cortex" has been registered` |
+| `nerve`  | 事件作用域失效：`body.dispatch` 的事件会广播给所有 Life 的 Cortex                                                  |
 
 ### 4.3 目标 app.yml
 
@@ -246,8 +234,7 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
   isolate:
     life: true
     cortex: true
-    message: true
-    satori: true
+    nerve: true
   config:
     - name: "@athena-ai/plugin-life"
       config:
@@ -255,10 +242,9 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
           name: Alice
           description: A curious and friendly digital life.
           traits: { personality: curious, friendly, helpful }
-    - name: "@athena-ai/capability-message"
     - name: "@athena-ai/cortex-chat"
     - name: "@athena-ai/sandbox-nerve"
-    - name: "@athena-ai/adapter-onebot"
+    - name: "@athena-ai/nerve-onebot"
       config: { selfId: "123", endpoint: ws://..., protocol: ws }
 
 # === Bob ===
@@ -267,8 +253,7 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
   isolate:
     life: true
     cortex: true
-    message: true
-    satori: true
+    nerve: true
   config:
     - name: "@athena-ai/plugin-life"
       config:
@@ -276,10 +261,9 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
           name: Bob
           description: A thoughtful digital philosopher.
           traits: { personality: contemplative }
-    - name: "@athena-ai/capability-message"
     - name: "@athena-ai/cortex-chat"
     - name: "@athena-ai/sandbox-nerve"
-    - name: "@athena-ai/adapter-onebot"
+    - name: "@athena-ai/nerve-onebot"
       config: { selfId: "456", endpoint: ws://..., protocol: ws }
 
 # 共享基础设施（在所有 Life scope 之外）
@@ -288,7 +272,7 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 - name: "@cordisjs/plugin-webui"
 ```
 
-注意：`sandbox` **不**在 group 的 isolate 列表中。Hub 是全局的，Nerve 通过从 root 正常 inject 抵达它（M-30）。
+注意：`sandbox` **不**在 group 的 isolate 列表中。Hub 是全局的，Nerve 通过从 root 正常 inject 抵达它（M-30）。`nerve` 在 isolate 列表中，保证每个 Life 的事件空间独立。
 
 ### 4.4 Isolate 的精确语义
 
@@ -325,39 +309,34 @@ isolate(name: string, label?: symbol) {
 平台（QQ / Discord / ...）
   │  WebSocket / HTTP
   ▼
-Adapter（@athena-ai/adapter-onebot 等，inject: ['satori']）
-  │  创建 Bot，注册进 ctx.satori.bots
+Nerve adapter（@athena-ai/nerve-onebot 等，IMBody 实现）
+  │  1. 平台事件 → adaptSession() → body.session({ ...嵌套数据 })
+  │  2. body.dispatch(session)
   ▼
-Bot.dispatch(session)
-  │  vendor/satorijs/core/src/bot.ts
-  │  this.context.emit('internal/session', session)
-  │  for (const event of events) this.context.emit(session, event, session)
+Body.dispatch(session)
+  │  packages/protocol/src/nerve.ts
+  │  this.ctx.emit("internal/session", session)
   ▼
-Cordis EventsService._resolve()
-  │  检查 thisArg[Context.filter]
-  │  filter 存在 → 逐个 hook.ctx 调用，只有返回 true 的收到事件
-  │  filter 不存在 → 广播给所有 hook
+NerveService 归一化器（root）
+  │  internal → emit(_type, _data)；其余 → body.ctx.emit(session.type, session)
   ▼
-MessageService 的 'internal/session' 监听器
-  │  1. unwrap(session.bot) — 穿透 cordis traced proxy
-  │  2. 判断 bot.ctx[Context.isolate]['satori'] === 自己的 satoriSymbol
-  │  3. 若属于自己：注入 session[Context.filter]
-  │       = (hookCtx) => hookCtx[Context.isolate]['message'] === messageSymbol
+Cordis EventsService
+  │  按 isolate 作用域投递给 hook
   ▼
-Cortex 的 ctx.on('message', handler)
-  │  只有同 message isolate 的 hook 通过 filter
+Cortex 的 ctx.on('message-created', handler)
+  │  event.body = 来源 Body（IMBody 实例）
   ▼
 Cortex 内部缓冲策略（willingness / mailbox / debounce）
   ▼
 Cognition（AI SDK generateText / streamText）
   ▼
-Enactment: ctx.message.createMessage(channelId, content, botSid)
+Enactment: event.body.sendMessage(event.channelId, content)
   │
   ▼
-MessageService._resolveBot(sid) → bot.createMessage(...)
+IMBody 默认实现 → createMessage → adapter 平台编码
   │
   ▼
-Adapter → 平台
+Nerve adapter → 平台
 ```
 
 ### 5.1 事件过滤机制细节
@@ -451,84 +430,99 @@ Nerve    ──implements──►  Capability（提供具体实现）
 
 ### 6.3 Nerve 契约
 
-- Nerve 是向 Capability service 注册实例的 Cordis 插件
-- IM Nerve 注册 Bot 进 `ctx.satori`（在 `ctx.message` 的 domain 内）
-- 非 IM Nerve 向对应 capability service 注册连接
-- Nerve 通过 Cordis 事件系统发射领域事件
+- Nerve 是继承 `Body`（或 `IMBody`）注册进 `ctx.nerve` 的 Cordis 插件
+- IM Nerve 继承 `IMBody`，基类 `Service.init` 自动注册进 `ctx.nerve`（按 `platform:selfId` 寻址）
+- 非 IM Nerve 继承 `Body`，向对应能力注册连接
+- Nerve 通过 `body.dispatch(event)` 发射领域事件到 Cordis 事件系统
 - Nerve 内部处理平台特定的连接、认证、重连
-- 同类型多个 Nerve → 同一 capability 容器中的多个实例
+- 同类型多个 Nerve → `ctx.nerve` 中的多个 Body 实例
 
-**"Service 存在但无 Nerve 注册"**：`ctx.on(...)` 收不到事件；方法调用失败因为没有可寻址的实例（`_resolveBot` 抛 `No active bots available`）。
+**"Service 存在但无 Nerve 注册"**：`ctx.on(...)` 收不到事件；`ctx.nerve.get(sid)` 返回 undefined。
 
 ### 6.4 多 Nerve 寻址
 
-Cortex 用 Satori 的 `bot.sid`（`platform:selfId`）寻址具体 Bot：
+Cortex 用 `body.sid`（`platform:selfId`）寻址具体 Body：
 
-- 事件携带来源身份（`session.bot.sid`）
-- Cortex 的 enactment 阶段在调用 `ctx.message.createMessage(...)` 时指定目标 bot
-- 单 Bot Cortex：寻址可选（只有一个目标，减少 LLM 决策负担）
-- 多 Bot Cortex：必须通过 `botSid` 指定目标
+- 事件携带来源身份（`event.body.sid`）
+- Cortex 的 enactment 阶段直接调用 `event.body.sendMessage(...)`——事件自带来源，无需额外寻址
+- 需要主动查询时 `ctx.nerve.get(sid)` / `ctx.nerve.bodies` 可用
+- 单 Body Cortex：事件自带的 body 就够（只有一个目标）
+- 多 Body Cortex：事件天然区分来源，无需显式指定
 
 ---
 
-## 7. `ctx.message` API Surface
+## 7. IM 事件契约与发送 API
 
 ```typescript
-class MessageService extends Service<Config> {
-  // === Bot Registry ===
-  /** 该隔离域内所有 Satori bot */
-  get bots(): Bot[] & Dict<Bot>;
+// === Body Registry（protocol 的 NerveService）===
+ctx.nerve.get(sid): Body | undefined;   // sid = "platform:selfId"
+ctx.nerve.bodies: Body[];
 
-  // === 便捷方法（自动解析 bot）===
-  createMessage(channelId: string, content: Fragment, botSid?: string, options?: SendOptions): Promise<Message[]>;
-  sendMessage(channelId: string, content: Fragment, botSid?: string, options?: SendOptions): Promise<string[]>;
-  sendPrivateMessage(userId: string, content: Fragment, guildId?: string, botSid?: string, options?: SendOptions): Promise<string[]>;
-}
+// === 事件消费（protocol-im 声明在 cordis.Events）===
+ctx.on("message-created", (event: IMMessageEvent) => {
+  /* 新消息：event.channelId / event.userId / event.message / event.body */
+});
+ctx.on("message-updated", (event) => { /* 编辑 */ });
+ctx.on("message-deleted", (event) => { /* 删除 */ });
+ctx.on("reaction-added", (event) => { /* 表态 */ });
+ctx.on("guild-member-added", (event) => { /* 入群 */ });
+// ... 完整 IM 事件集（见 protocol-im/src/events.ts）
+
+// === 发送（通过事件上的 body 引用）===
+await event.body.sendMessage(event.channelId, content);
+await event.body.sendPrivateMessage(userId, content);
 ```
 
 ### 7.1 设计理由
 
-**为什么直接暴露 `bots`？**
+**为什么事件携带 `body` 引用？**
 
-- Cortex 在多 bot 场景需要寻址具体 bot
-- Bot 对象携带 `platform`、`selfId`、`features`、`status` —— Cortex 决策必需
-- Satori Bot 实现完整的 `Methods` 接口 —— Cortex 可直接调用 `bot.getMessageList()`、`bot.getGuild()` 等
-- 无需把 40+ Methods 逐个代理过 MessageService
+- Cortex 拿到事件即可直接回复，无需先寻址——`event.body` 就是来源 Body
+- 多 Body 场景下事件天然携带来源，不需要额外的 botSid 参数
+- Body 实现完整的 `IMBody` 方法集（`sendMessage` / `getGuild` / `getGuildMemberList` …）——Cortex 可直接调用
+- 未实现的方法显式抛 `not implemented`，不会静默失败
 
-**为什么加便捷方法？**
+**为什么通过 `ctx.nerve` 寻址？**
 
-- 单 bot 部署（多数情形）不该被迫做显式 bot 选择
-- `ctx.message.createMessage(channelId, content)` 是 tool 最简的 API
-- 便捷方法处理 bot 解析：唯一时用默认，多个且未指定 `botSid` 时报错
+- 单 Body 部署时通常用不上——事件自带的 `body` 就够
+- 需要主动查询（如列出所有连接、按平台过滤）时 `ctx.nerve.get(sid)` / `ctx.nerve.bodies` 可用
 
-**为什么不包装 Bot？**
+**为什么事件类型是具体接口（`IMMessageEvent` 等）？**
 
-- Satori Bot **就是**标准。包装它增加间接层却无增值
-- Cortex 开发者学 Satori Bot API 学到的是可迁移技能
-- `bot.features` 已提供能力协商
-- `@satorijs/protocol` 的类型已是业界标准 IM 抽象
+- 运行时统一用 **Session 信封**传播（satori 模式），类型层用具体接口收窄——`IMMessageEvent` 等 `extends IMSession`，把 `type` 收窄为字面量、把访问器字段收窄为必填
+- `Session`（core）是基础信封（`event` 数据 + `sn`/`body` + 基础访问器）；`IMSession`（protocol-im）提供 IM 访问器（`content`/`channelId`/`userId`/`guildId`/`isDirect`/`quote`…），由 `session.event` 嵌套对象推导
+- 消费方类型精确（`event.channelId: string`），运行时拿到的是带访问器的 Session 实例
 
 ### 7.2 事件契约
 
-**不做事件包装或归一化** —— Cortex 直接收到原始 Satori Session。这是有意的：Session 已经结构良好，带有 `channelId`、`userId`、`platform`、`content`、`elements` 等访问器。
+**事件管线：`dispatch(session)` → `internal/session` → 归一化 → 正式事件**
+
+```text
+adapter
+  │  body.session({ type, channel, user, message, ... })   ← 填嵌套数据对象
+  ▼
+Body.dispatch(session)
+  │  ① this.ctx.emit("internal/session", session)          ← 统一入口（拦截/转发/持久化挂载点）
+  ▼
+NerveService 归一化器（root 注册）
+  │  ① internal 类型 → emit(event._type, event._data)      ← satori 模式：onebot/poke 等子事件
+  │  ② 其余 → session.body.ctx.emit(session.type, session) ← 从来源域重发射，保持 Life 隔离
+  ▼
+cordis.Events 消费者（ctx.on("message-created", ...)）
+```
+
+- adapter 只需填**嵌套数据对象**（`channel`/`user`/`guild`/`message`），`channelId`/`userId`/`guildId`/`isDirect`/`content` 由 `IMSession` 访问器推导——不再手工填派生字段
+- 事件是 **Session 实例**（带访问器），类型上按 `IMMessageEvent` 等接口收窄
+- **无事件别名**（`eventAliases` 已删除）；`internal` 子事件按 `_type` 发射（`onebot/poke` 等）
 
 ```typescript
-ctx.on("message", (session: Session) => {
-  /* 新消息 */
+ctx.on("message-created", (event: IMMessageEvent) => {
+  // event.body: 来源 Body（IMBody 实例）
+  // event.channelId / event.userId / event.content（访问器推导）
+  // event.isDirect（channel.type === DIRECT 推导）
+  // event.message（访问器）
 });
-ctx.on("message-updated", (session) => {
-  /* 编辑 */
-});
-ctx.on("message-deleted", (session) => {
-  /* 删除 */
-});
-ctx.on("reaction-added", (session) => {
-  /* 表态 */
-});
-ctx.on("guild-member-added", (session) => {
-  /* 入群 */
-});
-// ... 完整 Satori 事件集
+```
 ```
 
 ---
@@ -551,15 +545,15 @@ Root Context
 │   ├── Life registry: Map<lifeId, SandboxNerveHandle>
 │   └── 按 lifeId 路由 → nerve.dispatch(payload with sink)
 │
-├── Alice Group（isolate: { life, cortex, message, satori }）
-│   └── SandboxNerve（inject: ['sandbox', 'satori', 'life']）
+├── Alice Group（isolate: { life, cortex, nerve }）
+│   └── SandboxNerve（inject: ['sandbox', 'nerve', 'life']）
 │       ├── 以 lifeId='alice' 向 Hub 注册
-│       └── 在本地 ctx.satori 中创建 SandboxBot
+│       └── 在本地 ctx.nerve 中创建 SandboxBot
 │
-└── Bob Group（isolate: { life, cortex, message, satori }）
-    └── SandboxNerve（inject: ['sandbox', 'satori', 'life']）
+└── Bob Group（isolate: { life, cortex, nerve }）
+    └── SandboxNerve（inject: ['sandbox', 'nerve', 'life']）
         ├── 以 lifeId='bob' 向 Hub 注册
-        └── 在本地 ctx.satori 中创建 SandboxBot
+        └── 在本地 ctx.nerve 中创建 SandboxBot
 ```
 
 ### 8.3 契约（定义在 `@athena-ai/protocol`）
@@ -801,11 +795,10 @@ athena-harness/
     persona: ./personas/alice-persona.yml
     memory: { backend: sqlite, path: ./data/alice.db }
 
-- name: "@athena-ai/capability-message"
 - name: "@athena-ai/cortex-chat"
   config:
     model: deepseek:deepseek-chat
-- name: "@athena-ai/adapter-onebot"
+- name: "@athena-ai/nerve-onebot"
   config: { selfId: "123", endpoint: "ws://localhost:6700", protocol: ws }
 ```
 
@@ -832,50 +825,38 @@ Instance 机制**只**用 cordis 标准原语：`plugin-include`（文件引用�
 
 ---
 
-## 11. Vendor 策略
+## 11. Vendored 依赖（历史）
 
-### 11.1 vendored 内容
+### 11.1 历史
 
-| 包                         | 版本          | 用途                           |
-| -------------------------- | ------------- | ------------------------------ |
-| `@satorijs/core`           | 5.0.0-alpha.0 | Service、Bot、Adapter、Session |
-| `@satorijs/protocol`       | 2.0.0-alpha.0 | Methods、Event、Message 类型   |
-| `@satorijs/element`        | 4.0.0-alpha.0 | 富文本内容模型                 |
-| `@satorijs/adapter-satori` | 2.0.0-alpha.0 | Satori Protocol 客户端 adapter |
-| `@satorijs/adapter-onebot` | —             | OneBot 协议 adapter            |
-| `@satorijs/adapter-qq`     | —             | QQ 官方 adapter                |
-| `@cordisjs/url-is-local`   | —             | 辅助包                         |
+项目早期 vendor 了 Satori v5（`vendor/satorijs/*`）与 `@cordisjs/url-is-local`，用于 IM 协议与 adapter 生态。**2026-08 已整体移除**：
 
-从 npm 直接依赖（已发布，无需 vendor）：`cordis`、`@cordisjs/element`、`@cordisjs/plugin-http`、`cosmokit`。
+| 曾 vendored 的包           | 去向                                        |
+| -------------------------- | ------------------------------------------- |
+| `@satorijs/core`           | 由 `@athena-ai/protocol` + `protocol-im` 替代 |
+| `@satorijs/protocol`       | 类型并入 `@athena-ai/protocol-im`            |
+| `@satorijs/element`        | 用 npm 的 `@cordisjs/element`                |
+| `@satorijs/adapter-onebot` | 由 `@athena-ai/nerve-onebot` 替代            |
+| `@satorijs/adapter-qq`     | 未迁移（QQ 官方 adapter 待自研）             |
+| `@satorijs/adapter-satori` | 不需要（Satori 协议服务端）                  |
 
-### 11.2 为什么 vendor
+**移除原因**：Nerve 协议自研完成后，Satori 生态（Bot/Adapter/Session 基类、mixin 注册表、InternalRouter）与 Athena 的"Body + NerveService + declaration merging"架构重复。保留 vendor 意味着维护两套协议、且 `ctx.mixin` 的 accessor 冲突限制多 Life 部署（见 [05-lessons-learned.md](./05-lessons-learned.md) §1）。
 
-- Satori v5 main 分支已完成 Cordis v3 → v4 迁移（依赖 `cordis: "^4.0.0-rc.3"`）
-- Satori v5 **未发布**到 npm（无 `next` tag，无 alpha release）
-- Vendor git snapshot 是经过验证的模式（deepseek-harness 就 vendor 了 Cordis 组件）
-- 我们控制版本；上游 alpha 变动不会意外破坏我们
-- v5 main 中已有 14 个 adapter（discord、telegram、qq、slack 等）
+### 11.2 移除时的连带改动
 
-### 11.3 我们对 vendored 代码做的修改
+| 位置                    | 改动                                                         |
+| ----------------------- | ------------------------------------------------------------ |
+| `plugins/capability-message` | 整包删除（Satori 隔离层不再需要）                        |
+| `plugins/cortex-chat`   | `ctx.message` → `ctx.nerve` + `message-created` 事件         |
+| `plugins/sandbox`       | `SandboxBot` 从 Satori `Bot` 迁移到 `IMBody`                  |
+| `plugins/sandbox-nerve` | `ctx.satori.bots` → `ctx.nerve.get()`                        |
+| `package.json`          | workspaces 移除 `vendor/*/*`                                  |
 
-| 位置                                          | 修改                                              | 理由                             |
-| --------------------------------------------- | ------------------------------------------------- | -------------------------------- |
-| `vendor/satorijs/core/src/index.ts`           | 删除 `ctx.mixin('satori', ['bots', 'component'])` | 消除多实例 accessor 冲突（M-21） |
-| `vendor/satorijs/core/src/bot.ts`             | `ctx.bots` → `ctx.satori.bots`（3 处）            | 适配 mixin 移除                  |
-| `vendor/satorijs/adapter-qq/src/bot/index.ts` | `ctx.bots` → `ctx.satori.bots`                    | 同上                             |
+### 11.3 教训
 
-**结论**：`ctx.bots` 在 Athena 中**不存在**。所有代码用 `ctx.satori.bots`（在 satori domain 内）或 `ctx.message.bots`（Cortex 侧）。
-
-### 11.4 Fallback 策略
-
-若 Satori v5 证明不可用（基于当前评估不太可能）：
-
-1. 只依赖 `@satorijs/protocol`（类型定义）
-2. 只依赖 `@satorijs/element`（富文本模型）
-3. 重新实现 core：Bot 基类、Adapter 生命周期、Session、dispatch 机制 —— 约 400 行实际逻辑
-4. Fork adapter：`adapter-satori` 约 200 行
-
-可行但基于当前评估无必要。
+- **不要在 vendor 大生态（Satori/Koishi）上构建自己的抽象**——迁移成本会随时间增长
+- 自研协议时保持极薄：`protocol`（无 IM 语义）+ `protocol-im`（IM 增强，declaration merging）的拆分让"删掉 Satori"变成纯增量替换
+- `ctx.satori.bots` / `ctx.message` 等旧 API 在文档中的残留引用需要系统性清理
 
 ---
 
@@ -883,13 +864,15 @@ Instance 机制**只**用 cordis 标准原语：`plugin-include`（文件引用�
 
 修改代码时必须保持的性质：
 
-1. **Cortex 只通过 `ctx.message` 访问 IM**，永不 `ctx.satori` / `ctx.bots`
-2. **Cortex 依赖 capability 包，永不依赖 nerve/adapter 包**
+1. **Cortex 只通过 `cordis.Events` 消费事件**（`message-created` 等），发送通过事件上的 `body` 引用
+2. **Cortex 依赖 `protocol` / `protocol-im` 类型，永不依赖 `nerve-*` / adapter 包**
 3. **每个 Life 至多一个 Cortex**（由 `Life.bind()` 强制）
 4. **框架不提供 event→response 管道**（无 middleware chain、无 command routing）
 5. **Cortex 自管理事件缓冲**（框架不提供 queue/inbox/mailbox）
 6. **没有 Service 在构造函数中调用 `ctx.mixin()`**（除非确定全进程单实例）
-7. **Multi-Life 隔离 `{ life, cortex, message, satori }` 四个 key**
-8. **不包装 Satori Bot / Session / Methods**
+7. **Multi-Life 隔离 `{ life, cortex, nerve }` 三个 key**
+8. **IM 平台接入统一继承 `IMBody`**，不引入平行实现（如直接嵌 Satori）
 9. **不在 AI SDK 之上加 LLM 抽象层**
 10. **Instance 机制只用 cordis 标准原语**
+11. **`cordis` 永远在 `peerDependencies`**
+12. **事件签名只在 `cordis.Events` 声明一份**，不维护平行事件映射表

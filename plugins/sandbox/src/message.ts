@@ -1,51 +1,42 @@
-import { Dict, Element, h, MessageEncoder, transformAsync, type Transform } from "@satorijs/core";
+import { MessageEncoder } from "@athena-ai/protocol-im";
+import { Element } from "@cordisjs/element";
 
-import type { SandboxBot } from "./bot";
+import type { SandboxBot } from "./bot.js";
 
 /** Element types whose `src`/`url` attribute points at a resource. */
 const RESOURCE_TYPES = ["image", "img", "audio", "video", "file"];
 
+/**
+ * `file:` urls mean nothing to a browser, so route them through the sandbox
+ * file server when the operator has opted into it.
+ */
+function rewriteResource(element: Element, fileBase: string | undefined): Element {
+  const { type, attrs, children } = element;
+  const src: string = attrs.src || attrs.url;
+  if (RESOURCE_TYPES.includes(type) && src?.startsWith("file:") && fileBase) {
+    return Element(type, { ...attrs, src: `${fileBase}?url=${encodeURIComponent(src)}` }, children);
+  }
+  return element;
+}
+
 export class SandboxMessenger extends MessageEncoder<SandboxBot> {
   private buffer = "";
 
-  /**
-   * `file:` urls mean nothing to a browser, so route them through the sandbox
-   * file server when the operator has opted into it.
-   */
-  private rules: Dict<Transform> = Object.fromEntries(
-    RESOURCE_TYPES.map((type) => {
-      const tagName = type === "image" ? "img" : type;
-      return [
-        type,
-        (attrs: Dict) => {
-          const src: string = attrs.src || attrs.url;
-          const fileBase = this.bot.config.fileBase;
-          if (src?.startsWith("file:") && fileBase) {
-            return h(tagName, { ...attrs, src: `${fileBase}?url=${encodeURIComponent(src)}` });
-          }
-          return h(tagName, { ...attrs, src });
-        },
-      ];
-    }),
-  );
-
   async flush() {
     if (!this.buffer.trim()) return;
-    const content = await transformAsync(this.buffer.trim(), this.rules);
-    const session = this.bot.session(this.session.event);
-    session.messageId = Math.random().toString(36).slice(2);
-    this.bot.config.sink.send({
+    const content = this.buffer.trim();
+    const messageId = Math.random().toString(36).slice(2);
+    this.body.config.sink.send({
       type: "sandbox/message",
       body: {
-        id: session.messageId,
+        id: messageId,
         content,
-        user: this.bot.user!.name,
-        channel: session.channelId,
-        platform: session.platform,
+        user: this.body.user?.name,
+        channel: this.channelId,
+        platform: this.body.platform,
       },
     });
-    session.app.emit(session, "send", session);
-    this.results.push(session.event.message!);
+    this.results.push({ id: messageId });
     this.buffer = "";
   }
 
@@ -53,10 +44,10 @@ export class SandboxMessenger extends MessageEncoder<SandboxBot> {
     const { type, children } = element;
     if (type === "message" || type === "figure") {
       await this.flush();
-      await this.render(children);
+      await this.render(children ?? []);
       await this.flush();
     } else {
-      this.buffer += element.toString();
+      this.buffer += rewriteResource(element, this.body.config.fileBase).toString();
     }
   }
 }

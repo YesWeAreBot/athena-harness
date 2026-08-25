@@ -22,9 +22,8 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@satorijs/core": "workspace:*",
-    "@satorijs/element": "workspace:*",
-    "@satorijs/protocol": "workspace:*"
+    "@athena-ai/protocol-im": "workspace:*",
+    "@cordisjs/element": "^0.3.0"
   },
   "devDependencies": {
     "@athena-ai/core": "workspace:*",
@@ -52,7 +51,7 @@
     "service": {
       "required": [
         "webui",
-        "message"
+        "nerve"
       ]
     }
   }

@@ -1,5 +1,7 @@
 # 附录 B · Satori v5 for Athena 速查
 
+> ⚠️ **本文描述的对象已移除（2026-08-25）**：vendored Satori 与 `capability-message` 已删除，Athena 已迁移到自研 Nerve 协议。**本文仅作历史参考**，用于理解迁移前的架构与决策。当前架构见 [D-satori-to-nerve-migration.md](./D-satori-to-nerve-migration.md)。
+>
 > 只讲 Athena 中实际用到的部分，并明确标出**我们改过什么**。所有断言对照 `vendor/satorijs/` 的实际 vendored 源码核验。
 >
 > 上游对照：`references/satori`（v5 main）、`references/satori-v4`（v4 stable）

@@ -5,7 +5,7 @@
 </template>
 
 <script lang="ts" setup>
-import { escape, h } from "@satorijs/element";
+import { escape, h } from "@cordisjs/element";
 import { useEventListener } from "@vueuse/core";
 import { computed } from "vue";
 

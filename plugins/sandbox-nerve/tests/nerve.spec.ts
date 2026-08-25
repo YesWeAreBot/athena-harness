@@ -1,11 +1,12 @@
+import { NerveService } from "@athena-ai/protocol";
 import type { JsonObject, MessageSink, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
-import { Satori, type Session } from "@satorijs/core";
+import type { IMMessageEvent } from "@athena-ai/protocol-im";
 import { Context } from "cordis";
 import type { Dict } from "cosmokit";
 import { describe, expect, it } from "vitest";
 
-import SandboxHub from "../../sandbox/src/index";
-import SandboxNerve from "../src/index";
+import SandboxHub from "../../sandbox/src/index.js";
+import SandboxNerve from "../src/index.js";
 
 const PLATFORM = "sandbox:nerve-test";
 
@@ -70,27 +71,26 @@ async function setup() {
 
   // Install sandbox Hub on root (only needs webui)
   await ctx.plugin(SandboxHub, { fileServer: { enabled: false } });
+  await ctx.plugin(NerveService);
 
-  // Create an isolated group for the Life (mimics persona group)
-  const group = ctx.isolate("satori").isolate("bots").isolate("life");
-  await group.plugin(Satori);
-
-  // Provide life on the group
+  // Provide life on root
   const life = new FakeLife();
-  group.provide("life");
-  group.set("life", life);
+  ctx.provide("life");
+  ctx.set("life", life);
 
-  // Install nerve on the group
-  await group.plugin(SandboxNerve);
+  // Install nerve
+  await ctx.plugin(SandboxNerve);
 
   const client = new FakeClient();
   webui.clients[client.id] = client;
 
-  const sessions: Session[] = [];
-  group.on("message", (session) => void sessions.push(session));
-  group.on("message-deleted", (session) => void sessions.push(session));
+  const sessions: IMMessageEvent[] = [];
+  // SAFETY: these events are dispatched by SandboxNerve as message-created/message-deleted Sessions.
+  ctx.on("message-created", (event) => void sessions.push(event as IMMessageEvent));
+  // SAFETY: the delete path dispatches a message-deleted Session.
+  ctx.on("message-deleted", (event) => void sessions.push(event as IMMessageEvent));
 
-  return { ctx, group, webui, client, sessions, life };
+  return { ctx, webui, client, sessions, life };
 }
 
 function getHub(ctx: Context): SandboxHub {
@@ -110,7 +110,7 @@ describe("sandbox-nerve", () => {
     expect(lives[0].meta.description).toBe("A test persona");
   });
 
-  it("dispatches message through nerve to local satori", async () => {
+  it("dispatches message through nerve to local bodies", async () => {
     const { ctx, client, sessions } = await setup();
     const hub = getHub(ctx);
     const nerveHandle = hubInternals(hub)._nerves.get("alice")!;
@@ -136,7 +136,7 @@ describe("sandbox-nerve", () => {
       lifeId: "alice",
     });
 
-    // Should dispatch session in local satori
+    // Should dispatch event in local nerve
     expect(sessions).toHaveLength(1);
     expect(sessions[0].type).toBe("message-created");
     expect(sessions[0].content).toBe("hello from nerve test");
@@ -175,16 +175,16 @@ describe("sandbox-nerve", () => {
   });
 
   it("unregisters from Hub when nerve is disposed", async () => {
-    const { ctx, group } = await setup();
+    const { ctx } = await setup();
     const hub = getHub(ctx);
     expect(hub.lives()).toHaveLength(1);
 
-    await group.fiber.dispose();
+    await ctx.fiber.dispose();
     expect(hub.lives()).toHaveLength(0);
   });
 
   it("uses persona name as bot selfName", async () => {
-    const { ctx, group, client } = await setup();
+    const { ctx, client } = await setup();
     const hub = getHub(ctx);
     const nerveHandle = hubInternals(hub)._nerves.get("alice")!;
     const sink = sinkFor(client);
@@ -199,13 +199,12 @@ describe("sandbox-nerve", () => {
     });
 
     // The bot should use the Life's persona name
-    const satori = group.get("satori")!;
-    const bot = satori.bots[0];
+    const bot = ctx.nerve.bodies[0];
     expect(bot.user!.name).toBe("Alice");
   });
 
   it("bot replies reach the sink", async () => {
-    const { ctx, group, client } = await setup();
+    const { ctx, client } = await setup();
     const hub = getHub(ctx);
     const nerveHandle = hubInternals(hub)._nerves.get("alice")!;
     const sink = sinkFor(client);
@@ -220,8 +219,7 @@ describe("sandbox-nerve", () => {
     });
 
     // Now send a reply from the bot
-    const satori = group.get("satori")!;
-    const bot = satori.bots[0];
+    const bot = ctx.nerve.bodies[0];
     await bot.sendMessage("@Bob", "reply from Alice");
 
     // The reply should be sent through the sink

@@ -15,8 +15,6 @@ export default defineConfig({
     "**/dist/**",
     "**/lib/**",
     "**/node_modules/**",
-    "legacy/**",
-    "vendor/**",
   ],
   sortImports: {
     newlinesBetween: true,

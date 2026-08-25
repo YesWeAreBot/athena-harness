@@ -1,10 +1,10 @@
-import type { Element } from "@satorijs/element";
+import type { Element } from "@cordisjs/element";
 import { h, type VNodeChild } from "vue";
 
 /** Element types that map straight onto an inline HTML tag. */
 const INLINE_TAGS = new Set(["b", "code", "del", "em", "i", "ins", "s", "strong", "u"]);
 
-/** Turn a parsed Satori message into renderable Vue children. */
+/** Turn a parsed message into renderable Vue children. */
 export function renderElements(elements: Element[]): VNodeChild[] {
   return elements.map(({ type, attrs, children }): VNodeChild => {
     if (type === "text") return attrs.content;

@@ -1,13 +1,28 @@
 import { NerveService } from "@athena-ai/protocol";
 import type { IMMessageEvent } from "@athena-ai/protocol-im";
+import { Element } from "@cordisjs/element";
 import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
 import { dispatchEvent } from "../src/adapter.js";
 import { OneBotBody } from "../src/body.js";
 
+const testConfig: OneBotBody.Config = {
+  protocol: "ws",
+  selfId: "12345",
+  endpoint: "ws://localhost:6700",
+  responseTimeout: 15000,
+  retryTimes: 6,
+  retryInterval: 5000,
+  retryLazy: 60000,
+};
+
 class MockOneBotBody extends OneBotBody {
   public sentMessages: Array<{ target: string; content: unknown }> = [];
+
+  constructor(ctx: Context) {
+    super(ctx, testConfig);
+  }
 
   async connect() {
     this.online();
@@ -30,15 +45,15 @@ describe("End-to-end message pipeline", () => {
   it("receives, processes, and sends a reply", async () => {
     const ctx = new Context();
     await ctx.plugin(NerveService);
-    const body = new MockOneBotBody(ctx, { selfId: "12345" });
+    const body = new MockOneBotBody(ctx);
     ctx.nerve.register(body);
     await body.connect();
 
     ctx.on("message-created", async (event: IMMessageEvent) => {
-      await event.body.sendMessage(event.channelId, [{ type: "text", attrs: { content: `echo: ${event.message.content ?? ""}` }, children: [] }]);
+      await event.body.sendMessage(event.channelId, [Element("text", { content: `echo: ${event.message.content ?? ""}` })]);
     });
 
-    dispatchEvent(body, {
+    await dispatchEvent(body, {
       post_type: "message",
       message_type: "group",
       sub_type: "normal",
@@ -60,7 +75,7 @@ describe("End-to-end message pipeline", () => {
   it("finds OneBot bodies by sid through NerveService", async () => {
     const ctx = new Context();
     await ctx.plugin(NerveService);
-    const body = new MockOneBotBody(ctx, { selfId: "12345" });
+    const body = new MockOneBotBody(ctx);
     ctx.nerve.register(body);
     expect(ctx.nerve.get("onebot:12345")).toBe(body);
   });
