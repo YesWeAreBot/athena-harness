@@ -50,19 +50,19 @@
 
 来源：`.specify/specs/technology-selection-and-tool-architecture.md`
 
-| #        | 决策                                                                            | 分类          | 状态                                           | 详见                                                                               |
-| -------- | ------------------------------------------------------------------------------- | ------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **D-09** | LLM 层直接用 **AI SDK v7**，不做 wrapper                                        | Tech Stack    | 🔸 `AIService` 已实现并接线；Cortex 侧未集成   | [05](../05-lessons-learned.md) §6.2、[06](../06-progress-and-roadmap.md) Phase 2-A |
-| **D-10** | **Cordis v4**（`^4.0.0-rc.8`）作为组合基座                                      | Tech Stack    | ✅ 已实现                                      | [A](./A-cordis-primer.md)                                                          |
-| **D-11** | 从 git main 分支 **vendor Satori v5 alpha**                                     | Tech Stack    | ⚠️ **已撤销（2026-08）**：Satori → Nerve 迁移后 vendor 已删除 | [D](./D-satori-to-nerve-migration.md)、[02](../02-architecture.md) §11 |
-| **D-12** | IM 连通经 **Satori Protocol 桥接到 Koishi** 实例                                | Tech Stack    | ⚠️ **已撤销**：Nerve 协议自研后不需要 Koishi 桥               | [D](./D-satori-to-nerve-migration.md) §3.1                                  |
-| **D-13** | Athena Runtime **不是**独立产品；harness core 作为其内部依赖嵌入                | Architecture  | ⏸️ 未落地                                      | —                                                                                  |
-| **D-14** | **无 tool context 注入** —— LLM 通过参数寻址目标                                | Tool Model    | ⏸️ 待 Phase 2-C 验证                           | [01](../01-design-philosophy.md) §6、[05](../05-lessons-learned.md) §9             |
-| **D-15** | Tool 通过注册时所在的 Cordis context 访问 service，不通过注入参数或闭包捕获实例 | Tool Model    | ⏸️ 待 Phase 2-A                                | [04](../04-patterns-and-recipes.md) §5.2                                           |
-| **D-16** | **`ctx.tools`** 作为 Tool Registry Service（register / discover / execute）     | Tool Model    | ❌ 未开始                                      | [02](../02-architecture.md) §9.3、[06](../06-progress-and-roadmap.md) Phase 2-A    |
-| **D-17** | Life Config —— per-Life 声明式装配 YAML                                         | Configuration | 🔸 被 D-21 改名为 **Instance**；文件加载未实现 | [02](../02-architecture.md) §10                                                    |
-| **D-18** | Tool 隔离由 **Cordis context tree** 天然提供，无需额外机制                      | Configuration | ⏸️ 待 Phase 2-A                                | [02](../02-architecture.md) §9.3                                                   |
-| **D-19** | Cortex 内部策略切换（**Preset**）—— **延后**                                    | Future        | ⏸️ 延后                                        | [01](../01-design-philosophy.md) §2.2                                              |
+| #        | 决策                                                                            | 分类          | 状态                                                          | 详见                                                                               |
+| -------- | ------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **D-09** | LLM 层直接用 **AI SDK v7**，不做 wrapper                                        | Tech Stack    | 🔸 `AIService` 已实现并接线；Cortex 侧未集成                  | [05](../05-lessons-learned.md) §6.2、[06](../06-progress-and-roadmap.md) Phase 2-A |
+| **D-10** | **Cordis v4**（`^4.0.0-rc.8`）作为组合基座                                      | Tech Stack    | ✅ 已实现                                                     | [A](./A-cordis-primer.md)                                                          |
+| **D-11** | 从 git main 分支 **vendor Satori v5 alpha**                                     | Tech Stack    | ⚠️ **已撤销（2026-08）**：Satori → Nerve 迁移后 vendor 已删除 | [D](./D-satori-to-nerve-migration.md)、[02](../02-architecture.md) §11             |
+| **D-12** | IM 连通经 **Satori Protocol 桥接到 Koishi** 实例                                | Tech Stack    | ⚠️ **已撤销**：Nerve 协议自研后不需要 Koishi 桥               | [D](./D-satori-to-nerve-migration.md) §3.1                                         |
+| **D-13** | Athena Runtime **不是**独立产品；harness core 作为其内部依赖嵌入                | Architecture  | ⏸️ 未落地                                                     | —                                                                                  |
+| **D-14** | **无 tool context 注入** —— LLM 通过参数寻址目标                                | Tool Model    | ⏸️ 待 Phase 2-C 验证                                          | [01](../01-design-philosophy.md) §6、[05](../05-lessons-learned.md) §9             |
+| **D-15** | Tool 通过注册时所在的 Cordis context 访问 service，不通过注入参数或闭包捕获实例 | Tool Model    | ⏸️ 待 Phase 2-A                                               | [04](../04-patterns-and-recipes.md) §5.2                                           |
+| **D-16** | **`ctx.tools`** 作为 Tool Registry Service（register / discover / execute）     | Tool Model    | ❌ 未开始                                                     | [02](../02-architecture.md) §9.3、[06](../06-progress-and-roadmap.md) Phase 2-A    |
+| **D-17** | Life Config —— per-Life 声明式装配 YAML                                         | Configuration | 🔸 被 D-21 改名为 **Instance**；文件加载未实现                | [02](../02-architecture.md) §10                                                    |
+| **D-18** | Tool 隔离由 **Cordis context tree** 天然提供，无需额外机制                      | Configuration | ⏸️ 待 Phase 2-A                                               | [02](../02-architecture.md) §9.3                                                   |
+| **D-19** | Cortex 内部策略切换（**Preset**）—— **延后**                                    | Future        | ⏸️ 延后                                                       | [01](../01-design-philosophy.md) §2.2                                              |
 
 ---
 

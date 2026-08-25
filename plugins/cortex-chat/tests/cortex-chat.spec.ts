@@ -9,7 +9,7 @@ describe("CortexChat", () => {
   it("activates when both life and nerve are available", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     await ctx.plugin(NerveService);
     await ctx.plugin(CortexChat);
@@ -19,7 +19,7 @@ describe("CortexChat", () => {
   it("does not activate without nerve service", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     // Don't await — fiber stays PENDING because 'nerve' inject is unmet
     ctx.plugin(CortexChat);
@@ -37,7 +37,7 @@ describe("CortexChat", () => {
   it("binds as the active cortex in Life", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     await ctx.plugin(NerveService);
     await ctx.plugin(CortexChat);

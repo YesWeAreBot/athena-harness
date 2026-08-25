@@ -92,20 +92,20 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 
 ### 2.1 当前包清单
 
-| 包                                | 路径                         | 提供的 Service | 角色                                                                                                                     |
-| --------------------------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `@athena-ai/core`                 | `packages/core`              | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                             |
-| `@athena-ai/protocol`             | `packages/protocol`          | `nerve`        | Nerve 核心：Body 基类、Session 信封、NerveService；既有 Persona / LifeService / MemoryProvider / Sandbox 契约与 Cortex 基类 |
-| `@athena-ai/protocol-im`          | `packages/protocol-im`       | —              | IM 协议层：实体类型、Methods 表、IMBody 默认实现、事件契约、MessageEncoder、WsClient                                     |
-| `@athena-ai/ai`                   | `packages/ai`                | `ai`           | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                         |
-| `@athena-ai/plugin-life`          | `plugins/life`               | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                              |
-| `@athena-ai/cortex-chat`          | `plugins/cortex-chat`        | `cortex`       | Reactive Cortex（当前为 echo 骨架，消费 `message-created` 事件）                                                         |
-| `@athena-ai/plugin-sandbox`       | `plugins/sandbox`            | `sandbox`      | 全局 SandboxHub + SandboxBot（IMBody 实现）：WebUI 页面、文件服务器、WS 路由                                             |
-| `@athena-ai/sandbox-nerve`        | `plugins/sandbox-nerve`      | —              | per-Life Nerve：注册 Hub、创建 SandboxBot（`ctx.nerve` 注册）                                                            |
-| `@athena-ai/provider-openai`      | `plugins/provider-openai`    | —              | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                      |
-| `@athena-ai/provider-deepseek`    | `plugins/provider-deepseek`  | —              | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                    |
-| `@athena-ai/nerve-onebot`         | `plugins/nerve-onebot`       | —              | OneBot v11 Nerve adapter（IMBody 实现）：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket      |
-| `@athena-ai/plugin-message-store` | `plugins/message-store`      | —              | 占位，未开始（Phase 3 消息持久化）                                                                                       |
+| 包                                | 路径                        | 提供的 Service | 角色                                                                                                                        |
+| --------------------------------- | --------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `@athena-ai/core`                 | `packages/core`             | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                                |
+| `@athena-ai/protocol`             | `packages/protocol`         | `nerve`        | Nerve 核心：Body 基类、Session 信封、NerveService；既有 Persona / LifeService / MemoryProvider / Sandbox 契约与 Cortex 基类 |
+| `@athena-ai/protocol-im`          | `packages/protocol-im`      | —              | IM 协议层：实体类型、Methods 表、IMBody 默认实现、事件契约、MessageEncoder、WsClient                                        |
+| `@athena-ai/ai`                   | `packages/ai`               | `ai`           | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                            |
+| `@athena-ai/plugin-life`          | `plugins/life`              | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                                 |
+| `@athena-ai/cortex-chat`          | `plugins/cortex-chat`       | `cortex`       | Reactive Cortex（当前为 echo 骨架，消费 `message-created` 事件）                                                            |
+| `@athena-ai/plugin-sandbox`       | `plugins/sandbox`           | `sandbox`      | 全局 SandboxHub + SandboxBot（IMBody 实现）：WebUI 页面、文件服务器、WS 路由                                                |
+| `@athena-ai/sandbox-nerve`        | `plugins/sandbox-nerve`     | —              | per-Life Nerve：注册 Hub、创建 SandboxBot（`ctx.nerve` 注册）                                                               |
+| `@athena-ai/provider-openai`      | `plugins/provider-openai`   | —              | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                         |
+| `@athena-ai/provider-deepseek`    | `plugins/provider-deepseek` | —              | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                       |
+| `@athena-ai/nerve-onebot`         | `plugins/nerve-onebot`      | —              | OneBot v11 Nerve adapter（IMBody 实现）：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket        |
+| `@athena-ai/plugin-message-store` | `plugins/message-store`     | —              | 占位，未开始（Phase 3 消息持久化）                                                                                          |
 
 ### 2.2 依赖方向
 
@@ -523,6 +523,7 @@ ctx.on("message-created", (event: IMMessageEvent) => {
   // event.message（访问器）
 });
 ```
+
 ```
 
 ---
@@ -536,25 +537,27 @@ Sandbox 插件注册唯一的 WebUI 页面（`/sandbox`）和全局 WebSocket �
 ### 8.2 方案
 
 ```
+
 Root Context
 ├── SandboxHub（inject: ['webui']，provides: 'sandbox'）
-│   ├── 注册 /sandbox 页面（一次）
-│   ├── 文件服务器挂在 /sandbox/file
-│   ├── WebSocket 监听：sandbox/send-message, sandbox/response,
-│   │                   sandbox/delete-message, sandbox/lives
-│   ├── Life registry: Map<lifeId, SandboxNerveHandle>
-│   └── 按 lifeId 路由 → nerve.dispatch(payload with sink)
+│ ├── 注册 /sandbox 页面（一次）
+│ ├── 文件服务器挂在 /sandbox/file
+│ ├── WebSocket 监听：sandbox/send-message, sandbox/response,
+│ │ sandbox/delete-message, sandbox/lives
+│ ├── Life registry: Map<lifeId, SandboxNerveHandle>
+│ └── 按 lifeId 路由 → nerve.dispatch(payload with sink)
 │
 ├── Alice Group（isolate: { life, cortex, nerve }）
-│   └── SandboxNerve（inject: ['sandbox', 'nerve', 'life']）
-│       ├── 以 lifeId='alice' 向 Hub 注册
-│       └── 在本地 ctx.nerve 中创建 SandboxBot
+│ └── SandboxNerve（inject: ['sandbox', 'nerve', 'life']）
+│ ├── 以 lifeId='alice' 向 Hub 注册
+│ └── 在本地 ctx.nerve 中创建 SandboxBot
 │
 └── Bob Group（isolate: { life, cortex, nerve }）
-    └── SandboxNerve（inject: ['sandbox', 'nerve', 'life']）
-        ├── 以 lifeId='bob' 向 Hub 注册
-        └── 在本地 ctx.nerve 中创建 SandboxBot
-```
+└── SandboxNerve（inject: ['sandbox', 'nerve', 'life']）
+├── 以 lifeId='bob' 向 Hub 注册
+└── 在本地 ctx.nerve 中创建 SandboxBot
+
+````
 
 ### 8.3 契约（定义在 `@athena-ai/protocol`）
 
@@ -589,7 +592,7 @@ interface SandboxHubService {
   lives(): { id: string; meta: SandboxNerveHandle["meta"] }[];
   readonly fileBase: string | undefined;
 }
-```
+````
 
 关键设计：
 
@@ -831,26 +834,26 @@ Instance 机制**只**用 cordis 标准原语：`plugin-include`（文件引用�
 
 项目早期 vendor 了 Satori v5（`vendor/satorijs/*`）与 `@cordisjs/url-is-local`，用于 IM 协议与 adapter 生态。**2026-08 已整体移除**：
 
-| 曾 vendored 的包           | 去向                                        |
-| -------------------------- | ------------------------------------------- |
+| 曾 vendored 的包           | 去向                                          |
+| -------------------------- | --------------------------------------------- |
 | `@satorijs/core`           | 由 `@athena-ai/protocol` + `protocol-im` 替代 |
-| `@satorijs/protocol`       | 类型并入 `@athena-ai/protocol-im`            |
-| `@satorijs/element`        | 用 npm 的 `@cordisjs/element`                |
-| `@satorijs/adapter-onebot` | 由 `@athena-ai/nerve-onebot` 替代            |
-| `@satorijs/adapter-qq`     | 未迁移（QQ 官方 adapter 待自研）             |
-| `@satorijs/adapter-satori` | 不需要（Satori 协议服务端）                  |
+| `@satorijs/protocol`       | 类型并入 `@athena-ai/protocol-im`             |
+| `@satorijs/element`        | 用 npm 的 `@cordisjs/element`                 |
+| `@satorijs/adapter-onebot` | 由 `@athena-ai/nerve-onebot` 替代             |
+| `@satorijs/adapter-qq`     | 未迁移（QQ 官方 adapter 待自研）              |
+| `@satorijs/adapter-satori` | 不需要（Satori 协议服务端）                   |
 
 **移除原因**：Nerve 协议自研完成后，Satori 生态（Bot/Adapter/Session 基类、mixin 注册表、InternalRouter）与 Athena 的"Body + NerveService + declaration merging"架构重复。保留 vendor 意味着维护两套协议、且 `ctx.mixin` 的 accessor 冲突限制多 Life 部署（见 [05-lessons-learned.md](./05-lessons-learned.md) §1）。
 
 ### 11.2 移除时的连带改动
 
-| 位置                    | 改动                                                         |
-| ----------------------- | ------------------------------------------------------------ |
-| `plugins/capability-message` | 整包删除（Satori 隔离层不再需要）                        |
-| `plugins/cortex-chat`   | `ctx.message` → `ctx.nerve` + `message-created` 事件         |
-| `plugins/sandbox`       | `SandboxBot` 从 Satori `Bot` 迁移到 `IMBody`                  |
-| `plugins/sandbox-nerve` | `ctx.satori.bots` → `ctx.nerve.get()`                        |
-| `package.json`          | workspaces 移除 `vendor/*/*`                                  |
+| 位置                         | 改动                                                 |
+| ---------------------------- | ---------------------------------------------------- |
+| `plugins/capability-message` | 整包删除（Satori 隔离层不再需要）                    |
+| `plugins/cortex-chat`        | `ctx.message` → `ctx.nerve` + `message-created` 事件 |
+| `plugins/sandbox`            | `SandboxBot` 从 Satori `Bot` 迁移到 `IMBody`         |
+| `plugins/sandbox-nerve`      | `ctx.satori.bots` → `ctx.nerve.get()`                |
+| `package.json`               | workspaces 移除 `vendor/*/*`                         |
 
 ### 11.3 教训
 

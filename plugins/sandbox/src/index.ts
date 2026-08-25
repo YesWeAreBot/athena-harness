@@ -4,7 +4,7 @@ import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
 import { Schema } from "@athena-ai/core";
-import type { JsonObject, MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
+import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
 import type {} from "@cordisjs/plugin-server";
 import type { Client } from "@cordisjs/plugin-webui";
 import { type Context, Service } from "cordis";
@@ -82,7 +82,7 @@ function buildSandboxSink(client: Client, lifeId: string): MessageSink {
       // SAFETY: frame.body comes from this Hub's own frame construction and is always an object.
       client.send({
         type: frame.type,
-        body: { ...(frame.body as JsonObject), lifeId },
+        body: { ...(frame.body as Record<string, unknown>), lifeId },
       } as never);
     },
   };

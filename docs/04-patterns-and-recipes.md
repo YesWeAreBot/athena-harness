@@ -871,8 +871,12 @@ export interface Internal {
 
 // oxlint-disable-next-line no-unsafe-declaration-merging -- interface 声明类型，class 动态实现（koishi 模式）
 export class Internal {
-  static define(name: string, ...params: string[]): void { /* ... */ }
-  static defineExtract(name: string, key: string, ...params: string[]): void { /* ... */ }
+  static define(name: string, ...params: string[]): void {
+    /* ... */
+  }
+  static defineExtract(name: string, key: string, ...params: string[]): void {
+    /* ... */
+  }
 }
 ```
 
@@ -1825,10 +1829,10 @@ const session = bot.session({
   },
   guild: isDirect ? undefined : { id: channelId },
 });
-session.content = content;   // 访问器 setter → message.content
-session.messageId = id;      // 访问器 setter → message.id
+session.content = content; // 访问器 setter → message.content
+session.messageId = id; // 访问器 setter → message.id
 event.message = { id, content, user: { id: userId, name: userId }, channel: { id: channelId, type: isDirect ? 1 : 0 } };
-bot.dispatch(session);       // internal/session → 归一化 → session.type
+bot.dispatch(session); // internal/session → 归一化 → session.type
 ```
 
 ### 8.8 富文本内容

@@ -1,5 +1,5 @@
 import { NerveService } from "@athena-ai/protocol";
-import type { JsonObject, MessageSink, SandboxDispatchPayload, SandboxNerveHandle, SandboxRequestPayload } from "@athena-ai/protocol";
+import type { MessageSink, SandboxDispatchPayload, SandboxNerveHandle, SandboxRequestPayload } from "@athena-ai/protocol";
 import type { IMMessageEvent } from "@athena-ai/protocol-im";
 import { Context, type Fiber } from "cordis";
 import type { Dict } from "cosmokit";
@@ -13,7 +13,7 @@ const DELETE_PREFIX = "__delete:";
 
 interface Frame {
   type: string;
-  body?: JsonObject;
+  body?: Record<string, unknown>;
 }
 
 interface LifeListEntry {
@@ -47,7 +47,7 @@ class FakeClient {
 
 /** The slice of `WebUI` the sandbox plugin actually touches. */
 class FakeWebUI {
-  readonly listeners: Dict<(body?: JsonObject) => void> = Object.create(null);
+  readonly listeners: Dict<(body?: Record<string, unknown>) => void> = Object.create(null);
   readonly clients: Dict<FakeClient> = Object.create(null);
 
   addEntry() {
@@ -103,7 +103,7 @@ class TestNerve implements SandboxNerveHandle {
     bot.dispatch(event);
   }
 
-  async request(method: string, data: SandboxRequestPayload): Promise<JsonValue> {
+  async request(method: string, data: SandboxRequestPayload): Promise<unknown> {
     const platform = data.platform;
     if (!platform) throw new Error("sandbox request requires platform");
     const handle = this._handles[platform];
@@ -115,7 +115,7 @@ class TestNerve implements SandboxNerveHandle {
       bot.settle(nonce, data.data ?? null);
       return null;
     }
-    return bot.request<JsonValue>(method, data);
+    return bot.request<unknown>(method, data);
   }
 
   async release({ platform }: { clientId: string; platform: string }) {
@@ -167,7 +167,7 @@ async function setup() {
   const client = new FakeClient();
   webui.clients[client.id] = client;
 
-  const invoke = (type: string, body: JsonObject) => {
+  const invoke = (type: string, body: Record<string, unknown>) => {
     const listener = webui.listeners[type];
     if (!listener) throw new Error(`listener not registered: ${type}`);
     return listener.call(client, { lifeId: LIFE_ID, ...body });

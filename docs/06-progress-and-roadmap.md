@@ -13,23 +13,23 @@
 | 包                       | 状态                  | 实现内容                                                                                                                                                                                                                              | 对应 spec                                |
 | ------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | `@athena-ai/core`        | ✅ 完成（有意最小化） | 空 `apply()` + 重导出 cordis / cosmokit / schemastery                                                                                                                                                                                 | M-23                                     |
-| `@athena-ai/protocol`    | ✅ 完成               | `Body` / `Session` 信封 / `NerveService`（`ctx.nerve`）及既有 Persona / LifeService / MemoryProvider / Sandbox 契约、`Cortex` abstract class                                                                                            | M-22；2026-08-25 Nerve Protocol & OneBot |
+| `@athena-ai/protocol`    | ✅ 完成               | `Body` / `Session` 信封 / `NerveService`（`ctx.nerve`）及既有 Persona / LifeService / MemoryProvider / Sandbox 契约、`Cortex` abstract class                                                                                          | M-22；2026-08-25 Nerve Protocol & OneBot |
 | `@athena-ai/protocol-im` | ✅ 完成               | IM 协议扩展：Message / Channel / User 等实体类型、`Body` 方法与 IM 事件的 declaration merging、MessageEncoder 基类                                                                                                                    | 2026-08-25 Nerve Protocol & OneBot       |
 | `@athena-ai/ai`          | ✅ 完成               | `AIService`（provides `ai`，root 级全局单例）：Provider Registry、`models.yml` 加载与校验、六个模态的解析、`defaultSettingsMiddleware` 注入、`candidates()` / `ModelGroup` / 断路器 / 三种策略、`default()` / `metadata()` / `list()` | D-33~D-35                                |
 
 ### 1.2 plugins/
 
-| 包                                                 | 状态        | 实现内容                                                                                                                                                                                                   | 对应 spec                          |
-| -------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `@athena-ai/plugin-life`                           | ✅ 核心完成 | `ctx.life`；`persona` 解析（仅 inline）；`bind(cortex)` → disposer；`MemoryStub`（in-memory Map）                                                                                                          | M-16, M-25                         |
-| ~~capability-message~~                             | ❌ 已删除   | 2026-08-25 Satori → Nerve 迁移中整包删除（`ctx.message` 由 `cordis.Events` + `event.body` 替代）                                                                                                            | 2026-08-25 Nerve Protocol & OneBot |
-| `@athena-ai/cortex-chat`                           | 🔸 骨架     | 继承 `Cortex`、`inject: ["life","nerve"]`、订阅 `message-created`、echo 回复（`[persona.name] Echo: content`）。**无 LLM、无 willingness、无缓冲**                                                           | D-29                               |
-| `@athena-ai/plugin-sandbox`                        | ✅ 完成     | SandboxHub + SandboxBot（IMBody 实现）：`/sandbox` WebUI 页面、`/sandbox/file` 文件服务器（含 MIME 表）、WS 监听器、`register` / `lives` / `fileBase`、按 lifeId 路由、Vue 前端（layout / message / input / content / render / icons） | M-27~M-30                          |
-| `@athena-ai/sandbox-nerve`                         | ✅ 完成     | per-Life Nerve：向 Hub 注册、懒创建 `SandboxBot`、`dispatch` / `request` / `release`、`ctx.effect` 清理、message-deleted 隧道；`ctx.nerve.get()` 寻址                                                                              | M-27~M-29                          |
-| `@athena-ai/provider-openai`                       | ✅ 完成     | `createOpenAI()` → `ctx.ai.register(config.id, provider)`；`reusable`（官方 key + 内部网关可共存）；`ctx.effect` 注销                                                                                      | D-34                               |
-| `@athena-ai/provider-deepseek`                     | ✅ 完成     | 同上，`createDeepSeek()`                                                                                                                                                                                   | D-34                               |
-| `@athena-ai/nerve-onebot`                          | ✅ 完成     | OneBot v11 完整 adapter（IMBody 实现）：事件适配、CQCode、MessageEncoder、Internal API 动态生成、WS/WS-reverse/HTTP 三模式、自动连接生命周期                                                                 | 2026-08-25 Nerve Protocol & OneBot |
-| `@athena-ai/plugin-message-store`                  | ❌ 占位     | `src/index.ts` 只有 `export {}` + 说明注释（占位以免 tsc 报 "No inputs were found"）；Phase 3 消息持久化用                                                                                                 | —                                  |
+| 包                                | 状态        | 实现内容                                                                                                                                                                                                                               | 对应 spec                          |
+| --------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `@athena-ai/plugin-life`          | ✅ 核心完成 | `ctx.life`；`persona` 解析（仅 inline）；`bind(cortex)` → disposer；`MemoryStub`（in-memory Map）                                                                                                                                      | M-16, M-25                         |
+| ~~capability-message~~            | ❌ 已删除   | 2026-08-25 Satori → Nerve 迁移中整包删除（`ctx.message` 由 `cordis.Events` + `event.body` 替代）                                                                                                                                       | 2026-08-25 Nerve Protocol & OneBot |
+| `@athena-ai/cortex-chat`          | 🔸 骨架     | 继承 `Cortex`、`inject: ["life","nerve"]`、订阅 `message-created`、echo 回复（`[persona.name] Echo: content`）。**无 LLM、无 willingness、无缓冲**                                                                                     | D-29                               |
+| `@athena-ai/plugin-sandbox`       | ✅ 完成     | SandboxHub + SandboxBot（IMBody 实现）：`/sandbox` WebUI 页面、`/sandbox/file` 文件服务器（含 MIME 表）、WS 监听器、`register` / `lives` / `fileBase`、按 lifeId 路由、Vue 前端（layout / message / input / content / render / icons） | M-27~M-30                          |
+| `@athena-ai/sandbox-nerve`        | ✅ 完成     | per-Life Nerve：向 Hub 注册、懒创建 `SandboxBot`、`dispatch` / `request` / `release`、`ctx.effect` 清理、message-deleted 隧道；`ctx.nerve.get()` 寻址                                                                                  | M-27~M-29                          |
+| `@athena-ai/provider-openai`      | ✅ 完成     | `createOpenAI()` → `ctx.ai.register(config.id, provider)`；`reusable`（官方 key + 内部网关可共存）；`ctx.effect` 注销                                                                                                                  | D-34                               |
+| `@athena-ai/provider-deepseek`    | ✅ 完成     | 同上，`createDeepSeek()`                                                                                                                                                                                                               | D-34                               |
+| `@athena-ai/nerve-onebot`         | ✅ 完成     | OneBot v11 完整 adapter（IMBody 实现）：事件适配、CQCode、MessageEncoder、Internal API 动态生成、WS/WS-reverse/HTTP 三模式、自动连接生命周期                                                                                           | 2026-08-25 Nerve Protocol & OneBot |
+| `@athena-ai/plugin-message-store` | ❌ 占位     | `src/index.ts` 只有 `export {}` + 说明注释（占位以免 tsc 报 "No inputs were found"）；Phase 3 消息持久化用                                                                                                                             | —                                  |
 
 ### 1.3 providers/
 
@@ -46,15 +46,15 @@
 
 **2026-08-25 已整体删除**。Satori → Nerve 迁移完成后，vendored Satori（core / protocol / element / adapter-*）不再需要：
 
-| 曾 vendored 的包           | 去向                                        |
-| -------------------------- | ------------------------------------------- |
+| 曾 vendored 的包           | 去向                                          |
+| -------------------------- | --------------------------------------------- |
 | `@satorijs/core`           | 由 `@athena-ai/protocol` + `protocol-im` 替代 |
-| `@satorijs/protocol`       | 类型并入 `@athena-ai/protocol-im`            |
-| `@satorijs/element`        | 用 npm 的 `@cordisjs/element`                |
-| `@satorijs/adapter-onebot` | 由 `@athena-ai/nerve-onebot` 替代            |
-| `@satorijs/adapter-qq`     | 未迁移（QQ 官方 adapter 待自研）             |
-| `@satorijs/adapter-satori` | 不需要（Satori 协议服务端）                  |
-| `@cordisjs/url-is-local`   | 不再需要                                     |
+| `@satorijs/protocol`       | 类型并入 `@athena-ai/protocol-im`             |
+| `@satorijs/element`        | 用 npm 的 `@cordisjs/element`                 |
+| `@satorijs/adapter-onebot` | 由 `@athena-ai/nerve-onebot` 替代             |
+| `@satorijs/adapter-qq`     | 未迁移（QQ 官方 adapter 待自研）              |
+| `@satorijs/adapter-satori` | 不需要（Satori 协议服务端）                   |
+| `@cordisjs/url-is-local`   | 不再需要                                      |
 
 ### 1.5 尚未开始
 

@@ -835,41 +835,41 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 
 ## 13. 速查：容易再犯的错
 
-| 错误                                        | 正确做法                                                                        | 详见                                          |
-| ------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------- |
-| 在 Service 构造函数调 `ctx.mixin()`         | 用普通 getter，或让调用方写 `ctx.<svc>.<prop>`                                  | §1                                            |
-| 用 `ctx.bots` / `ctx.satori.bots`           | **已不存在**（vendor 移除）。用 `ctx.nerve.get(sid)`                             | §14.3                                         |
-| 用 `ctx.message`（capability-message）      | **已删除**。订阅 `cordis.Events`（`message-created`），发送用 `event.body`       | §14.3                                         |
-| 用 `===` 比较 service 引用                  | 按 `.name` 比较                                                                 | §3.3                                          |
-| 依赖 `this.ctx` 解析 isolate                | 构造时自存 `this._self = ctx`                                                   | §3.4                                          |
-| 直接读 `session.bot.ctx` 判归属             | 先 `unwrap()`                                                                   | §3.5                                          |
-| Life 放在 prelude                           | Life 是 per-group managed plugin                                                | §2.2                                          |
-| 少隔离一个 token                            | 三个都要：`life` / `cortex` / `nerve`                                           | §2.3                                          |
-| 在框架层做事件队列                          | Cortex 自管理缓冲                                                               | §4                                            |
-| 为"统一"而包装 Satori / AI SDK              | 直接用；只在需要隔离/作用域时加层                                               | §6                                            |
-| 内核继承领域实现基类                        | 内核用原生 cordis Context                                                       | §7.1                                          |
-| 让事件对象承载状态                          | 状态归 Life / Cortex                                                            | §7.2                                          |
-| tool 依赖注入的 context                     | tool 用参数接收完整寻址                                                         | §9                                            |
-| 全局资源与 per-Life 资源混在一个插件        | 拆 Hub + Nerve                                                                  | §11                                           |
-| `cordis` 放 `dependencies`                  | 放 `peerDependencies` + 部署侧 `resolutions`                                    | §12                                           |
-| 测试里 `await` 一个 inject 未满足的 plugin  | 不要 await，直接断言 `ctx.get(...)` undefined                                   | [04](./04-patterns-and-recipes.md) §7.1       |
-| 期望 `Service<T>` 提供 `this.config`        | **不提供。** 自己写 `constructor(ctx, public config: Config)`                   | [A](./appendix/A-cordis-primer.md) §3.1       |
-| `static optional = [...]`                   | cordis v4 没有。用 `ctx.get(name)` 或 `ctx.inject([...], cb)`                   | [A](./appendix/A-cordis-primer.md) §5.2       |
-| `waterfall` 当 reducer 用                   | 是 `next()` 中间件链；调用方要传链尾 `inner`                                    | [A](./appendix/A-cordis-primer.md) §6.3       |
-| `generateText({ maxSteps })`                | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                                      | [04](./04-patterns-and-recipes.md) §5.2       |
-| tool 的 `execute` 解构参数                  | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                               | [04](./04-patterns-and-recipes.md) §5.2       |
-| `models.yml` 里写 `maxTokens`               | AI SDK 的名字是 `maxOutputTokens`；写错会被 loader 丢掉并 warn                  | [04](./04-patterns-and-recipes.md) §5.7       |
-| 把模型列表塞进 provider 插件的 Config       | Config 只有 `id` / `apiKey` / `baseURL`；其余进 `models.yml`                    | [04](./04-patterns-and-recipes.md) §5.5       |
-| anti-slop 报 `unknown` / `any` 边界错误     | 定义 JsonValue/YamlValue 等命名域类型，避免业务参数、返回值和字典值使用逃逸类型 | [03](./03-code-conventions.md) §类型安全 lint |
-| 为断言随手写 `as unknown as T`              | 优先类型谓词/`instanceof`/泛型；无法消除时在语句前写真实 `SAFETY:` 不变量       | [03](./03-code-conventions.md) §类型安全 lint |
-| 用 `Reflect.get` / `Reflect.apply` 访问实现 | 使用公开 getter、类型化属性访问或 `Function.call`                               | [03](./03-code-conventions.md) §类型安全 lint |
-| 指望 `ctx.ai` 内部帮你重试 / failover       | `candidates()` 只给排好序的候选，循环写在 Cortex 里                             | [04](./04-patterns-and-recipes.md) §5.1       |
-| 自己写代码合并模型默认参数                  | 用 AI SDK 的 `defaultSettingsMiddleware`，语义已是"调用方胜出"                  | [02](./02-architecture.md) §9.1               |
-| 在 `*[Service.init]()` 里 `yield` promise   | cordis fiber 只接受 disposer 函数。异步启动用 fire-and-forget（`this.connect()` 不 await） | §14.1                                |
-| 维护平行的 `NerveEventMap` + `cordis.Events` | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式）                     | §14.2                                         |
-| Body 子类各自手写注册到 nerve                | Body 基类提供默认 `*[Service.init]()`；子类 `yield* super[Service.init]()`      | §14.4                                         |
-| adapter 请求/响应桥用模块级全局 listeners    | 放 Internal/body 实例上（`Map<echo, {resolve, timer}>`）                         | §14.5                                         |
-| 手搓事件字段（isDirect/guildId）            | 显式填；Nerve 的 `createEvent` 不会像 Satori Session 自动推导                   | §14.6                                         |
+| 错误                                         | 正确做法                                                                                   | 详见                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| 在 Service 构造函数调 `ctx.mixin()`          | 用普通 getter，或让调用方写 `ctx.<svc>.<prop>`                                             | §1                                            |
+| 用 `ctx.bots` / `ctx.satori.bots`            | **已不存在**（vendor 移除）。用 `ctx.nerve.get(sid)`                                       | §14.3                                         |
+| 用 `ctx.message`（capability-message）       | **已删除**。订阅 `cordis.Events`（`message-created`），发送用 `event.body`                 | §14.3                                         |
+| 用 `===` 比较 service 引用                   | 按 `.name` 比较                                                                            | §3.3                                          |
+| 依赖 `this.ctx` 解析 isolate                 | 构造时自存 `this._self = ctx`                                                              | §3.4                                          |
+| 直接读 `session.bot.ctx` 判归属              | 先 `unwrap()`                                                                              | §3.5                                          |
+| Life 放在 prelude                            | Life 是 per-group managed plugin                                                           | §2.2                                          |
+| 少隔离一个 token                             | 三个都要：`life` / `cortex` / `nerve`                                                      | §2.3                                          |
+| 在框架层做事件队列                           | Cortex 自管理缓冲                                                                          | §4                                            |
+| 为"统一"而包装 Satori / AI SDK               | 直接用；只在需要隔离/作用域时加层                                                          | §6                                            |
+| 内核继承领域实现基类                         | 内核用原生 cordis Context                                                                  | §7.1                                          |
+| 让事件对象承载状态                           | 状态归 Life / Cortex                                                                       | §7.2                                          |
+| tool 依赖注入的 context                      | tool 用参数接收完整寻址                                                                    | §9                                            |
+| 全局资源与 per-Life 资源混在一个插件         | 拆 Hub + Nerve                                                                             | §11                                           |
+| `cordis` 放 `dependencies`                   | 放 `peerDependencies` + 部署侧 `resolutions`                                               | §12                                           |
+| 测试里 `await` 一个 inject 未满足的 plugin   | 不要 await，直接断言 `ctx.get(...)` undefined                                              | [04](./04-patterns-and-recipes.md) §7.1       |
+| 期望 `Service<T>` 提供 `this.config`         | **不提供。** 自己写 `constructor(ctx, public config: Config)`                              | [A](./appendix/A-cordis-primer.md) §3.1       |
+| `static optional = [...]`                    | cordis v4 没有。用 `ctx.get(name)` 或 `ctx.inject([...], cb)`                              | [A](./appendix/A-cordis-primer.md) §5.2       |
+| `waterfall` 当 reducer 用                    | 是 `next()` 中间件链；调用方要传链尾 `inner`                                               | [A](./appendix/A-cordis-primer.md) §6.3       |
+| `generateText({ maxSteps })`                 | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                                                 | [04](./04-patterns-and-recipes.md) §5.2       |
+| tool 的 `execute` 解构参数                   | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                                          | [04](./04-patterns-and-recipes.md) §5.2       |
+| `models.yml` 里写 `maxTokens`                | AI SDK 的名字是 `maxOutputTokens`；写错会被 loader 丢掉并 warn                             | [04](./04-patterns-and-recipes.md) §5.7       |
+| 把模型列表塞进 provider 插件的 Config        | Config 只有 `id` / `apiKey` / `baseURL`；其余进 `models.yml`                               | [04](./04-patterns-and-recipes.md) §5.5       |
+| anti-slop 报 `unknown` / `any` 边界错误      | 定义 JsonValue/YamlValue 等命名域类型，避免业务参数、返回值和字典值使用逃逸类型            | [03](./03-code-conventions.md) §类型安全 lint |
+| 为断言随手写 `as unknown as T`               | 优先类型谓词/`instanceof`/泛型；无法消除时在语句前写真实 `SAFETY:` 不变量                  | [03](./03-code-conventions.md) §类型安全 lint |
+| 用 `Reflect.get` / `Reflect.apply` 访问实现  | 使用公开 getter、类型化属性访问或 `Function.call`                                          | [03](./03-code-conventions.md) §类型安全 lint |
+| 指望 `ctx.ai` 内部帮你重试 / failover        | `candidates()` 只给排好序的候选，循环写在 Cortex 里                                        | [04](./04-patterns-and-recipes.md) §5.1       |
+| 自己写代码合并模型默认参数                   | 用 AI SDK 的 `defaultSettingsMiddleware`，语义已是"调用方胜出"                             | [02](./02-architecture.md) §9.1               |
+| 在 `*[Service.init]()` 里 `yield` promise    | cordis fiber 只接受 disposer 函数。异步启动用 fire-and-forget（`this.connect()` 不 await） | §14.1                                         |
+| 维护平行的 `NerveEventMap` + `cordis.Events` | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式）                                | §14.2                                         |
+| Body 子类各自手写注册到 nerve                | Body 基类提供默认 `*[Service.init]()`；子类 `yield* super[Service.init]()`                 | §14.4                                         |
+| adapter 请求/响应桥用模块级全局 listeners    | 放 Internal/body 实例上（`Map<echo, {resolve, timer}>`）                                   | §14.5                                         |
+| 手搓事件字段（isDirect/guildId）             | 显式填；Nerve 的 `createEvent` 不会像 Satori Session 自动推导                              | §14.6                                         |
 
 ---
 
@@ -907,6 +907,7 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 **现象**：删除 vendor 后，`ctx.satori.bots`、`ctx.message`、`@satorijs/core` 的引用散落在 cortex-chat / sandbox / sandbox-nerve / 测试 / client vue 文件 / docs 中。
 
 **结论**：
+
 - `ctx.satori.bots` → `ctx.nerve.get(sid)`（`sid = platform:selfId`）
 - `ctx.message` → 订阅 `cordis.Events` + 用 `event.body` 发送
 - `@satorijs/element` → `@cordisjs/element`（同名 API，纯换 import）

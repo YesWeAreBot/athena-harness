@@ -1,29 +1,16 @@
-import type { LifeService, MemoryProvider, MemoryEntry, MemoryValue, Persona, SearchOptions } from "@athena-ai/protocol";
+import type { LifeService } from "@athena-ai/protocol";
 import { Context, Service } from "cordis";
 
-function isPersona(input: string | Persona): input is Persona {
-  return typeof input === "object";
-}
-
-// In-memory stub for v1
-class MemoryStub implements MemoryProvider {
-  private _store = new Map<string, MemoryValue>();
-
-  async store(key: string, value: MemoryValue): Promise<void> {
-    this._store.set(key, value);
-  }
-
-  async retrieve(key: string): Promise<MemoryValue | null> {
-    return this._store.get(key) ?? null;
-  }
-
-  async search(_query: string, _options?: SearchOptions): Promise<MemoryEntry[]> {
-    return [];
-  }
-}
+/**
+ * Life plugin: owns the per-Life identity slot and the one-Cortex binding.
+ *
+ * `persona` and `memory` were removed together with the `JsonObject` /
+ * `JsonValue` / `Persona` types — the protocol package is now purely the
+ * Nerve contact surface, and this plugin only implements the remaining
+ * `LifeService` contract (`id` + `cortex` + `bind`). Persona / memory will
+ * come back as their own model when they are designed.
+ */
 export class Life extends Service implements LifeService {
-  public persona: Persona;
-  public memory: MemoryProvider;
   private _cortex: Service | null = null;
 
   constructor(
@@ -31,9 +18,13 @@ export class Life extends Service implements LifeService {
     public config: Life.Config,
   ) {
     super(ctx, "life");
-    this.persona = this._resolvePersona(config.persona);
-    this.memory = new MemoryStub();
   }
+
+  /** Stable identifier for this Life. Config-provided, or `undefined`. */
+  get id(): string | undefined {
+    return this.config.id;
+  }
+
   /** The Cortex currently bound, or `null` while none is bound. */
   get cortex(): Service | null {
     return this._cortex;
@@ -51,16 +42,11 @@ export class Life extends Service implements LifeService {
       }
     };
   }
-
-  private _resolvePersona(input: string | Persona): Persona {
-    if (isPersona(input)) return input;
-    // v1: only inline object supported; file loading deferred
-    throw new Error(`Persona file loading not yet implemented: ${input}`);
-  }
 }
 
 export namespace Life {
   export interface Config {
-    persona: string | Persona;
+    /** Stable identifier for this Life (e.g. `"alice"`). */
+    id?: string;
   }
 }

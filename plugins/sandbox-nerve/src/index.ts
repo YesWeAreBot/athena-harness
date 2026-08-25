@@ -1,5 +1,5 @@
 import { SandboxBot, SELF_ID } from "@athena-ai/plugin-sandbox";
-import type { JsonValue, MessageSink, SandboxDispatchPayload, SandboxRequestPayload } from "@athena-ai/protocol";
+import type { MessageSink, SandboxDispatchPayload, SandboxRequestPayload } from "@athena-ai/protocol";
 import type { Context, Fiber } from "cordis";
 
 interface BotHandle {
@@ -23,12 +23,12 @@ export default class SandboxNerve {
   private _lifeId: string;
 
   constructor(private ctx: Context) {
-    this._lifeId = ctx.life.persona.name.toLowerCase();
+    this._lifeId = ctx.life.id ?? "life";
 
     const unregister = ctx.sandbox.register(this._lifeId, {
       meta: {
-        name: ctx.life.persona.name,
-        description: ctx.life.persona.description,
+        name: ctx.life.id ?? "Life",
+        description: undefined,
       },
       dispatch: (payload) => this._dispatch(payload),
       request: (method, data) => this._request(method, data),
@@ -87,7 +87,7 @@ export default class SandboxNerve {
     bot.dispatch(event);
   }
 
-  private async _request(method: string, payload: SandboxRequestPayload): Promise<JsonValue> {
+  private async _request(method: string, payload: SandboxRequestPayload): Promise<unknown> {
     const platform = payload.platform;
     if (!platform) throw new Error("sandbox-nerve: request requires `platform` in data");
     const handle = this._handles[platform];
@@ -105,7 +105,7 @@ export default class SandboxNerve {
       return null;
     }
 
-    return bot.request<JsonValue>(method, payload);
+    return bot.request<unknown>(method, payload);
   }
 
   /** Tear down the bot backing a browser tab that has gone away. */
@@ -129,7 +129,7 @@ export default class SandboxNerve {
     const fiber = ctx.plugin(SandboxBot, {
       platform,
       selfId: SELF_ID,
-      selfName: ctx.life.persona.name,
+      selfName: ctx.life.id ?? "Life",
       sink,
       fileBase: ctx.sandbox.fileBase,
     });

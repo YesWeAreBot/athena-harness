@@ -6,8 +6,6 @@
  * instances (own SandboxBots in isolated Satori domains).
  */
 
-import type { JsonValue } from "./json.js";
-
 // ---------------------------------------------------------------------------
 // MessageSink — dependency-free transport abstraction
 // ---------------------------------------------------------------------------
@@ -52,8 +50,8 @@ export interface SandboxDispatchPayload {
 export interface SandboxRequestPayload {
   platform?: string;
   nonce?: string;
-  data?: JsonValue;
-  [key: string]: JsonValue | undefined;
+  data?: unknown;
+  [key: string]: unknown;
 }
 
 /** Handle that a per-Life Sandbox Nerve exposes to the Hub. */
@@ -63,7 +61,7 @@ export interface SandboxNerveHandle {
   /** Hub forwards user input to this Life's sandbox domain. */
   dispatch(payload: SandboxDispatchPayload): Promise<void>;
   /** Hub proxies a Satori read API call to this Life's sandbox domain. */
-  request(method: string, payload: SandboxRequestPayload): Promise<JsonValue>;
+  request(method: string, payload: SandboxRequestPayload): Promise<unknown>;
   /**
    * Hub reports that a browser tab is gone, so the Nerve can tear down the
    * bot it created for that tab's platform.

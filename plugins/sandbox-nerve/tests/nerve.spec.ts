@@ -1,5 +1,5 @@
 import { NerveService } from "@athena-ai/protocol";
-import type { JsonObject, MessageSink, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
+import type { MessageSink, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
 import type { IMMessageEvent } from "@athena-ai/protocol-im";
 import { Context } from "cordis";
 import type { Dict } from "cosmokit";
@@ -12,7 +12,7 @@ const PLATFORM = "sandbox:nerve-test";
 
 interface Frame {
   type: string;
-  body?: JsonObject;
+  body?: Record<string, unknown>;
 }
 
 /** Stands in for a browser tab holding a WebUI socket. */
@@ -32,7 +32,7 @@ class FakeClient {
 
 /** Minimal WebUI mock. */
 class FakeWebUI {
-  readonly listeners: Dict<(body?: JsonObject) => void> = Object.create(null);
+  readonly listeners: Dict<(body?: Record<string, unknown>) => void> = Object.create(null);
   readonly clients: Dict<FakeClient> = Object.create(null);
   addEntry() {
     return {};
@@ -41,8 +41,7 @@ class FakeWebUI {
 
 /** Minimal Life mock. */
 class FakeLife {
-  persona = { name: "Alice", description: "A test persona", traits: {} };
-  memory = { store: async () => {}, retrieve: async () => null, search: async () => [] };
+  id = "alice";
   bind() {
     return () => {};
   }
@@ -100,14 +99,14 @@ function getHub(ctx: Context): SandboxHub {
 }
 
 describe("sandbox-nerve", () => {
-  it("registers with the Hub using life persona name", async () => {
+  it("registers with the Hub using the life id", async () => {
     const { ctx } = await setup();
     const hub = getHub(ctx);
     const lives = hub.lives();
     expect(lives).toHaveLength(1);
     expect(lives[0].id).toBe("alice");
-    expect(lives[0].meta.name).toBe("Alice");
-    expect(lives[0].meta.description).toBe("A test persona");
+    expect(lives[0].meta.name).toBe("alice");
+    expect(lives[0].meta.description).toBeUndefined();
   });
 
   it("dispatches message through nerve to local bodies", async () => {
@@ -183,7 +182,7 @@ describe("sandbox-nerve", () => {
     expect(hub.lives()).toHaveLength(0);
   });
 
-  it("uses persona name as bot selfName", async () => {
+  it("uses the life id as bot selfName", async () => {
     const { ctx, client } = await setup();
     const hub = getHub(ctx);
     const nerveHandle = hubInternals(hub)._nerves.get("alice")!;
@@ -198,9 +197,9 @@ describe("sandbox-nerve", () => {
       sink,
     });
 
-    // The bot should use the Life's persona name
+    // The bot should use the Life's id as its display name
     const bot = ctx.nerve.bodies[0];
-    expect(bot.user!.name).toBe("Alice");
+    expect(bot.user!.name).toBe("alice");
   });
 
   it("bot replies reach the sink", async () => {
@@ -222,8 +221,8 @@ describe("sandbox-nerve", () => {
     const bot = ctx.nerve.bodies[0];
     await bot.sendMessage("@Bob", "reply from Alice");
 
-    // The reply should be sent through the sink
-    const replies = client.frames.filter((f) => f.type === "sandbox/message" && f.body?.user === "Alice");
+    // The reply should be sent through the sink, tagged with the Life's id
+    const replies = client.frames.filter((f) => f.type === "sandbox/message" && f.body?.user === "alice");
     expect(replies).toHaveLength(1);
     expect(replies[0].body?.content).toBe("reply from Alice");
   });

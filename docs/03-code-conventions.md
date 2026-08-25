@@ -354,13 +354,13 @@ export function apply(ctx: Context, config: Config) {
 
 目录名去掉 scope 与冗余前缀：
 
-| 包名                            | 目录                         |
-| ------------------------------- | ---------------------------- |
-| `@athena-ai/plugin-life`        | `plugins/life`               |
-| `@athena-ai/plugin-sandbox`     | `plugins/sandbox`            |
-| `@athena-ai/cortex-chat`        | `plugins/cortex-chat`        |
-| `@athena-ai/nerve-onebot`       | `plugins/nerve-onebot`       |
-| `@athena-ai/sandbox-nerve`      | `plugins/sandbox-nerve`      |
+| 包名                        | 目录                    |
+| --------------------------- | ----------------------- |
+| `@athena-ai/plugin-life`    | `plugins/life`          |
+| `@athena-ai/plugin-sandbox` | `plugins/sandbox`       |
+| `@athena-ai/cortex-chat`    | `plugins/cortex-chat`   |
+| `@athena-ai/nerve-onebot`   | `plugins/nerve-onebot`  |
+| `@athena-ai/sandbox-nerve`  | `plugins/sandbox-nerve` |
 
 ### 4.3 标识符
 
@@ -386,11 +386,11 @@ export function apply(ctx: Context, config: Config) {
 
 ### 5.1 `packages/` vs `plugins/`
 
-|                    | `packages/`                 | `plugins/`                                             |
-| ------------------ | --------------------------- | ------------------------------------------------------ |
-| 内容               | 类型、基类、共享库          | 可安装的运行时单元                                     |
-| 是否提供 Service   | 一般不（`ai` 是例外）       | 通常是                                                 |
-| 是否出现在 app.yml | 一般不（`core` 在 prelude） | 是                                                     |
+|                    | `packages/`                             | `plugins/`                                       |
+| ------------------ | --------------------------------------- | ------------------------------------------------ |
+| 内容               | 类型、基类、共享库                      | 可安装的运行时单元                               |
+| 是否提供 Service   | 一般不（`ai` 是例外）                   | 通常是                                           |
+| 是否出现在 app.yml | 一般不（`core` 在 prelude）             | 是                                               |
 | 例                 | `core`、`protocol`、`protocol-im`、`ai` | `life`、`cortex-chat`、`nerve-onebot`、`sandbox` |
 
 ### 5.2 单包内部结构

@@ -42,16 +42,16 @@ Life ──owns──► Cortex ──┼─── Nerve (Minecraft)  ──┼�
 
 ## 技术栈
 
-| 层          | 选型                       | 版本             | 角色                                   |
-| ----------- | -------------------------- | ---------------- | -------------------------------------- |
-| 组合基座    | **Cordis**                 | `^4.0.0-rc.8`    | DI、Service、Fiber lifecycle、事件系统 |
-| IM 协议     | **自研 Nerve**             | —                | protocol（Body/Session）+ protocol-im（IM 实体/事件） |
-| LLM 层      | **AI SDK v7**              | `^7.0.0`         | `generateText` / `streamText` / `tool` |
-| 配置 schema | **schemastery**            | `^3.18.0`        | 插件 Config 校验                       |
-| 构建        | **yakumo** + esbuild + tsc | —                | monorepo 构建                          |
-| 质量        | **oxlint** + **oxfmt**     | —                | lint / format                          |
-| 测试        | **Vitest**                 | `^4.1.10`        | 单元测试                               |
-| 包管理      | **Yarn**                   | `4.12.0`         | workspaces                             |
+| 层          | 选型                       | 版本          | 角色                                                  |
+| ----------- | -------------------------- | ------------- | ----------------------------------------------------- |
+| 组合基座    | **Cordis**                 | `^4.0.0-rc.8` | DI、Service、Fiber lifecycle、事件系统                |
+| IM 协议     | **自研 Nerve**             | —             | protocol（Body/Session）+ protocol-im（IM 实体/事件） |
+| LLM 层      | **AI SDK v7**              | `^7.0.0`      | `generateText` / `streamText` / `tool`                |
+| 配置 schema | **schemastery**            | `^3.18.0`     | 插件 Config 校验                                      |
+| 构建        | **yakumo** + esbuild + tsc | —             | monorepo 构建                                         |
+| 质量        | **oxlint** + **oxfmt**     | —             | lint / format                                         |
+| 测试        | **Vitest**                 | `^4.1.10`     | 单元测试                                              |
+| 包管理      | **Yarn**                   | `4.12.0`      | workspaces                                            |
 
 关键原则：**不重新发明成熟生态已提供的东西。** 协议层自研（Nerve 三原语），AI SDK 负责 LLM，Cordis 负责组合 —— LLM 与组合直接使用，不做包装层。IM 平台接入统一走 Nerve Body（`IMBody`）模式。
 
@@ -121,19 +121,19 @@ cordis run
 
 按你的目的选择入口：
 
-| 我想…                                | 读这个                                                         |
-| ------------------------------------ | -------------------------------------------------------------- |
-| 理解为什么这样设计、与 Koishi 的差异 | [01-design-philosophy.md](./01-design-philosophy.md)           |
-| 理解运行时拓扑、包依赖、隔离机制     | [02-architecture.md](./02-architecture.md)                     |
-| 开始写代码（必读）                   | [03-code-conventions.md](./03-code-conventions.md)             |
-| 抄一份 Service / Cortex / Nerve 模板 | [04-patterns-and-recipes.md](./04-patterns-and-recipes.md)     |
-| 避免前人踩过的坑                     | [05-lessons-learned.md](./05-lessons-learned.md)               |
-| 知道现在做到哪、接下来做什么         | [06-progress-and-roadmap.md](./06-progress-and-roadmap.md)     |
-| 非技术读者通俗读物                   | [07-athena-harness-book.md](./07-athena-harness-book.md)       |
-| 快速查 Cordis v4 概念                | [appendix/A-cordis-primer.md](./appendix/A-cordis-primer.md)   |
+| 我想…                                | 读这个                                                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------ |
+| 理解为什么这样设计、与 Koishi 的差异 | [01-design-philosophy.md](./01-design-philosophy.md)                                 |
+| 理解运行时拓扑、包依赖、隔离机制     | [02-architecture.md](./02-architecture.md)                                           |
+| 开始写代码（必读）                   | [03-code-conventions.md](./03-code-conventions.md)                                   |
+| 抄一份 Service / Cortex / Nerve 模板 | [04-patterns-and-recipes.md](./04-patterns-and-recipes.md)                           |
+| 避免前人踩过的坑                     | [05-lessons-learned.md](./05-lessons-learned.md)                                     |
+| 知道现在做到哪、接下来做什么         | [06-progress-and-roadmap.md](./06-progress-and-roadmap.md)                           |
+| 非技术读者通俗读物                   | [07-athena-harness-book.md](./07-athena-harness-book.md)                             |
+| 快速查 Cordis v4 概念                | [appendix/A-cordis-primer.md](./appendix/A-cordis-primer.md)                         |
 | 查 Satori → Nerve 迁移 / 新旧差异    | [appendix/D-satori-to-nerve-migration.md](./appendix/D-satori-to-nerve-migration.md) |
-| 查 Satori API（历史参考，已移除）    | [appendix/B-satori-primer.md](./appendix/B-satori-primer.md)   |
-| 查某条设计决策的出处                 | [appendix/C-decision-index.md](./appendix/C-decision-index.md) |
+| 查 Satori API（历史参考，已移除）    | [appendix/B-satori-primer.md](./appendix/B-satori-primer.md)                         |
+| 查某条设计决策的出处                 | [appendix/C-decision-index.md](./appendix/C-decision-index.md)                       |
 
 ---
 

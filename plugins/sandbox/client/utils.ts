@@ -1,8 +1,7 @@
-import type { JsonValue } from "@athena-ai/protocol";
 import { type Context, type Dict, useStorage } from "@cordisjs/client";
 import { computed } from "vue";
 
-import type { LifeListPayload, Message, RequestPayload } from "../src/shared";
+import type { JsonValue, LifeListPayload, Message, RequestPayload } from "../src/shared";
 
 declare module "@cordisjs/client" {
   interface ActionContext {

@@ -62,7 +62,7 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 | 确认进度、挑下一步任务                     | `docs/06-progress-and-roadmap.md`                                   |
 | 查 Cordis API / 陷阱                       | `docs/appendix/A-cordis-primer.md`                                  |
 | 查 Satori → Nerve 迁移 / 新旧差异 / 遗留   | `docs/appendix/D-satori-to-nerve-migration.md`                      |
-| 查 Satori API（历史参考，已移除）           | `docs/appendix/B-satori-primer.md`                                  |
+| 查 Satori API（历史参考，已移除）          | `docs/appendix/B-satori-primer.md`                                  |
 | 查某条决策的出处                           | `docs/appendix/C-decision-index.md`                                 |
 | 非技术读者通俗读物                         | `docs/07-athena-harness-book.md`                                    |
 
@@ -72,27 +72,27 @@ athena-harness 的 AI agent 工作指南。**动手前先读本文，再按需�
 
 完整版见 `docs/05-lessons-learned.md` §13。高频项：
 
-| 错误                                  | 正确做法                                                                                      |
-| ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 错误                                           | 正确做法                                                                                                       |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `ctx.bots` / `ctx.satori.bots` / `ctx.message` | **已不存在**（Satori 与 capability-message 已移除）。用 `ctx.nerve.get(sid)` 寻址、订阅 `cordis.Events` 收事件 |
-| `ctx.mixin()`                         | 不要用。全进程 accessor 名冲突，多 Life 直接崩                                                |
-| `===` 比较 service                    | 按 `.name` 比较。cordis 用 Proxy 包装，identity 不可靠                                        |
-| 依赖 `this.ctx` 解析 isolate          | 构造时自存 `this._self = ctx`                                                                 |
-| 直读 `session.bot.ctx` 判归属         | 先 unwrap：`Symbol.for("cordis.original")`                                                    |
-| `static optional = [...]`             | **cordis v4 没有这个。** 可选依赖用 `ctx.get(name)` 或 `ctx.inject([...], cb)`                |
-| `session.stripped.appel`              | **Athena 没有。** 那是 Koishi 加料。自己查 `session.elements` 里的 `at` 元素                  |
-| `waterfall` 当 reducer 用             | cordis v4 的 `waterfall` 是 `next()` 中间件链；调用方要给链尾 `inner`                         |
-| `ctx.someService`（未 inject）        | 会抛错。用 `ctx.get("someService")`                                                           |
-| `this.config` 在 Service 里           | **基类不提供。** 自己写 `constructor(ctx, public config: Config)`                             |
-| `generateText({ maxSteps })`          | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                                                    |
-| tool 的 `execute` 解构参数            | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                                             |
-| `models.yml` 里写 `maxTokens`         | AI SDK 的名字是 `maxOutputTokens`。写错会被 loader 丢掉并 warn，不会静默生效                  |
-| 以为 provider 插件能配模型列表        | 不能。Config 只有 `id` / `apiKey` / `baseURL`，其余全在 `models.yml`（D-34）                  |
-| 期待 `ctx.ai` 帮你重试                | 不会。`candidates()` 只给排好序的候选，failover 循环写在 Cortex 里（D-35）                    |
-| 测试里 `await` inject 未满足的 plugin | 会永久挂住。不要 await，直接断言 `ctx.get(...)` 为 `undefined`                                |
-| `cordis` 放 `dependencies`            | 必须 `peerDependencies`。多副本导致 Symbol 身份不同，隔离静默失效                             |
-| 维护平行事件注册表（NerveEventMap）   | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式），见 `docs/05-lessons-learned.md` §14.2 |
-| 在 `*[Service.init]()` 里 `yield` promise | 会抛 `Invalid effect`。异步启动用 fire-and-forget，见 `docs/05-lessons-learned.md` §14.1 |
+| `ctx.mixin()`                                  | 不要用。全进程 accessor 名冲突，多 Life 直接崩                                                                 |
+| `===` 比较 service                             | 按 `.name` 比较。cordis 用 Proxy 包装，identity 不可靠                                                         |
+| 依赖 `this.ctx` 解析 isolate                   | 构造时自存 `this._self = ctx`                                                                                  |
+| 直读 `session.bot.ctx` 判归属                  | 先 unwrap：`Symbol.for("cordis.original")`                                                                     |
+| `static optional = [...]`                      | **cordis v4 没有这个。** 可选依赖用 `ctx.get(name)` 或 `ctx.inject([...], cb)`                                 |
+| `session.stripped.appel`                       | **Athena 没有。** 那是 Koishi 加料。自己查 `session.elements` 里的 `at` 元素                                   |
+| `waterfall` 当 reducer 用                      | cordis v4 的 `waterfall` 是 `next()` 中间件链；调用方要给链尾 `inner`                                          |
+| `ctx.someService`（未 inject）                 | 会抛错。用 `ctx.get("someService")`                                                                            |
+| `this.config` 在 Service 里                    | **基类不提供。** 自己写 `constructor(ctx, public config: Config)`                                              |
+| `generateText({ maxSteps })`                   | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                                                                     |
+| tool 的 `execute` 解构参数                     | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                                                              |
+| `models.yml` 里写 `maxTokens`                  | AI SDK 的名字是 `maxOutputTokens`。写错会被 loader 丢掉并 warn，不会静默生效                                   |
+| 以为 provider 插件能配模型列表                 | 不能。Config 只有 `id` / `apiKey` / `baseURL`，其余全在 `models.yml`（D-34）                                   |
+| 期待 `ctx.ai` 帮你重试                         | 不会。`candidates()` 只给排好序的候选，failover 循环写在 Cortex 里（D-35）                                     |
+| 测试里 `await` inject 未满足的 plugin          | 会永久挂住。不要 await，直接断言 `ctx.get(...)` 为 `undefined`                                                 |
+| `cordis` 放 `dependencies`                     | 必须 `peerDependencies`。多副本导致 Symbol 身份不同，隔离静默失效                                              |
+| 维护平行事件注册表（NerveEventMap）            | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式），见 `docs/05-lessons-learned.md` §14.2             |
+| 在 `*[Service.init]()` 里 `yield` promise      | 会抛 `Invalid effect`。异步启动用 fire-and-forget，见 `docs/05-lessons-learned.md` §14.1                       |
 
 ---
 
@@ -243,15 +243,15 @@ docs/          本文档体系
 
 以下改动**必须**同步更新：
 
-| 改动                            | 更新                                                               |
-| ------------------------------- | ------------------------------------------------------------------ |
-| 新增/移除 package               | `docs/02-architecture.md` §2、`docs/06-progress-and-roadmap.md` §1 |
-| 新增 Service / capability token | `docs/02-architecture.md` §6.1、`docs/04-patterns-and-recipes.md`  |
+| 改动                            | 更新                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------ |
+| 新增/移除 package               | `docs/02-architecture.md` §2、`docs/06-progress-and-roadmap.md` §1             |
+| 新增 Service / capability token | `docs/02-architecture.md` §6.1、`docs/04-patterns-and-recipes.md`              |
 | 新增/修改 IM 事件或方法         | `protocol-im` 的 `cordis.Events` 声明 + `docs/04-patterns-and-recipes.md` §3.3 |
-| 踩到新坑并解决                  | `docs/05-lessons-learned.md`（含速查表 §13）                       |
-| 完成 roadmap 项                 | `docs/06-progress-and-roadmap.md` §4 勾选 + §1 矩阵                |
-| 修复缺陷                        | `docs/06-progress-and-roadmap.md` §3 移除                          |
-| 新的设计决策                    | `.specify/specs/` + `docs/appendix/C-decision-index.md`            |
+| 踩到新坑并解决                  | `docs/05-lessons-learned.md`（含速查表 §13）                                   |
+| 完成 roadmap 项                 | `docs/06-progress-and-roadmap.md` §4 勾选 + §1 矩阵                            |
+| 修复缺陷                        | `docs/06-progress-and-roadmap.md` §3 移除                                      |
+| 新的设计决策                    | `.specify/specs/` + `docs/appendix/C-decision-index.md`                        |
 
 ### 沟通
 

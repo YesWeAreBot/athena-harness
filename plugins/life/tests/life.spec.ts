@@ -13,16 +13,16 @@ describe("Life", () => {
   it("provides ctx.life when installed", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "A test persona", traits: {} },
+      id: "alice",
     });
     expect(ctx.life).toBeInstanceOf(Life);
-    expect(ctx.life.persona.name).toBe("Alice");
+    expect(ctx.life.id).toBe("alice");
   });
 
   it("bind stores cortex reference", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     const mockCortex = new FakeCortex(ctx, "test-cortex");
     ctx.life.bind(mockCortex);
@@ -32,7 +32,7 @@ describe("Life", () => {
   it("bind throws on second cortex", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     const cortex1 = new FakeCortex(ctx, "cortex-1");
     const cortex2 = new FakeCortex(ctx, "cortex-2");
@@ -43,7 +43,7 @@ describe("Life", () => {
   it("bind returns disposer that clears reference", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     const cortex = new FakeCortex(ctx, "test-cortex");
     const unbind = ctx.life.bind(cortex);
@@ -54,7 +54,7 @@ describe("Life", () => {
   it("disposer ignores if already rebound", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     const cortex1 = new FakeCortex(ctx, "cortex-1");
     const cortex2 = new FakeCortex(ctx, "cortex-2");

@@ -162,13 +162,13 @@ Body    ──register────►  ctx.nerve（多实例注册表，按 sid 
 
 `IMBody`（protocol-im）已经履行了全部 Nerve 职责：
 
-| Nerve 职责       | 由谁履行                                  |
-| ---------------- | ----------------------------------------- |
+| Nerve 职责       | 由谁履行                                                    |
+| ---------------- | ----------------------------------------------------------- |
 | 平台连接生命周期 | `Body.connect` / `disconnect`（基类 Service.init 自动调用） |
-| 统一操作接口     | `IMBody` 方法（`sendMessage` / `getGuild` …，未实现抛错） |
-| 事件发射         | `body.dispatch(event)` → Cordis events    |
-| 多实例管理       | `ctx.nerve` registry（`get(sid)` 寻址）   |
-| 内容模型         | `@cordisjs/element`（protocol-im 提供工厂函数） |
+| 统一操作接口     | `IMBody` 方法（`sendMessage` / `getGuild` …，未实现抛错）   |
+| 事件发射         | `body.dispatch(event)` → Cordis events                      |
+| 多实例管理       | `ctx.nerve` registry（`get(sid)` 寻址）                     |
+| 内容模型         | `@cordisjs/element`（protocol-im 提供工厂函数）             |
 
 对非 IM 场景（Minecraft、Live2D、Audio），Nerve = 继承 `Body` 基类、注册进 `ctx.nerve` 的连接实例，遵循相同模式。
 
@@ -251,15 +251,15 @@ export class Context extends satori.Context { ... }
 
 IM 是**平级的能力**，不是框架基质。Athena 自研 Nerve 协议：`protocol` 定义极薄的 Body/Session 基类（Session 信封），`protocol-im` 提供 IM 实体、IMSession 访问器与事件契约，平台 adapter（`nerve-onebot`、`sandbox`）继承 `IMBody` 注册进 `ctx.nerve`。Cortex 通过 `cordis.Events` 消费事件，通过事件上的 `body` 引用发送。
 
-| 方面              | Koishi                           | Athena                                   |
-| ----------------- | -------------------------------- | ---------------------------------------- |
-| Context 继承      | `Context extends satori.Context` | 原生 cordis `Context`；Nerve 是独立协议  |
-| IM 协议           | Satori（外部生态）               | 自研 Nerve（protocol + protocol-im）     |
-| Bot 访问          | 每个 context 上都有 `ctx.bots`   | `ctx.nerve.get(sid)` 显式寻址            |
-| 框架身份          | **是**一个 messaging 框架        | **有** messaging 能力                    |
-| 没有 messaging 时 | 无法运行                         | 正常运行（其他能力 + 自主节律）          |
-| 移除 messaging    | 不可能                           | 不装 adapter 插件即可，框架继续          |
-| 新增非 IM 能力    | 螺在 messaging 之上              | 平级的兄弟 Nerve（Minecraft、Live2D…）   |
+| 方面              | Koishi                           | Athena                                  |
+| ----------------- | -------------------------------- | --------------------------------------- |
+| Context 继承      | `Context extends satori.Context` | 原生 cordis `Context`；Nerve 是独立协议 |
+| IM 协议           | Satori（外部生态）               | 自研 Nerve（protocol + protocol-im）    |
+| Bot 访问          | 每个 context 上都有 `ctx.bots`   | `ctx.nerve.get(sid)` 显式寻址           |
+| 框架身份          | **是**一个 messaging 框架        | **有** messaging 能力                   |
+| 没有 messaging 时 | 无法运行                         | 正常运行（其他能力 + 自主节律）         |
+| 移除 messaging    | 不可能                           | 不装 adapter 插件即可，框架继续         |
+| 新增非 IM 能力    | 螺在 messaging 之上              | 平级的兄弟 Nerve（Minecraft、Live2D…）  |
 
 ### 4.3 事件作用域
 
@@ -283,12 +283,12 @@ IM 是**平级的能力**，不是框架基质。Athena 自研 Nerve 协议：`p
 
 ### 5.1 相同的砖，不同的楼
 
-|          | Koishi                  | Athena                  |
-| -------- | ----------------------- | ----------------------- |
-| 组合基质 | Cordis                  | Cordis                  |
+|          | Koishi                  | Athena                               |
+| -------- | ----------------------- | ------------------------------------ |
+| 组合基质 | Cordis                  | Cordis                               |
 | IM 协议  | Satori（外部生态）      | 自研 Nerve（protocol + protocol-im） |
-| 插件机制 | Cordis plugin lifecycle | Cordis plugin lifecycle |
-| 事件投递 | Cordis events           | Cordis events           |
+| 插件机制 | Cordis plugin lifecycle | Cordis plugin lifecycle              |
+| 事件投递 | Cordis events           | Cordis events                        |
 
 组合基质与事件投递相同；IM 协议层不同（Athena 自研 Nerve，不依赖 Satori 生态）。差异的核心在于**框架对其用户和所服务实体的假设**。
 

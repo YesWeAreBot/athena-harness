@@ -32,12 +32,12 @@ export default class CortexChat extends Cortex {
     // Skip messages from self
     if (event.userId === event.selfId) return;
 
-    const persona = this.ctx.life.persona;
+    const name = this.ctx.life.id ?? "Life";
     const content = event.content ?? "";
 
-    // v1: echo with persona name prefix
+    // v1: echo with a name prefix
     try {
-      await event.body.sendMessage(event.channelId, [Element("text", { content: `[${persona.name}] Echo: ${content}` })]);
+      await event.body.sendMessage(event.channelId, [Element("text", { content: `[${name}] Echo: ${content}` })]);
     } catch (error) {
       this.ctx.logger("cortex-chat").warn("Failed to reply:", error);
     }

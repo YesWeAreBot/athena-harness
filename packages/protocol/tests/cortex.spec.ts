@@ -14,7 +14,7 @@ describe("Cortex", () => {
   it("binds with Life on init", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     await ctx.plugin(TestCortex);
     expect(ctx.life.cortex).toBeInstanceOf(TestCortex);
@@ -23,7 +23,7 @@ describe("Cortex", () => {
   it("unbinds on dispose", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     const fork = await ctx.plugin(TestCortex);
     expect(ctx.life.cortex).toBeInstanceOf(TestCortex);
@@ -34,7 +34,7 @@ describe("Cortex", () => {
   it("second Cortex throws", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
+      id: "alice",
     });
     await ctx.plugin(TestCortex);
 
