@@ -124,7 +124,7 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 
 > ⚠️ **spec 中把 `waterfall` 描述为 reducer 是不准确的。** cordis v4 的 `waterfall` 是 **`next()` 中间件链**（koa 风格），listener 签名为 `(...args, next)`。详见 [A](./A-cordis-primer.md) §6.3。
 
-状态：❌ 契约未在 `@athena-ai/protocol` 中声明。见 [06](../06-progress-and-roadmap.md) Phase 2-B。
+状态：✅ 契约已声明于 `@athena-ai/protocol`；`plugin-content-filter` 已验证 `before-enact` 结构化否决。见 [06](../06-progress-and-roadmap.md) Phase 2-B。
 
 ### D-26 ~ D-32
 

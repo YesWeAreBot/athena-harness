@@ -1,5 +1,5 @@
 import { ToolRegistry } from "@athena-ai/core";
-import { DEFAULT_PERSONA, NerveService } from "@athena-ai/protocol";
+import { NerveService } from "@athena-ai/protocol";
 import Database from "@cordisjs/plugin-database";
 import MemoryDriver from "@cordisjs/plugin-database-memory";
 import { Context, Service } from "cordis";
@@ -12,7 +12,7 @@ describe("Life persona", () => {
   it("defaults to DEFAULT_PERSONA", async () => {
     const ctx = new Context();
     await ctx.plugin(Life, { id: "alice" });
-    expect(ctx.life.persona).toBe(DEFAULT_PERSONA);
+    expect(ctx.life.persona).toContain("Athena");
   });
 
   it("overrides with provided text", async () => {

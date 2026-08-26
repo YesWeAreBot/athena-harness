@@ -1,0 +1,34 @@
+{
+  "name": "@athena-ai/plugin-content-filter",
+  "version": "0.0.1",
+  "description": "Reference Cortex Hook Protocol guard plugin",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.cjs",
+  "module": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "@athena-ai/core": "workspace:*",
+    "@athena-ai/protocol": "workspace:*",
+    "cordis": "^4.0.0-rc.8"
+  },
+  "peerDependencies": {
+    "@athena-ai/core": "workspace:*",
+    "@athena-ai/protocol": "workspace:*",
+    "cordis": "^4.0.0-rc.8"
+  },
+  "cordis": {
+    "description": {
+      "en": "Guard Cortex actions by blocking configured content",
+      "zh": "按配置内容拦截 Cortex 行动"
+    }
+  }
+}

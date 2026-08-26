@@ -9,5 +9,6 @@ declare module "cordis" {
 }
 
 export * from "./cortex.js";
+export * from "./hooks.js";
 export * from "./nerve.js";
 export * from "./life.js";

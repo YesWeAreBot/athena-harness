@@ -2,7 +2,7 @@
 
 > 本文的进度信息基于对仓库的直接扫描（代码、package.json、测试运行结果），不依赖 `.specify/specs/` 的自述状态。
 >
-> 最后核验时间：2026-08-20。核验方式：`yarn workspaces list`、`npx vitest run`、逐包读源码。
+> 最后核验时间：2026-08-26。核验方式：`yarn workspaces list`、`npx vitest run`、逐包读源码。
 
 ---
 
@@ -29,6 +29,7 @@
 | `@athena-ai/provider-openai`      | ✅ 完成     | `createOpenAI()` → `ctx.ai.register(config.id, provider)`；`reusable`（官方 key + 内部网关可共存）；`ctx.effect` 注销                                                                                                                  | D-34                               |
 | `@athena-ai/provider-deepseek`    | ✅ 完成     | 同上，`createDeepSeek()`                                                                                                                                                                                                               | D-34                               |
 | `@athena-ai/nerve-onebot`         | ✅ 完成     | OneBot v11 完整 adapter（IMBody 实现）：事件适配、CQCode、MessageEncoder、Internal API 动态生成、WS/WS-reverse/HTTP 三模式、自动连接生命周期                                                                                           | 2026-08-25 Nerve Protocol & OneBot |
+| `@athena-ai/plugin-content-filter` | ✅ 完成    | Hook Protocol 参考插件：`before-enact` 按配置内容结构化否决行动                                                                                                        | D-23                               |
 | `@athena-ai/plugin-message-store` | ❌ 占位     | `src/index.ts` 只有 `export {}` + 说明注释（占位以免 tsc 报 "No inputs were found"）；Phase 3 消息持久化用                                                                                                                             | —                                  |
 
 ### 1.3 providers/
@@ -61,7 +62,6 @@
 | 项                                                                    | 说明                                                                  | 对应 spec |
 | --------------------------------------------------------------------- | --------------------------------------------------------------------- | --------- |
 | `ctx.tools` Tool Registry                                             | 无对应 package                                                        | D-16      |
-| Hook Protocol 契约                                                    | `protocol` 中无 `Events` 声明                                         | D-23      |
 | AI SDK 集成到 Cortex                                                  | cortex-chat 中无 `generateText` / `streamText`（`ctx.ai` 本身已可用） | D-09      |
 | Memory 持久化                                                         | 仅 `MemoryStub`                                                       | FR-008    |
 | Persona 文件加载                                                      | `_resolvePersona` 对 string 输入直接抛错                              | D-17      |
@@ -73,7 +73,7 @@
 
 ### 1.6 测试现状
 
-`npx vitest run` 结果：**18 个测试文件全部通过（143 个测试）**。
+`npx vitest run` 结果：**25 个测试文件全部通过（202 个测试）**。下表列出主要测试文件，未全部展开。
 
 | 测试文件                                           | 状态                                                                 |
 | -------------------------------------------------- | -------------------------------------------------------------------- |
@@ -82,6 +82,7 @@
 | `packages/ai/tests/group.spec.ts`                  | ✅ 16 个用例（断路器、candidates 三路径、三种策略、降级行为）        |
 | `packages/ai/tests/integration.spec.ts`            | ✅ 7 个用例（真实 provider 插件 + models.yml 端到端，无网络）        |
 | `packages/protocol-im/tests/types.spec.ts`         | ✅ 类型契约（IMBody 默认实现、组合方法、Methods 表、事件接口）       |
+| `packages/protocol/tests/hooks.spec.ts`            | ✅ 8 个用例（Hook 契约 waterfall / bail / parallel / 未发射场景）    |
 | `plugins/life/tests/life.spec.ts`                  | ✅ 5 个用例                                                          |
 | `plugins/cortex-chat/tests/cortex-chat.spec.ts`    | ✅ 4 个用例（inject nerve/life 激活、Cortex 绑定）                   |
 | `plugins/nerve-onebot/tests/adapter.spec.ts`       | ✅ 9 个用例（事件适配：message/notice/request 全分支）               |
@@ -92,6 +93,7 @@
 | `plugins/sandbox-nerve/tests/nerve.spec.ts`        | ✅ 6 个用例（Hub 注册、dispatch、delete 隧道、释放）                 |
 | `plugins/provider-openai/tests/provider.spec.ts`   | ✅ 4 个用例（注册、注销、多实例、ID 重复失败）                       |
 | `plugins/provider-deepseek/tests/provider.spec.ts` | ✅ 2 个用例                                                          |
+| `plugins/content-filter/tests/content-filter.spec.ts` | ✅ 4 个用例（before-enact 否决 / 放行 / dispose / 静默）          |
 
 `yarn test`（经 yakumo-vitest）存在 workspace 作用域问题，验证改动请用 `npx vitest run`（AGENTS.md 已登记）。
 
@@ -225,10 +227,10 @@
 
 **验收标准**：
 
-- [ ] 五个 hook 在 `protocol` 中有类型声明
-- [ ] 参考插件能通过 `before-enact` 否决一次发送，且有测试
-- [ ] `after-integrate` 能向上下文注入内容，且有测试
-- [ ] Cortex 不发射某 hook 时，监听该 hook 的插件不报错
+- [x] 五个 hook 在 `protocol` 中有类型声明
+- [x] 参考插件能通过 `before-enact` 否决一次发送，且有测试
+- [x] `after-integrate` 能向上下文注入内容，且有测试
+- [x] Cortex 不发射某 hook 时，监听该 hook 的插件不报错
 
 #### Phase 2-C · cortex-chat LLM 集成
 

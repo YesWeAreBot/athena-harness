@@ -95,7 +95,7 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 | 包                                | 路径                        | 提供的 Service | 角色                                                                                                                        |
 | --------------------------------- | --------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `@athena-ai/core`                 | `packages/core`             | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                                |
-| `@athena-ai/protocol`             | `packages/protocol`         | `nerve`        | Nerve 核心：Body 基类、Session 信封、NerveService；既有 Persona / LifeService / MemoryProvider / Sandbox 契约与 Cortex 基类 |
+| `@athena-ai/protocol`             | `packages/protocol`         | `nerve`        | Nerve 核心：Body 基类、Session 信封、NerveService、Cortex 基类、Hook Protocol 契约                                        |
 | `@athena-ai/protocol-im`          | `packages/protocol-im`      | —              | IM 协议层：实体类型、Methods 表、IMBody 默认实现、事件契约、MessageEncoder、WsClient                                        |
 | `@athena-ai/ai`                   | `packages/ai`               | `ai`           | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                            |
 | `@athena-ai/plugin-life`          | `plugins/life`              | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                                 |
@@ -105,6 +105,7 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 | `@athena-ai/provider-openai`      | `plugins/provider-openai`   | —              | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                         |
 | `@athena-ai/provider-deepseek`    | `plugins/provider-deepseek` | —              | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                       |
 | `@athena-ai/nerve-onebot`         | `plugins/nerve-onebot`      | —              | OneBot v11 Nerve adapter（IMBody 实现）：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket        |
+| `@athena-ai/plugin-content-filter` | `plugins/content-filter`   | —              | Hook Protocol 参考插件：监听 `cortex/before-enact`，按配置内容结构化否决行动                                                  |
 | `@athena-ai/plugin-message-store` | `plugins/message-store`     | —              | 占位，未开始（Phase 3 消息持久化）                                                                                          |
 
 ### 2.2 依赖方向

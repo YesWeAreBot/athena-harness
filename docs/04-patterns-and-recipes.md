@@ -685,24 +685,47 @@ export default class CortexInterlude extends Cortex {
 | 「不做」是否合法 | ✅ 意愿不足则沉默           | ✅ `wait` 是正常动作         | ✅ 叙事轮可无对外输出    |
 | 清理重点         | 定时器 map                  | 循环开关 + mailbox           | 单个定时器 + buffer      |
 
-### 2.6 发射 Hook 事件【规划中】
+### 2.6 发射 Hook 事件
 
-Hook 契约尚未在 `@athena-ai/protocol` 中声明。目标形态：
+Hook Protocol 已声明在 `@athena-ai/protocol`，类型从 `packages/protocol/src/hooks.ts` 导出。当前为 Reactive 形态定义了具体载荷：
 
 ```typescript
-// 在 protocol 中声明
 declare module "cordis" {
   interface Events {
-    // waterfall 是 next() 中间件链：listener 最后一个参数是 next
     "cortex/before-drain"(events: PerceptionEvent[], next: () => PerceptionEvent[]): PerceptionEvent[];
     "cortex/after-integrate"(context: CortexContext, next: () => CortexContext): CortexContext;
     "cortex/before-cognition"(params: CognitionParams, next: () => CognitionParams): CognitionParams;
-    // bail：返回真值即短路
-    "cortex/before-enact"(actions: CortexAction[]): boolean | void;
-    // parallel：纯副作用
+    "cortex/before-enact"(action: CortexAction): CortexEnactVerdict | void;
     "cortex/after-enact"(results: EnactResult[]): void;
   }
 }
+```
+
+`CortexAction` 提供 `text` / `data` 字段给 guard 插件做内容检查；`CortexEnactVerdict` 是结构化否决结果。发射这些事件是可选的，Cortex 可以选择全部、部分或不发。
+
+```typescript
+// waterfall：Cortex 负责传入链尾 inner，listener 负责原地修改或短路
+const drained = this.ctx.waterfall("cortex/before-drain", events, (events) => events);
+const assembled = this.ctx.waterfall("cortex/after-integrate", context, (context) => context);
+const prepared = this.ctx.waterfall("cortex/before-cognition", params, (params) => params);
+
+// bail：结构化否决一次行动
+const verdict = this.ctx.bail("cortex/before-enact", action);
+if (verdict?.vetoed) return;
+
+// parallel：行动后副作用
+await this.ctx.parallel("cortex/after-enact", results);
+```
+
+参考插件 `@athena-ai/plugin-content-filter` 监听 `cortex/before-enact`，匹配到配置内容时返回 `CortexEnactVerdict`：
+
+```typescript
+ctx.on("cortex/before-enact", (action) => {
+  const text = action.text ?? action.data?.content;
+  if (!text) return;
+  if (!config.blocked.some((term) => text.toLowerCase().includes(term.toLowerCase()))) return;
+  return { vetoed: true, reason: `content-filter blocked "${action.type}" (${action.id})` };
+});
 ```
 
 ### waterfall 在 cordis v4 中是中间件链，不是 reduce
@@ -755,8 +778,8 @@ ctx.on("cortex/before-drain", (events, next) => {
 
 ```typescript
 // bail：任一 listener 返回「非 null / 非 false / 非 undefined」即短路
-const vetoed = this.ctx.bail("cortex/before-enact", actions);
-if (vetoed) return;
+const verdict = this.ctx.bail("cortex/before-enact", action);
+if (verdict?.vetoed) return;
 
 // parallel：并发触发副作用；任一 reject 会汇总成 AggregateError 抛出
 await this.ctx.parallel("cortex/after-enact", results);

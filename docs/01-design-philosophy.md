@@ -419,7 +419,7 @@ Hook protocol 是**推荐而非强制**：框架定义推荐的 hook 名与签�
 
 `waterfall` 在 cordis v4 中是 **`next()` 中间件链**（koa 风格），不是 reduce：listener 签名为 `(...args, next)`，必须调用 `next()` 才会继续下游；`ctx.waterfall(name, ...args, inner)` 的最后一个参数是链尾的 `inner` 回调。这让社区插件能在指定点变换数据或短路，而无需理解或修改 Cortex 的内部循环 —— Cortex 的结构完整性得以保全。
 
-**状态**：hook 契约尚未在 `@athena-ai/protocol` 中声明，是 Phase 2 的工作项。
+**状态**：五个 hook 已作为 typed `cordis.Events` 契约声明在 `@athena-ai/protocol`，并已有 `plugin-content-filter` 作为 `before-enact` 参考插件。Cortex 实际发射这些 hook 属于 Phase 2-C 的集成工作。
 
 ---
 

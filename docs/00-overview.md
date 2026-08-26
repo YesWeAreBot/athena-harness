@@ -77,6 +77,7 @@ athena-harness/
 │   ├── provider-deepseek/      @athena-ai/plugin-provider-deepseek — 注册 AI SDK DeepSeek provider
 │   ├── provider-anthropic/     @athena-ai/plugin-provider-anthropic — 注册 AI SDK Anthropic provider
 │   ├── provider-google/        @athena-ai/plugin-provider-google — 注册 AI SDK Google provider
+│   ├── content-filter/         @athena-ai/plugin-content-filter — Hook Protocol 参考守卫插件
 │   └── message-store/          @athena-ai/plugin-message-store（占位，未开始）
 │
 ├── docs/                       ← 本文档体系

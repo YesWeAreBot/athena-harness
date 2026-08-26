@@ -127,6 +127,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@athena-ai/plugin-content-filter@workspace:plugins/content-filter":
+  version: 0.0.0-use.local
+  resolution: "@athena-ai/plugin-content-filter@workspace:plugins/content-filter"
+  dependencies:
+    "@athena-ai/core": "workspace:*"
+    "@athena-ai/protocol": "workspace:*"
+    cordis: "npm:^4.0.0-rc.8"
+  peerDependencies:
+    "@athena-ai/core": "workspace:*"
+    "@athena-ai/protocol": "workspace:*"
+    cordis: ^4.0.0-rc.8
+  languageName: unknown
+  linkType: soft
+
 "@athena-ai/plugin-cortex-chat@workspace:plugins/cortex-chat":
   version: 0.0.0-use.local
   resolution: "@athena-ai/plugin-cortex-chat@workspace:plugins/cortex-chat"

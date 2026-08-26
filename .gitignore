@@ -177,5 +177,6 @@ yarn-error.log
 !.claude/skills/
 data/
 lib/
+cortex-state/
 
 tsconfig.temp.json
