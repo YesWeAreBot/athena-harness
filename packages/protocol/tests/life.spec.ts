@@ -1,7 +1,7 @@
 import { Context, Service } from "cordis";
 import { describe, it, expect } from "vitest";
 
-import { Life } from "../src/life";
+import { LifeService } from "../src/life.ts";
 
 class FakeCortex extends Service {
   constructor(ctx: Context, name: string) {
@@ -12,16 +12,16 @@ class FakeCortex extends Service {
 describe("Life", () => {
   it("provides ctx.life when installed", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
+    await ctx.plugin(LifeService, {
       id: "alice",
     });
-    expect(ctx.life).toBeInstanceOf(Life);
+    expect(ctx.life).toBeInstanceOf(LifeService);
     expect(ctx.life.id).toBe("alice");
   });
 
   it("bind stores cortex reference", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
+    await ctx.plugin(LifeService, {
       id: "alice",
     });
     const mockCortex = new FakeCortex(ctx, "test-cortex");
@@ -31,7 +31,7 @@ describe("Life", () => {
 
   it("bind throws on second cortex", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
+    await ctx.plugin(LifeService, {
       id: "alice",
     });
     const cortex1 = new FakeCortex(ctx, "cortex-1");
@@ -42,7 +42,7 @@ describe("Life", () => {
 
   it("bind returns disposer that clears reference", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
+    await ctx.plugin(LifeService, {
       id: "alice",
     });
     const cortex = new FakeCortex(ctx, "test-cortex");
@@ -53,7 +53,7 @@ describe("Life", () => {
 
   it("disposer ignores if already rebound", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
+    await ctx.plugin(LifeService, {
       id: "alice",
     });
     const cortex1 = new FakeCortex(ctx, "cortex-1");

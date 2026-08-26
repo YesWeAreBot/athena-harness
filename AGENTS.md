@@ -14,16 +14,16 @@ When unsure about Cordis behavior, read `node_modules/cordis` source — do not 
 
 ## Tech Stack
 
-| Layer | Choice |
-| ----- | ------ |
-| Composition | Cordis v4 (`^4.0.0-rc.8`) — DI, fiber lifecycle, events, isolate |
-| IM protocol | Self-built Nerve: `@athena-ai/protocol` + `@athena-ai/protocol-im` |
-| LLM | AI SDK v7 (`ai@^7`), providers registered via `provider-*` plugins |
-| Config | schemastery (`Schema`) |
-| Build | yakumo (tsc declarations → esbuild JS → client) |
-| Quality | oxlint (+ anti-slop rules) + oxfmt |
-| Tests | Vitest |
-| Package manager | Yarn 4 workspaces (Node ≥ 22; CI uses Node 24) |
+| Layer           | Choice                                                             |
+| --------------- | ------------------------------------------------------------------ |
+| Composition     | Cordis v4 (`^4.0.0-rc.8`) — DI, fiber lifecycle, events, isolate   |
+| IM protocol     | Self-built Nerve: `@athena-ai/protocol` + `@athena-ai/protocol-im` |
+| LLM             | AI SDK v7 (`ai@^7`), providers registered via `provider-*` plugins |
+| Config          | schemastery (`Schema`)                                             |
+| Build           | yakumo (tsc declarations → esbuild JS → client)                    |
+| Quality         | oxlint (+ anti-slop rules) + oxfmt                                 |
+| Tests           | Vitest                                                             |
+| Package manager | Yarn 4 workspaces (Node ≥ 22; CI uses Node 24)                     |
 
 ## Architecture — one screen
 
@@ -56,13 +56,13 @@ yarn test             # ← run ALL tests
 
 ## Documentation Map
 
-| Task | Read first |
-| ---- | ---------- |
-| Understand the project | `docs/00-overview.md` |
-| Architecture, isolation, event flow | `docs/02-architecture.md` |
-| **Write any code (mandatory)** | `docs/03-code-conventions.md` |
-| New Service / Cortex / Nerve / Adapter / AI usage | `docs/04-patterns-and-recipes.md` |
-| Avoid known traps (before changes) | `docs/05-lessons-learned.md` (§13 quick table, §14 Nerve migration) |
-| Progress, known defects, roadmap | `docs/06-progress-and-roadmap.md` |
+| Task                                              | Read first                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| Understand the project                            | `docs/00-overview.md`                                               |
+| Architecture, isolation, event flow               | `docs/02-architecture.md`                                           |
+| **Write any code (mandatory)**                    | `docs/03-code-conventions.md`                                       |
+| New Service / Cortex / Nerve / Adapter / AI usage | `docs/04-patterns-and-recipes.md`                                   |
+| Avoid known traps (before changes)                | `docs/05-lessons-learned.md` (§13 quick table, §14 Nerve migration) |
+| Progress, known defects, roadmap                  | `docs/06-progress-and-roadmap.md`                                   |
 
 **Doc sync duty** (when adding packages / Services / IM events / pitfalls / decisions): `docs/03-code-conventions.md` §11.3.

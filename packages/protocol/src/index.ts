@@ -1,14 +1,13 @@
-import type { SandboxHubService } from "./sandbox.js";
-import type { LifeService } from "./types.js";
+import { CortexService } from "./cortex.js";
+import type { LifeService } from "./life.js";
 
 declare module "cordis" {
   interface Context {
     life: LifeService;
-    sandbox: SandboxHubService;
+    cortex: CortexService;
   }
 }
 
 export * from "./cortex.js";
 export * from "./nerve.js";
-export * from "./sandbox.js";
-export * from "./types.js";
+export * from "./life.js";

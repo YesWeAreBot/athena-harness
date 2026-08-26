@@ -2,6 +2,7 @@ import type { EmbeddingModelV4, ImageModelV4, LanguageModelV4, RerankingModelV4,
 import type { defaultSettingsMiddleware } from "ai";
 
 export type YamlValue = string | number | boolean | null | YamlValue[] | YamlMapping;
+
 export interface YamlMapping {
   [key: string]: YamlValue;
 }
@@ -158,18 +159,6 @@ export interface Candidate {
   success(): void;
   /** Report that this candidate failed, so the breaker can open. */
   failure(): void;
-}
-
-/** A named group of language models plus its circuit breaker state. */
-export interface ModelGroup {
-  readonly name: string;
-  readonly strategy: GroupStrategy;
-  /** Candidates ordered by strategy, with open-breaker models filtered out. */
-  candidates(): Candidate[];
-  /** Breaker state per model id. */
-  status(): Map<string, CircuitBreakerStatus>;
-  /** Manually close a model's breaker. */
-  reset(id: string): void;
 }
 
 /** A declared model, as returned by `ctx.ai.list()`. */

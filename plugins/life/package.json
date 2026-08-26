@@ -13,10 +13,9 @@
     },
     "./package.json": "./package.json"
   },
-  "dependencies": {
-    "@athena-ai/protocol": "workspace:*"
-  },
   "peerDependencies": {
+    "@athena-ai/core": "workspace:*",
+    "@athena-ai/protocol": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
   "cordis": {

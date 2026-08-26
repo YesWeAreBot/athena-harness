@@ -1,44 +1,56 @@
-import { Schema } from "@athena-ai/core";
-import { Cortex } from "@athena-ai/protocol";
+import { Schema, generateText } from "@athena-ai/core";
+import { CortexService } from "@athena-ai/protocol";
 import { h, type IMMessageEvent } from "@athena-ai/protocol-im";
-import { Context } from "cordis";
+import { Context, Logger } from "cordis";
 
-declare module "cordis" {
-  interface Context {
-    cortex: CortexChat;
-  }
-}
+class CortexChat extends CortexService {
+  public static readonly name = "cortex-chat";
+  public static readonly inject = ["life", "nerve", "ai"];
 
-export interface Config {}
+  public readonly config: CortexChat.Config;
+  public readonly logger: Logger;
 
-export default class CortexChat extends Cortex {
-  static name = "cortex-chat";
-
-  static inject = ["life", "nerve"];
-
-  static Config: Schema<Config> = Schema.object({});
-
-  constructor(ctx: Context) {
+  constructor(ctx: Context, config: CortexChat.Config) {
     super(ctx, "cortex");
 
-    // Subscribe to incoming messages from any Nerve body
+    this.config = config;
+    this.logger = ctx.logger("cortex-chat");
+
     ctx.on("message-created", (event: IMMessageEvent) => {
       this.onMessage(event);
     });
   }
 
   private async onMessage(event: IMMessageEvent) {
-    // Skip messages from self
     if (event.userId === event.selfId) return;
+    if (event.userId !== "1293865264") return;
 
-    const name = this.ctx.life.id ?? "Life";
-    const content = event.content ?? "";
+    const name = this.ctx.life.id;
+    const content = event.content;
 
-    // v1: echo with a name prefix
     try {
-      await event.body.sendMessage(event.channelId, [h.Element("text", { content: `[${name}] Echo: ${content}` })]);
+      const model = this.ctx.ai.language("deepseek:deepseek-v4-flash");
+      const result = await generateText({
+        model,
+        instructions: `You are a helpful assistant named ${name}.`,
+        messages: [
+          {
+            role: "user",
+            content: content,
+          },
+        ],
+      });
+
+      await event.body.sendMessage(event.channelId, result.text);
     } catch (error) {
-      this.ctx.logger("cortex-chat").warn("Failed to reply:", error);
+      this.logger.warn("Failed to reply:", error);
     }
   }
 }
+
+namespace CortexChat {
+  export interface Config {}
+  export const Config: Schema<Config> = Schema.object({});
+}
+
+export default CortexChat;

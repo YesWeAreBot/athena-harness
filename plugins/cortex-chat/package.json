@@ -15,14 +15,14 @@
   },
   "devDependencies": {
     "@athena-ai/core": "workspace:*",
+    "@athena-ai/protocol": "workspace:*",
+    "@athena-ai/protocol-im": "workspace:*",
     "cordis": "^4.0.0-rc.8"
   },
   "peerDependencies": {
     "@athena-ai/core": "workspace:*",
-    "@athena-ai/plugin-life": "workspace:*",
     "@athena-ai/protocol": "workspace:*",
     "@athena-ai/protocol-im": "workspace:*",
-    "@cordisjs/element": "^0.3.0",
     "cordis": "^4.0.0-rc.8"
   },
   "cordis": {

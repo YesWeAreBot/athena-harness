@@ -1,14 +1,13 @@
-import { NerveService } from "@athena-ai/protocol";
+import { LifeService, NerveService } from "@athena-ai/protocol";
 import { Context } from "cordis";
 import { describe, it, expect } from "vitest";
 
-import { Life } from "../../life/src/life.js";
 import CortexChat from "../src/index.js";
 
 describe("CortexChat", () => {
   it("activates when both life and nerve are available", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
+    await ctx.plugin(LifeService, {
       id: "alice",
     });
     await ctx.plugin(NerveService);
@@ -18,7 +17,7 @@ describe("CortexChat", () => {
 
   it("does not activate without nerve service", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
+    await ctx.plugin(LifeService, {
       id: "alice",
     });
     // Don't await — fiber stays PENDING because 'nerve' inject is unmet
@@ -36,7 +35,7 @@ describe("CortexChat", () => {
 
   it("binds as the active cortex in Life", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
+    await ctx.plugin(LifeService, {
       id: "alice",
     });
     await ctx.plugin(NerveService);

@@ -14,6 +14,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "@athena-ai/ai": "workspace:^",
     "@athena-ai/protocol": "workspace:^",
     "cordis": "^4.0.0-rc.8",
     "cosmokit": "^1.8.1",

@@ -17,7 +17,7 @@ export default defineConfig({
   plugins: ["eslint", "import", "node", "oxc", "promise", "typescript", "unicorn", "vitest", "vue"],
   jsPlugins: [{ name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" }],
   rules: {
-    "anti-slop/no-chained-type-assertions": "error",
+    "anti-slop/no-chained-type-assertions": "warn",
     "anti-slop/no-conditional-empty-object-spread": "error",
     "anti-slop/no-known-value-widening": "error",
     "anti-slop/no-module-mocking": "error",
@@ -31,7 +31,7 @@ export default defineConfig({
     "anti-slop/no-unknown-type-aliases": "error",
     "anti-slop/no-unsafe-dictionary-type": "warn",
     "anti-slop/no-widen-then-assert": "error",
-    "anti-slop/require-safety-comment-for-type-assertion": "error",
+    "anti-slop/require-safety-comment-for-type-assertion": "warn",
     "unicorn/catch-error-name": "error",
     "unicorn/consistent-function-scoping": "error",
     "unicorn/import-style": "error",

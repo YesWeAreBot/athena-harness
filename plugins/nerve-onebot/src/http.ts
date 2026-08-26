@@ -5,7 +5,7 @@ import type { Context } from "cordis";
 
 import type { OneBotBody } from "./bot/index.js";
 import type { Payload, Response } from "./types.js";
-import { dispatchEvent } from "./utils.js";
+import { dispatchSession } from "./utils.js";
 
 /**
  * HTTP-based OneBot connection.
@@ -18,7 +18,9 @@ export class OneBotHttpServer {
   ) {}
 
   async connect(): Promise<void> {
-    const { endpoint, token, secret, path = "/onebot" } = this.body.config;
+    // SAFETY: http connect() is only called when protocol === "http", guaranteeing HttpOptions shape.
+    const config = this.body.config as OneBotBody.BaseConfig & OneBotBody.HttpOptions;
+    const { endpoint, token, secret, path = "/onebot" } = config;
 
     // Set up outgoing API requests
     if (endpoint) {
@@ -62,8 +64,8 @@ export class OneBotHttpServer {
       }
 
       this.ctx.logger("onebot").debug("[receive] %o", req.body);
-      // SAFETY: the webhook body is a OneBot event payload; malformed payloads are ignored by dispatchEvent.
-      void dispatchEvent(this.body, req.body as Payload).catch((error) => {
+      // SAFETY: the webhook body is a OneBot event payload; malformed payloads are ignored by dispatchSession.
+      void dispatchSession(this.body, req.body as Payload).catch((error) => {
         this.ctx.logger("onebot").warn("failed to dispatch event:", error);
       });
       req.status = 204;

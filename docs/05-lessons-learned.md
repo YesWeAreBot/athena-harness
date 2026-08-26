@@ -869,7 +869,7 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 | 维护平行的 `NerveEventMap` + `cordis.Events` | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式）                                | §14.2                                         |
 | Body 子类各自手写注册到 nerve                | Body 基类提供默认 `*[Service.init]()`；子类 `yield* super[Service.init]()`                 | §14.4                                         |
 | adapter 请求/响应桥用模块级全局 listeners    | 放 Internal/body 实例上（`Map<echo, {resolve, timer}>`）                                   | §14.5                                         |
-| 手搓事件字段（isDirect/guildId）             | 填**嵌套数据对象**，`session()` 访问器自动推导（satori 模式）                            | §14.6                                         |
+| 手搓事件字段（isDirect/guildId）             | 填**嵌套数据对象**，`session()` 访问器自动推导（satori 模式）                              | §14.6                                         |
 
 ---
 

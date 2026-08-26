@@ -25,7 +25,7 @@ export class OneBotBody extends IMBody<OneBotBody.Config> {
   constructor(ctx: Context, config: OneBotBody.Config) {
     super(ctx, config);
     this.selfId = config.selfId;
-    this.internal = new Internal(config.selfId);
+    this.internal = new Internal(this);
     this.user = {
       id: config.selfId,
       avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${config.selfId}&spec=640`,
@@ -36,10 +36,11 @@ export class OneBotBody extends IMBody<OneBotBody.Config> {
     this.status = "connecting";
     try {
       if (this.config.protocol === "ws") {
+        const config = this.config as OneBotBody.BaseConfig & OneBotBody.WsClientOptions;
         this._wsClient = new OneBotWsClient(this.ctx, this, {
-          retryTimes: this.config.retryTimes,
-          retryInterval: this.config.retryInterval,
-          retryLazy: this.config.retryLazy,
+          retryTimes: config.retryTimes,
+          retryInterval: config.retryInterval,
+          retryLazy: config.retryLazy,
         });
         this._wsClient.start();
       } else if (this.config.protocol === "ws-reverse") {
@@ -250,43 +251,85 @@ export class OneBotBody extends IMBody<OneBotBody.Config> {
 }
 
 export namespace OneBotBody {
-  export interface Config {
-    protocol: "ws" | "ws-reverse" | "http";
+  export interface BaseConfig {
     selfId: string;
-    endpoint?: string;
     token?: string;
-    secret?: string;
+    protocol: "ws" | "ws-reverse" | "http";
+  }
+
+  export interface HttpOptions {
+    protocol: "http";
+    endpoint?: string;
     path?: string;
-    responseTimeout: number;
+    secret?: string;
+    responseTimeout?: number;
+  }
+
+  export interface WsClientOptions {
+    protocol: "ws";
+    endpoint?: string;
+    responseTimeout?: number;
     retryTimes: number;
     retryInterval: number;
     retryLazy: number;
-    advanced?: AdvancedConfig;
+  }
+
+  export interface WsServerOptions {
+    protocol: "ws-reverse";
+    path?: string;
+    responseTimeout: number;
   }
 
   export interface AdvancedConfig {
     splitMixedContent?: boolean;
   }
 
+  export type Config = BaseConfig & (HttpOptions | WsClientOptions | WsServerOptions) & { advanced?: AdvancedConfig };
+
+  export const BaseConfig: Schema<BaseConfig> = Schema.object({
+    selfId: Schema.string().required().description("机器人的账号。"),
+    token: Schema.string().role("secret").description("发送信息时用于验证的字段，应与 OneBot 配置文件中的 `access_token` 保持一致。"),
+    protocol: Schema.union(["ws", "ws-reverse", "http"]).default("ws-reverse").description("选择要使用的协议。"),
+  });
+
+  export const HttpOptions: Schema<HttpOptions> = Schema.intersect([
+    Schema.object({
+      protocol: Schema.const("http").required(),
+      endpoint: Schema.string().description("OneBot HTTP 端点 URL。"),
+      path: Schema.string().description("服务器监听的路径。").default("/onebot"),
+      secret: Schema.string().role("secret").description("接收事件推送时用于验证的字段，应该与 OneBot 的 secret 配置保持一致。"),
+      responseTimeout: Schema.natural().default(15000).description("等待响应的时间 (单位为毫秒)。"),
+    }).description("连接设置"),
+  ]);
+
+  export const WsClientOptions: Schema<WsClientOptions> = Schema.intersect([
+    Schema.object({
+      protocol: Schema.const("ws").required(),
+      endpoint: Schema.string().description("WebSocket 端点 URL。"),
+      responseTimeout: Schema.natural().default(15000).description("等待响应的时间 (单位为毫秒)。"),
+    }).description("连接设置"),
+    Schema.object({
+      retryTimes: Schema.natural().default(6).description("初始连接时的最大重试次数。"),
+      retryInterval: Schema.natural().default(5000).description("初始连接时的重试间隔 (单位为毫秒)。"),
+      retryLazy: Schema.natural().default(60000).description("连接断开后的重试间隔 (单位为毫秒)。"),
+    }).description("重连设置"),
+  ]);
+
+  export const WsServerOptions: Schema<WsServerOptions> = Schema.object({
+    protocol: Schema.const("ws-reverse").required(),
+    path: Schema.string().description("服务器监听的路径。").default("/onebot"),
+    responseTimeout: Schema.natural().default(15000).description("等待响应的时间 (单位为毫秒)。"),
+  }).description("连接设置");
+
+  export const AdvancedConfig: Schema<AdvancedConfig> = Schema.object({
+    splitMixedContent: Schema.boolean().description("是否自动在混合内容间插入空格。").default(true),
+  }).description("高级设置");
+
   export const Config: Schema<Config> = Schema.intersect([
+    BaseConfig,
+    Schema.union([HttpOptions, WsClientOptions, WsServerOptions]),
     Schema.object({
-      protocol: Schema.union(["ws", "ws-reverse", "http"]).default("ws").description("Connection protocol."),
-      selfId: Schema.string().required().description("Bot QQ number."),
-      endpoint: Schema.string().description("WebSocket or HTTP endpoint URL."),
-      token: Schema.string().role("secret").description("Access token for authentication."),
-      secret: Schema.string().role("secret").description("Secret for HTTP webhook signature verification."),
-      path: Schema.string().description("Path for ws-reverse or http webhook.").default("/onebot"),
-      responseTimeout: Schema.natural().default(15000).description("Timeout for API responses (ms)."),
-    }).description("Basic Settings"),
-    Schema.object({
-      retryTimes: Schema.natural().default(6).description("Max retry attempts on initial connection."),
-      retryInterval: Schema.natural().default(5000).description("Retry interval on initial connection (ms)."),
-      retryLazy: Schema.natural().default(60000).description("Retry interval after connection drops (ms)."),
-    }).description("Reconnection Settings"),
-    Schema.object({
-      advanced: Schema.object({
-        splitMixedContent: Schema.boolean().default(true).description("Auto-insert spaces around images in mixed content."),
-      }).description("Advanced Settings"),
+      advanced: AdvancedConfig,
     }),
   ]);
 }

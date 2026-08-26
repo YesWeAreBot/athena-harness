@@ -1,6 +1,6 @@
 import { Context, Service } from "cordis";
 
-export abstract class Cortex extends Service {
+export abstract class CortexService extends Service {
   static inject = ["life"];
 
   constructor(ctx: Context, name: string) {

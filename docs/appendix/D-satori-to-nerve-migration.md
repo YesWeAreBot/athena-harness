@@ -65,7 +65,7 @@ vendor Satori v5 + capability-message（旧世界）
 | 协议包       | `@satorijs/core` + `@satorijs/protocol`（vendored）   | `@athena-ai/protocol` + `@athena-ai/protocol-im`                                       |
 | 连接实例     | `Bot`（继承 Satori Bot 基类）                         | `Body`（抽象基类）/ `IMBody`（IM 默认实现）                                            |
 | 注册表       | `ctx.satori.bots`（`Satori` service）                 | `ctx.nerve`（`NerveService`，`get(sid)` 寻址）                                         |
-| 事件信封     | `Session`（含 `.type` / `.content` / `.bot` 访问器）  | `Session`（信封，IM 访问器由 `defineAccessor` 挂原型）+ 具体接口收窄                 |
+| 事件信封     | `Session`（含 `.type` / `.content` / `.bot` 访问器）  | `Session`（信封，IM 访问器由 `defineAccessor` 挂原型）+ 具体接口收窄                   |
 | 事件发射     | `bot.dispatch(session)` → `internal/session` → 归一化 | `body.dispatch(session)` → `internal/session` → 归一化 → `emit(session.type, session)` |
 | 事件类型     | `message` / `message-updated` / ...                   | `message-created` / `message-updated` / ...                                            |
 | 事件声明     | `NerveEventMap`（我们加的，已删）                     | **只在 `cordis.Events` 声明一份**                                                      |
@@ -81,7 +81,7 @@ vendor Satori v5 + capability-message（旧世界）
 | 旧写法（Satori）                          | 新写法（Nerve）                                                                   |
 | ----------------------------------------- | --------------------------------------------------------------------------------- |
 | `ctx.satori.bots[sid]`                    | `ctx.nerve.get(sid)`                                                              |
-| `bot.session(partial)`                    | `body.session(partial)`（同签名，`Session` 信封）                                  |
+| `bot.session(partial)`                    | `body.session(partial)`（同签名，`Session` 信封）                                 |
 | `session.type = "message"`                | `session.type = "message-created"`                                                |
 | `session.content`                         | `session.content`（访问器，从 `message.content` 推导）                            |
 | `session.channelId!`                      | `session.channelId`（访问器，从 `channel.id` 推导）                               |
@@ -155,14 +155,14 @@ vendor Satori v5 + capability-message（旧世界）
 
 ### 5.1 已知缺口（未解决）
 
-| #   | 问题                                                                             | 影响面             | 备注                                                                    |
-| --- | -------------------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------- |
-| 1   | **`yarn test` 不跑项目测试**（yakumo-vitest workspace 作用域缺陷）               | 全仓库             | 已登记 P1；验证用 `npx vitest run`                                      |
-| 2   | **`message-store` 是空占位**                                                     | Phase 3 消息持久化 | `src/index.ts` 只有 `export {}`                                         |
+| #   | 问题                                                                             | 影响面             | 备注                                                                     |
+| --- | -------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------ |
+| 1   | **`yarn test` 不跑项目测试**（yakumo-vitest workspace 作用域缺陷）               | 全仓库             | 已登记 P1；验证用 `npx vitest run`                                       |
+| 2   | **`message-store` 是空占位**                                                     | Phase 3 消息持久化 | `src/index.ts` 只有 `export {}`                                          |
 | 3   | **`sandbox-nerve` 的 `_createEvent` 返回 `Partial<IMEvent> & { type: string }`** | sandbox 事件       | 字段显式填充但类型是 partial，可再收紧（`session()` 已自动推导派生字段） |
-| 4   | **`protocol-im` 的 `NerveEvent` 扩展字段用可选声明**                             | 类型安全           | `channelId` / `userId` 等可选，消费方要判空；未来可考虑具体事件接口收窄 |
-| 5   | **provider 内建 tool 不经过 `ctx.ai`**                                           | AI 集成            | `register()` 只收 `ProviderV4`；内建 tool 挂 client 自有字段            |
-| 6   | **`provider-anthropic` / `provider-google` 未迁移**                              | AI 生态            | 需时按 `provider-openai` 模板照抄（~30 行）                             |
+| 4   | **`protocol-im` 的 `NerveEvent` 扩展字段用可选声明**                             | 类型安全           | `channelId` / `userId` 等可选，消费方要判空；未来可考虑具体事件接口收窄  |
+| 5   | **provider 内建 tool 不经过 `ctx.ai`**                                           | AI 集成            | `register()` 只收 `ProviderV4`；内建 tool 挂 client 自有字段             |
+| 6   | **`provider-anthropic` / `provider-google` 未迁移**                              | AI 生态            | 需时按 `provider-openai` 模板照抄（~30 行）                              |
 
 ### 5.2 决策遗留（挂在 spec 修订上）
 

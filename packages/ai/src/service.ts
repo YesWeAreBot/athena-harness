@@ -1,19 +1,18 @@
-import type { EmbeddingModelV4Middleware, ImageModelV4Middleware, ProviderV4 } from "@ai-sdk/provider";
+import type { EmbeddingModelV4Middleware, ImageModelV4Middleware, ProviderV4, SharedV4ProviderOptions } from "@ai-sdk/provider";
 import { defaultSettingsMiddleware, wrapEmbeddingModel, wrapImageModel, wrapLanguageModel } from "ai";
 import { Context, Logger, Service } from "cordis";
 import Schema from "schemastery";
 
 import { loadModelsConfig } from "./config";
-import { ModelGroupImpl } from "./group";
+import { ModelGroup } from "./group";
 import {
   type Candidate,
   type GroupDeclaration,
   type ModelDeclaration,
   type ModelEntry,
-  type ModelGroup,
   type ModelMetadata,
-  type ModelSettings,
   type ModelsConfig,
+  type ModelSettings,
   type ModelType,
   type ModelTypeMap,
 } from "./types";
@@ -22,18 +21,6 @@ declare module "cordis" {
   interface Context {
     ai: AIService;
   }
-}
-
-export interface AIServiceConfig {
-  /**
-   * Path to `models.yml`. Relative paths resolve against the process working directory.
-   *
-   * Left unset on purpose by default: an *explicitly* configured path that does not exist is
-   * fatal, while the implicit `data/models.yml` probe is optional so a fresh install still boots
-   * with an empty model registry. Giving this a schema default would turn every install into the
-   * explicit case and make a missing file fatal everywhere.
-   */
-  configPath?: string;
 }
 
 interface ProviderEntry {
@@ -47,13 +34,6 @@ interface DeclarationEntry {
 }
 
 type MutableModelSettings = Partial<ModelSettings>;
-
-type ProviderOptionsValue = NonNullable<ModelSettings["providerOptions"]>[string];
-
-/** Provider-scoped call options, keyed by provider id. */
-interface ProviderOptionsMap {
-  [provider: string]: ProviderOptionsValue;
-}
 
 /**
  * Merge call-setting layers, lowest priority first. Later layers win; `undefined` never overwrites.
@@ -93,9 +73,9 @@ function merge(base: MutableModelSettings, overrides: ModelSettings): void {
 }
 
 /** Deep-merge provider options one level down, so two layers can contribute options to the same provider. */
-function mergeProviderOptions(base: ProviderOptionsMap | undefined, overrides: ProviderOptionsMap): ProviderOptionsMap {
+function mergeProviderOptions(base: SharedV4ProviderOptions | undefined, overrides: SharedV4ProviderOptions): SharedV4ProviderOptions {
   if (base === undefined) return overrides;
-  const result: ProviderOptionsMap = { ...base };
+  const result: SharedV4ProviderOptions = { ...base };
   for (const [provider, options] of Object.entries(overrides)) {
     const current = result[provider];
     result[provider] = current === undefined ? options : { ...current, ...options };
@@ -114,25 +94,21 @@ function mergeProviderOptions(base: ProviderOptionsMap | undefined, overrides: P
  * Global on purpose: models are stateless shared resources, so `ai` is deliberately *not* part of
  * the per-Life isolate set.
  */
-export class AIService extends Service<AIServiceConfig> {
-  public static readonly Config: Schema<AIServiceConfig> = Schema.object({
-    configPath: Schema.string(),
-  });
-
+class AIService extends Service<AIService.Config> {
   private readonly _logger: Logger;
   private readonly _models: ModelsConfig;
   private readonly _source: string;
   private readonly _providers = new Map<string, ProviderEntry>();
   private readonly _declarations = new Map<string, DeclarationEntry>();
-  private readonly _groups = new Map<string, ModelGroupImpl>();
+  private readonly _groups = new Map<string, ModelGroup>();
   /** Wrapped models, keyed by `type` + full id. Cleared whenever the provider set changes. */
   private readonly _cache = new Map<string, ModelTypeMap[ModelType]>();
 
-  constructor(
-    ctx: Context,
-    public config: AIServiceConfig,
-  ) {
+  public readonly config: AIService.Config;
+
+  constructor(ctx: Context, config: AIService.Config) {
     super(ctx, "ai");
+    this.config = config;
     this._logger = ctx.logger("ai");
 
     const { config: models, warnings, source } = loadModelsConfig(config.configPath);
@@ -270,7 +246,7 @@ export class AIService extends Service<AIServiceConfig> {
 
   // ─── Internals ────────────────────────────────────────────────────────────
 
-  private _buildGroup(name: string, declaration: GroupDeclaration): ModelGroupImpl | undefined {
+  private _buildGroup(name: string, declaration: GroupDeclaration): ModelGroup | undefined {
     const models: string[] = [];
     for (const member of declaration.models) {
       try {
@@ -283,7 +259,7 @@ export class AIService extends Service<AIServiceConfig> {
       this._logger.warn(`Group "${name}" has no resolvable members; skipped`);
       return undefined;
     }
-    return new ModelGroupImpl(name, { ...declaration, models }, (id) => this._resolveCandidate(id), this._logger);
+    return new ModelGroup(name, { ...declaration, models }, (id) => this._resolveCandidate(id), this._logger);
   }
 
   private _resolveCandidate(id: string): Pick<Candidate, "model" | "metadata"> {
@@ -321,7 +297,7 @@ export class AIService extends Service<AIServiceConfig> {
   }
 
   private _model<T extends ModelType>(type: T, fullId: string): ModelTypeMap[T] {
-    const key = `${type}\u0000${fullId}`;
+    const key = `${type}:${fullId}`;
     const cached = this._cache.get(key);
     if (cached !== undefined) {
       // SAFETY: Cache key modality guarantees the cached model matches the requested type.
@@ -423,6 +399,24 @@ export class AIService extends Service<AIServiceConfig> {
   }
 }
 
+namespace AIService {
+  export interface Config {
+    /**
+     * Path to `models.yml`. Relative paths resolve against the process working directory.
+     *
+     * Left unset on purpose by default: an *explicitly* configured path that does not exist is
+     * fatal, while the implicit `data/models.yml` probe is optional so a fresh install still boots
+     * with an empty model registry. Giving this a schema default would turn every install into the
+     * explicit case and make a missing file fatal everywhere.
+     */
+    configPath?: string;
+  }
+
+  export const Config: Schema<AIService.Config> = Schema.object({
+    configPath: Schema.string(),
+  });
+}
+
 const NOOP = () => {};
 
 function describe(values: string[]): string {
@@ -465,4 +459,4 @@ function applyTransport(
   };
 }
 
-export { AIService as default };
+export { AIService };

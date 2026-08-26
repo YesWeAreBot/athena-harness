@@ -5,7 +5,7 @@ import { Context } from "cordis";
 import { describe, expect, it } from "vitest";
 
 import { OneBotBody } from "../src/bot/index.js";
-import { dispatchEvent } from "../src/utils.js";
+import { dispatchSession } from "../src/utils.js";
 
 const testConfig: OneBotBody.Config = {
   protocol: "ws",
@@ -53,7 +53,7 @@ describe("End-to-end message pipeline", () => {
       await event.body.sendMessage(event.channelId, [Element("text", { content: `echo: ${event.message.content ?? ""}` })]);
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "message",
       message_type: "group",
       sub_type: "normal",

@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 
-import { DEFAULT_CIRCUIT_BREAKER, loadModelsConfig, parseModelsConfig } from "../src/index";
-import { cleanupModelsConfigs, missingConfigPath, writeModelsConfig } from "./helpers";
+import { DEFAULT_CIRCUIT_BREAKER, loadModelsConfig, parseModelsConfig } from "../src/index.ts";
+import { cleanupModelsConfigs, missingConfigPath, writeModelsConfig } from "./helpers.ts";
 
 afterAll(cleanupModelsConfigs);
 

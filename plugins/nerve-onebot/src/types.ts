@@ -1,12 +1,11 @@
-import type { WebSocket } from "@athena-ai/protocol-im";
-import type { Dict } from "cosmokit";
+import { camelize, type Dict } from "cosmokit";
 
 // ─── Response ───────────────────────────────────────────────────────────────
 
-export interface Response<T = unknown> {
+export interface Response {
   status: string;
   retcode: number;
-  data: T;
+  data: any;
   echo?: number;
 }
 
@@ -116,6 +115,7 @@ export interface AnonymousInfo {
 }
 
 export interface Message extends MessageId {
+  real_id?: number;
   time: number;
   message_type: "private" | "group" | "guild";
   sender: SenderInfo;
@@ -133,20 +133,20 @@ export interface Payload extends Message {
   post_type: string;
   sub_type: string;
   self_id: number;
-  self_tiny_id?: string;
+  self_tiny_id: string;
   user_id: number;
-  target_id?: number;
-  operator_id?: number;
-  notice_type?: string;
-  request_type?: string;
-  meta_event_type?: string;
-  flag?: string;
-  comment?: string;
-  honor_type?: string;
-  raw_message?: string;
-  font?: number;
-  file?: File;
-  current_reactions?: ReactionInfo[];
+  target_id: number;
+  operator_id: number;
+  notice_type: string;
+  request_type: string;
+  meta_event_type: string;
+  flag: string;
+  comment: string;
+  honor_type: string;
+  raw_message: string;
+  font: number;
+  file: File;
+  current_reactions: ReactionInfo[];
 }
 
 export interface File {
@@ -349,11 +349,13 @@ export interface StatusInfo {
   stat: Statistics;
 }
 
-export interface EssenceMsg {
-  message_id: number;
+export interface EssenceMessage extends MessageId {
   sender_id: number;
+  sender_nick: string;
+  sender_time: number;
   operator_id: number;
-  message: string | CQCode[];
+  operator_nick: string;
+  operator_time: number;
 }
 
 // ─── Internal API ───────────────────────────────────────────────────────────
@@ -393,7 +395,7 @@ export interface Internal {
   sendGroupSignAsync(groupId: Id): Promise<void>;
   getMsg(messageId: Id): Promise<Message>;
   getForwardMsg(messageId: Id): Promise<ForwardMessage[]>;
-  getEssenceMsgList(groupId: Id): Promise<EssenceMsg[]>;
+  getEssenceMsgList(groupId: Id): Promise<EssenceMessage[]>;
   getWordSlices(content: string): Promise<string[]>;
   ocrImage(image: string): Promise<OcrResult>;
   getGroupMsgHistory(groupId: Id, messageSeq?: number): Promise<{ messages: Message[] }>;
@@ -520,130 +522,88 @@ export interface Internal {
 }
 
 export class TimeoutError extends Error {
-  constructor(
-    public params: Dict,
-    public action: string,
-  ) {
-    super(`Timeout with request ${action}, args: ${JSON.stringify(params)}`);
+  constructor(args: Dict, url: string) {
+    super(`Timeout with request ${url}, args: ${JSON.stringify(args)}`);
+    Object.defineProperties(this, {
+      args: { value: args },
+      url: { value: url },
+    });
   }
 }
 
 class SenderError extends Error {
-  public code: number;
-
-  constructor(params: Dict, action: string, retcode: number) {
-    super(`Error with request ${action}, args: ${JSON.stringify(params)}, retcode: ${retcode}`);
-    this.code = retcode;
+  constructor(args: Dict, url: string, retcode: number) {
+    super(`Error with request ${url}, args: ${JSON.stringify(args)}, retcode: ${retcode}`);
+    Object.defineProperties(this, {
+      code: { value: retcode },
+      args: { value: args },
+      url: { value: url },
+    });
   }
 }
 
-/**
- * OneBot Internal API implementation.
- * Methods are generated dynamically via define/defineExtract.
- */
+/** Minimal shape of the Body that Internal needs (avoids circular import). */
+interface InternalHost {
+  ctx: { logger(name: string): { debug(fmt: string, ...args: unknown[]): void; warn(fmt: string, ...args: unknown[]): void } };
+  config: { responseTimeout?: number };
+}
+
 export class Internal {
   _request?: (action: string, params: Dict) => Promise<Response>;
 
-  /** Pending request resolvers keyed by echo. */
-  private listeners = new Map<number, { resolve: (response: Response) => void; timer: NodeJS.Timeout }>();
-  private counter = 0;
+  constructor(public readonly bot: InternalHost) {}
 
-  constructor(public readonly selfId: string) {}
-
-  /** Allocate the next echo id for a request. */
-  nextEcho(): number {
-    return ++this.counter;
-  }
-
-  /**
-   * Send a request over a live socket and await its response.
-   * Rejects on timeout; the pending entry is always cleaned up.
-   */
-  request(socket: WebSocket, payload: { action: string; params: Dict; echo: number }): Promise<Response> {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.listeners.delete(payload.echo);
-        reject(new TimeoutError(payload.params, payload.action));
-      }, 15000);
-      this.listeners.set(payload.echo, { resolve, timer });
-      socket.send(JSON.stringify(payload));
-    });
-  }
-
-  /** Route an incoming response to its pending request. */
-  accept(response: Response): void {
-    if (response.echo === undefined) return;
-    const entry = this.listeners.get(response.echo);
-    if (!entry) return;
-    this.listeners.delete(response.echo);
-    clearTimeout(entry.timer);
-    entry.resolve(response);
-  }
-
-  private async _get<T = unknown>(action: string, params: Dict = {}): Promise<T> {
+  private async _get(action: string, params = {}) {
     if (!this._request) throw new Error("OneBot connection is not available");
+    this.bot.ctx.logger("onebot").debug("[request] %s %o", action, params);
     const response = await this._request(action, params);
-    if (response.retcode === 0) {
-      // SAFETY: the caller supplies the expected data type via the generic parameter.
-      return response.data as T;
-    }
-    throw new SenderError(params, action, response.retcode);
+    this.bot.ctx.logger("onebot").debug("[response] %o", response);
+    const { data, retcode } = response;
+    if (retcode === 0) return data;
+    throw new SenderError(params, action, retcode);
   }
 
   private static asyncPrefixes = ["set", "send", "delete", "create", "upload", "move", "rename"];
 
-  private static camelize(name: string): string {
-    return name.replace(/^[_.]/, "").replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+  private static prepareMethod(name: string) {
+    const prop = camelize(name.replace(/^[_.]/, ""));
+    const isAsync = Internal.asyncPrefixes.some((prefix) => prop.startsWith(prefix));
+    return [prop, isAsync] as const;
   }
 
-  private static prepareArg(name: string, params: string[], args: unknown[]): Dict {
-    const fixedArg: Dict = {};
-    for (let i = 0; i < params.length; i++) {
-      if (args[i] !== undefined) {
-        const key = params[i];
-        let value = args[i];
-        // Convert numeric IDs for non-guild endpoints.
-        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- runtime guard: string IDs are narrowed to numbers when they fit.
-        if (!name.includes("guild") && key.endsWith("_id") && typeof value === "string") {
-          const num = +value;
-          if (Math.abs(num) < 4294967296) value = num;
-        }
-        fixedArg[key] = value;
+  private static prepareArg(name: string, params: string[], args: any[]) {
+    const fixedArg = Object.fromEntries(params.map((name, index) => [name, args[index]]));
+    for (const key in fixedArg) {
+      if (!name.includes("guild") && key.endsWith("_id")) {
+        const value = +fixedArg[key];
+        if (Math.abs(value) < 4294967296) fixedArg[key] = value;
       }
     }
     return fixedArg;
   }
 
-  static define(name: string, ...params: string[]): void {
-    const prop = Internal.camelize(name);
-    const isAsync = Internal.asyncPrefixes.some((prefix) => prop.startsWith(prefix));
-    // SAFETY: prototype is a Dict-like object; assigning dynamic methods is the koishi pattern.
-    (Internal.prototype as Dict)[prop] = async function (this: Internal, ...args: unknown[]) {
+  static define(name: string, ...params: string[]) {
+    const [prop, isAsync] = Internal.prepareMethod(name);
+    Internal.prototype[prop] = async function (this: Internal, ...args: any[]) {
       const data = await this._get(name, Internal.prepareArg(name, params, args));
       if (!isAsync) return data;
     };
-    if (isAsync) {
-      // SAFETY: prototype is a Dict-like object; assigning dynamic methods is the koishi pattern.
-      (Internal.prototype as Dict)[`${prop}Async`] = async function (this: Internal, ...args: unknown[]) {
+    isAsync &&
+      (Internal.prototype[`${prop}Async`] = async function (this: Internal, ...args: any[]) {
         await this._get(`${name}_async`, Internal.prepareArg(name, params, args));
-      };
-    }
+      });
   }
 
-  static defineExtract(name: string, key: string, ...params: string[]): void {
-    const prop = Internal.camelize(name);
-    const isAsync = Internal.asyncPrefixes.some((prefix) => prop.startsWith(prefix));
-    // SAFETY: prototype is a Dict-like object; assigning dynamic methods is the koishi pattern.
-    (Internal.prototype as Dict)[prop] = async function (this: Internal, ...args: unknown[]) {
-      const data = await this._get<Dict>(name, Internal.prepareArg(name, params, args));
+  static defineExtract(name: string, key: string, ...params: string[]) {
+    const [prop, isAsync] = Internal.prepareMethod(name);
+    Internal.prototype[prop] = async function (this: Internal, ...args: any[]) {
+      const data = await this._get(name, Internal.prepareArg(name, params, args));
       return data[key];
     };
-    if (isAsync) {
-      // SAFETY: prototype is a Dict-like object; assigning dynamic methods is the koishi pattern.
-      (Internal.prototype as Dict)[`${prop}Async`] = async function (this: Internal, ...args: unknown[]) {
+    isAsync &&
+      (Internal.prototype[`${prop}Async`] = async function (this: Internal, ...args: any[]) {
         await this._get(`${name}_async`, Internal.prepareArg(name, params, args));
-      };
-    }
+      });
   }
 
   async setGroupAnonymousBan(groupId: string, meta: string | AnonymousInfo, duration?: number): Promise<void> {

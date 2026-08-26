@@ -2,8 +2,8 @@ import { MockLanguageModelV4, MockProviderV4 } from "ai/test";
 import { Context } from "cordis";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { AIService, CircuitBreaker } from "../src/index";
-import { cleanupModelsConfigs, writeModelsConfig } from "./helpers";
+import { AIService, CircuitBreaker } from "../src/index.ts";
+import { cleanupModelsConfigs, writeModelsConfig } from "./helpers.ts";
 
 afterAll(cleanupModelsConfigs);
 

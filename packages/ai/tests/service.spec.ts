@@ -3,8 +3,8 @@ import { MockEmbeddingModelV4, MockLanguageModelV4, MockProviderV4, MockSpeechMo
 import { Context } from "cordis";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { AIService } from "../src/index";
-import { cleanupModelsConfigs, writeModelsConfig } from "./helpers";
+import { AIService } from "../src/index.ts";
+import { cleanupModelsConfigs, writeModelsConfig } from "./helpers.ts";
 
 afterAll(cleanupModelsConfigs);
 

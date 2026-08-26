@@ -6,7 +6,7 @@ export { OneBotWsClient, OneBotWsServer } from "./ws.js";
 export { OneBotHttpServer } from "./http.js";
 export { CQCode } from "./bot/cqcode.js";
 export * as OneBot from "./types.js";
-export { adaptChannel, adaptGuild, adaptMessage, decodeGuildMember, decodeUser, dispatchEvent, PRIVATE_PFX } from "./utils.js";
+export { adaptChannel, adaptGuild, adaptMessage, decodeGuildMember, decodeUser, dispatchSession, PRIVATE_PFX } from "./utils.js";
 
 // OneBot-specific internal events are emitted dynamically under their `_type`
 // (satori pattern, see NerveService.dispatch); declare them here so listener
@@ -20,7 +20,7 @@ declare module "cordis" {
 }
 
 // Raw OneBot payload is attached to every session under `session.onebot`
-// (dispatchEvent sets it via setInternal on non-internal events).
+// (dispatchSession sets it via setInternal on non-internal events).
 declare module "@athena-ai/protocol" {
   interface Event {
     onebot?: OneBot.Payload;

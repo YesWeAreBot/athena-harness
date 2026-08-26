@@ -1,7 +1,7 @@
 import type { Logger } from "cordis";
 
 import { CircuitBreaker } from "./circuit-breaker";
-import type { Candidate, CircuitBreakerStatus, GroupDeclaration, GroupStrategy, ModelGroup } from "./types";
+import type { Candidate, CircuitBreakerStatus, GroupDeclaration, GroupStrategy } from "./types";
 
 /** Turns a full model id into the pieces a {@link Candidate} exposes. Throws when unresolvable. */
 export type CandidateResolver = (id: string) => Pick<Candidate, "model" | "metadata">;
@@ -18,7 +18,7 @@ interface GroupEntry {
  * attempts and deciding when to stop is the Cortex's business; the group just orders the list,
  * hides models whose breaker is open, and collects the success/failure reports coming back.
  */
-export class ModelGroupImpl implements ModelGroup {
+export class ModelGroup {
   readonly strategy: GroupStrategy;
   private readonly _entries: readonly GroupEntry[];
   private _cursor = 0;

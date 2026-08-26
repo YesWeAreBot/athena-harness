@@ -3,9 +3,14 @@ import { describe, expect, it } from "vitest";
 
 import { Internal } from "../src/types.js";
 
+const mockBot = {
+  ctx: { logger: () => ({ debug() {}, warn() {} }) },
+  config: { responseTimeout: 15000 },
+};
+
 describe("Internal API", () => {
   it("generates *Async variants for set/send/delete methods", () => {
-    const internal = new Internal("12345");
+    const internal = new Internal(mockBot);
     expect(internal.sendGroupMsgAsync).toBeTypeOf("function");
     expect(internal.setGroupKickAsync).toBeTypeOf("function");
     expect(internal.deleteMsgAsync).toBeTypeOf("function");
@@ -14,7 +19,7 @@ describe("Internal API", () => {
   });
 
   it("does not generate *Async for get methods", () => {
-    const internal = new Internal("12345");
+    const internal = new Internal(mockBot);
     // SAFETY: the dynamic methods are not part of the typed interface; a Dict
     // view lets us assert their absence.
     const view = internal as Dict;
@@ -23,7 +28,7 @@ describe("Internal API", () => {
   });
 
   it("setGroupAnonymousBan sends flag for string meta", async () => {
-    const internal = new Internal("12345");
+    const internal = new Internal(mockBot);
     let captured: { action: string; params: Dict } | undefined;
     internal._request = async (action, params) => {
       captured = { action, params };
@@ -38,7 +43,7 @@ describe("Internal API", () => {
   });
 
   it("setGroupAnonymousBan sends anonymous object for object meta", async () => {
-    const internal = new Internal("12345");
+    const internal = new Internal(mockBot);
     let captured: { action: string; params: Dict } | undefined;
     internal._request = async (action, params) => {
       captured = { action, params };
@@ -53,7 +58,7 @@ describe("Internal API", () => {
   });
 
   it("async variant calls the _async endpoint", async () => {
-    const internal = new Internal("12345");
+    const internal = new Internal(mockBot);
     let captured: { action: string; params: Dict } | undefined;
     internal._request = async (action, params) => {
       captured = { action, params };

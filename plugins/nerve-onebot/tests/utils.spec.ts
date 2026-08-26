@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { OneBotBody } from "../src/bot/index.js";
 import type * as OneBot from "../src/types.js";
-import { dispatchEvent } from "../src/utils.js";
+import { dispatchSession } from "../src/utils.js";
 
 const testConfig: OneBotBody.Config = {
   protocol: "ws",
@@ -17,7 +17,7 @@ const testConfig: OneBotBody.Config = {
   retryLazy: 60000,
 };
 
-describe("dispatchEvent", () => {
+describe("dispatchSession", () => {
   it("converts group messages to IMMessageEvent", async () => {
     const ctx = new Context();
     await ctx.plugin(NerveService);
@@ -29,7 +29,7 @@ describe("dispatchEvent", () => {
       received.push(event);
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "message",
       message_type: "group",
       sub_type: "normal",
@@ -63,7 +63,7 @@ describe("dispatchEvent", () => {
       received.push(event);
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "message",
       message_type: "group",
       sub_type: "normal",
@@ -102,7 +102,7 @@ describe("dispatchEvent", () => {
       received.push(event);
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "message",
       message_type: "private",
       sub_type: "friend",
@@ -131,7 +131,7 @@ describe("dispatchEvent", () => {
       received.push(event);
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "notice",
       notice_type: "group_increase",
       sub_type: "approve",
@@ -162,7 +162,7 @@ describe("dispatchEvent", () => {
       received.push(event);
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "request",
       request_type: "friend",
       sub_type: "",
@@ -192,7 +192,7 @@ describe("dispatchEvent", () => {
       received.push(event as IMMessageEvent);
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "notice",
       notice_type: "group_recall",
       sub_type: "",
@@ -224,7 +224,7 @@ describe("dispatchEvent", () => {
       received.push(event as IMMessageEvent);
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "notice",
       notice_type: "friend_recall",
       sub_type: "",
@@ -254,7 +254,7 @@ describe("dispatchEvent", () => {
       received.push({ type: "internal", _type: "onebot/poke", channelId: source.sid, data });
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "notice",
       notice_type: "notify",
       sub_type: "poke",
@@ -284,7 +284,7 @@ describe("dispatchEvent", () => {
     ctx.on("onebot/poke", () => dispatched++);
     ctx.on("message-deleted", () => dispatched++);
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "notice",
       notice_type: "some_unknown_type",
       sub_type: "",
@@ -312,7 +312,7 @@ describe("dispatchEvent", () => {
       received.push(event as { type: string });
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "request",
       request_type: "group",
       sub_type: "add",
@@ -340,7 +340,7 @@ describe("dispatchEvent", () => {
     const received: IMMessageEvent[] = [];
     ctx.on("message-created", (event) => received.push(event));
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "message",
       message_type: "group",
       sub_type: "normal",
@@ -372,7 +372,7 @@ describe("dispatchEvent", () => {
     const received: IMMessageEvent[] = [];
     ctx.on("message-created", (event) => received.push(event));
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "message",
       message_type: "group",
       sub_type: "normal",
@@ -401,7 +401,7 @@ describe("dispatchEvent", () => {
     const received: IMMessageEvent[] = [];
     ctx.on("message-created", (event) => received.push(event));
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "notice",
       notice_type: "offline_file",
       sub_type: "",
@@ -433,7 +433,7 @@ describe("dispatchEvent", () => {
       onebotData = event.event.onebot;
     });
 
-    await dispatchEvent(body, {
+    await dispatchSession(body, {
       post_type: "message",
       message_type: "group",
       sub_type: "normal",

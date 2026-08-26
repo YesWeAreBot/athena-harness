@@ -1,10 +1,10 @@
 import { Context } from "cordis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import * as ProviderDeepSeek from "../../../plugins/provider-deepseek/src/index";
-import * as ProviderOpenAI from "../../../plugins/provider-openai/src/index";
-import { AIService } from "../src/index";
-import { cleanupModelsConfigs, writeModelsConfig } from "./helpers";
+import * as ProviderDeepSeek from "../../../plugins/provider-deepseek/src/index.ts";
+import * as ProviderOpenAI from "../../../plugins/provider-openai/src/index.ts";
+import { AIService } from "../src/index.ts";
+import { cleanupModelsConfigs, writeModelsConfig } from "./helpers.ts";
 
 afterAll(cleanupModelsConfigs);
 
