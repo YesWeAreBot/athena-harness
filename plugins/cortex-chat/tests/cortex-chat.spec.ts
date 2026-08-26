@@ -1,3 +1,4 @@
+import { ToolRegistry } from "@athena-ai/core";
 import { NerveService } from "@athena-ai/protocol";
 import Database from "@cordisjs/plugin-database";
 import MemoryDriver from "@cordisjs/plugin-database-memory";
@@ -24,6 +25,7 @@ async function setup(): Promise<Context> {
   await ctx.plugin(Database);
   await ctx.plugin(MemoryDriver);
   await ctx.plugin(FakeAI);
+  await ctx.plugin(ToolRegistry);
   return ctx;
 }
 

@@ -1,5 +1,6 @@
 import { Session } from "@athena-ai/protocol";
 import { defineAccessor } from "@athena-ai/protocol";
+import type { Fragment } from "@cordisjs/element";
 
 import type { Channel, Guild, GuildMember, Message, User } from "./types.js";
 import { Channel as ChannelType } from "./types.js";
@@ -42,6 +43,30 @@ Object.defineProperty(Session.prototype, "content", {
   },
   configurable: true,
 });
+
+/**
+ * Passive (session-bound) reply.
+ *
+ * Uses the session's origin Body so platform constraints (e.g. QQ
+ * requiring a same-session reply path) are respected. Adapters may
+ * provide their own `session.send` by installing it on the session
+ * object before this prototype method is reached.
+ */
+const _send = async function send(this: Session, content: Fragment): Promise<string[]> {
+  // SAFETY: in an IM context `channelId` is expected; cordis events are
+  // defensively emitted even when the envelope is incomplete (tests), so we
+  // defensively throw a readable error rather than silently producing `undefined`.
+  if (!this.channelId) throw new Error("session.send: missing channelId — cannot determine target channel");
+  // SAFETY: every IM session carries a Body that mixes in IMMethods; if the
+  // platform does not support sendMessage the call will throw, which callers
+  // already treat as a failing delivery.
+  const body = this.body as unknown as { sendMessage(channelId: string, content: Fragment): Promise<string[]> };
+  return body.sendMessage(this.channelId, content);
+};
+
+if (!(Session.prototype as unknown as Record<string, unknown>).send) {
+  Object.defineProperty(Session.prototype, "send", { value: _send, configurable: true, writable: true });
+}
 
 Object.defineProperty(Session.prototype, "isDirect", {
   get() {

@@ -3,6 +3,7 @@ import { Service } from "cordis";
 abstract class LifeService extends Service<LifeService.Config> {
   public static readonly inject = [];
   public abstract id: string;
+  public abstract persona: string;
   public abstract cortex: Service | null;
 
   bind(cortex: Service): () => void {
@@ -22,6 +23,7 @@ abstract class LifeService extends Service<LifeService.Config> {
 namespace LifeService {
   export interface Config {
     id: string;
+    persona: string;
   }
 }
 

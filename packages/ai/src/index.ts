@@ -1,4 +1,4 @@
-export { LanguageModelV4Usage } from "@ai-sdk/provider";
+export type { LanguageModelV4Usage } from "@ai-sdk/provider";
 export * from "ai";
 
 export * from "./circuit-breaker.js";

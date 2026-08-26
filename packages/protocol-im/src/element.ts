@@ -45,3 +45,18 @@ export function audio(src: string, attrs?: Record<string, string>): Element {
 export function file(src: string, attrs?: Record<string, string>): Element {
   return Element("file", { src, ...attrs });
 }
+
+/**
+ * Whether the session mentions the current login via `<at id={selfId}>`.
+ *
+ * Agents import this instead of inlining the Element traversal.
+ */
+export function isAtSelf(session: { elements?: readonly Element[]; selfId?: string }): boolean {
+  const elements = session.elements;
+  if (!elements || !session.selfId) return false;
+  for (const el of elements) {
+    // oxlint-disable-next-line anti-slop/no-unsafe-member-access -- Element.attrs has no index signature; "id" is a known at-element attribute
+    if (el.type === "at" && String((el.attrs as Record<string, unknown>).id) === session.selfId) return true;
+  }
+  return false;
+}
