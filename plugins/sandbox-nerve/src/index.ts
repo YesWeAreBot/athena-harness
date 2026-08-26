@@ -1,5 +1,4 @@
-import { SandboxBot, SELF_ID } from "@athena-ai/plugin-sandbox";
-import type { MessageSink, SandboxDispatchPayload, SandboxRequestPayload } from "@athena-ai/protocol";
+import { MessageSink, SandboxBot, SandboxDispatchPayload, SandboxRequestPayload, SELF_ID } from "@athena-ai/plugin-sandbox";
 import type { Context, Fiber } from "cordis";
 
 interface BotHandle {
@@ -100,7 +99,7 @@ export default class SandboxNerve {
 
     // Response correlation coming back from the browser.
     if (method === "settle") {
-      // SAFETY: The Hub only sends settle frames with a nonce; the bot ignores unknown nonces.
+      // @ts-expect-error
       bot.settle(payload.nonce as string, payload.data ?? null);
       return null;
     }

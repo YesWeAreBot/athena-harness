@@ -53,10 +53,10 @@
 Body 基类极简——只负责连接管理和事件分发，不携带任何领域方法：
 
 ```typescript
-export abstract class Body<T = any> {
-  selfId: string;
-  platform: string;
-  status: Status;
+export abstract class Body<T = unknown> {
+  public selfId!: string;
+  public abstract platform: string;
+  public status: Status = "offline";
 
   constructor(
     public ctx: Context,
@@ -68,136 +68,184 @@ export abstract class Body<T = any> {
   /** 断开连接 */
   abstract disconnect(): Promise<void>;
 
-  /** 分发事件到 Cordis 事件总线 */
-  dispatch(event: NerveEvent): void;
+  /** 创建 Session 信封的工厂方法 */
+  session(event: Partial<Event> = {}): Session;
 
-  /** 创建事件信封的工厂方法 */
-  event(partial?: Partial<NerveEvent>): NerveEvent;
+  /** 分发 Session 到 Cordis 事件总线（经 internal/session 归一化） */
+  dispatch(session: Session): void;
 
   /** 唯一标识：`${platform}:${selfId}` */
   get sid(): string;
+
+  /** Cordis Service 生命周期：自动注册进 ctx.nerve，dispose 时注销 */
+  *[Service.init](): Generator<unknown, void, unknown>;
 }
 ```
 
-**没有 `sendMessage`、`getChannel` 等任何 IM 方法。** 这些由 `protocol-im` 通过 declaration merging 扩展到 Body 上。
+**没有 `sendMessage`、`getChannel` 等任何 IM 方法。** 这些由 `IMBody` 子类（`protocol-im`）提供。
 
-### 领域方法通过类型扩展声明
+### IM 能力通过 IMBody 继承
+
+IM adapter 不直接继承 `Body`，而是继承 `IMBody`：
 
 ```typescript
-// @athena-ai/protocol-im 扩展
-declare module "@athena-ai/nerve" {
-  interface Body {
-    sendMessage(channelId: string, content: Element[], options?: SendOptions): Promise<Message[]>;
-    getMessage(channelId: string, messageId: string): Promise<Message>;
-    getChannel(channelId: string): Promise<Channel>;
-    // ...
+// @athena-ai/protocol-im
+export abstract class IMBody<C = unknown> extends Body<C> {
+  /** 运行时能力检测 */
+  supports(name: string): boolean;
+
+  /** 默认实现：sendMessage 委托 createMessage */
+  async sendMessage(channelId: string, content: Fragment, options?: SendOptions): Promise<string[]>;
+  async sendPrivateMessage(userId: string, content: Fragment, guildId?: string, options?: SendOptions): Promise<string[]>;
+
+  /** adapter 必须实现 */
+  abstract createMessage(channelId: string, content: Fragment, options?: SendOptions): Promise<Message[]>;
+  abstract createDirectChannel(userId: string, guildId?: string): Promise<Channel>;
+}
+```
+
+`IMBody` 通过 interface-class merge 声明完整的 `IMMethods` 表面（`getMessage`、`getGuild`、`getChannel` 等）。adapter 只实现它支持的子集——未实现的方法在运行时为 `undefined`，通过 `supports()` 检测。
+
+### BodyRegistry：类型联合
+
+每个 protocol/adapter 包通过 declaration merging 向 `BodyRegistry` 注入自己的 Body 类型：
+
+```typescript
+// @athena-ai/protocol-im
+declare module "@athena-ai/protocol" {
+  interface BodyRegistry {
+    im: IMBody;
   }
 }
 
-// @athena-ai/nerve-minecraft 扩展
-declare module "@athena-ai/nerve" {
-  interface Body {
-    moveToPosition(position: Vec3): Promise<void>;
-    placeBlock(position: Vec3, type: string): Promise<void>;
-    getInventory(): Promise<Inventory>;
+// @athena-ai/nerve-onebot
+declare module "@athena-ai/protocol" {
+  interface BodyRegistry {
+    onebot: OneBotBody;
   }
 }
 ```
 
-Cortex 通过 import 哪个包的类型来获得对应的 API 类型。这是编译时的自我承诺："我接收并处理这些事件，我知道某个 Body 有哪些接口可用。"
+`NerveService.get(sid)` 返回 `AnyBody`——所有注册类型的联合。Cortex 通过 `platform` 字面量或 `instanceof` 收窄到具体 Body 类型。
+
+### 非 IM Body
+
+非 IM 场景（Minecraft、音频等）直接继承 `Body`，定义自己的方法和事件。不往 `Body` 基类上 merge 领域方法：
+
+```typescript
+// nerve-minecraft（示例）
+export abstract class MinecraftBody extends Body<MinecraftConfig> {
+  platform = "minecraft" as const;
+  abstract moveToPosition(position: Vec3): Promise<void>;
+  abstract getInventory(): Promise<Inventory>;
+}
+```
 
 ---
 
-## NerveEvent
+## Session 信封与事件类型
 
-> **历史演进记录（2026-08-25）**：本节描述的 `NerveEventMap` / plain-interface 方案已被 **Session 信封** 取代——运行时统一用 `Session`（core）传播，protocol-im 用 `defineAccessor` 把 IM 访问器挂到 `Session.prototype`，`NerveEvent` 类型已删除，具体事件接口（`IMMessageEvent` 等）`extends Session` 收窄。事件签名只在 `cordis.Events` 声明。本节保留作设计历程参考，以代码为准。
+### Session：统一运行时信封
 
-NerveEvent 是所有从 Nerve 进入 Cortex 的事件的统一信封。
-
-### 设计：plain interface + body 引用
+所有从 Nerve 进入 Cortex 的事件都以 `Session` 实例传播。Session 是运行时信封，`session.event` 持有数据载荷，`session.body` 引用来源 Body。
 
 ```typescript
-export interface NerveEvent {
-  /** 事件类型 discriminant */
-  type: string;
-  /** 事件唯一 ID（幂等去重） */
-  id: string;
-  /** 接收此事件的 Body 标识 */
-  selfId: string;
-  /** 平台 / nerve 类型标识 */
-  platform: string;
-  /** 事件发生时间 */
-  timestamp: number;
-  /** 接收此事件的 Body 引用（非序列化） */
-  body: Body;
+export class Session {
+  /** 进程内唯一序号 */
+  public sn: number;
+  /** 来源 Body */
+  public readonly body: Body<unknown>;
+  /** 原始事件载荷 */
+  public event: Event;
+
+  constructor(body: Body<unknown>, event: Partial<Event>);
+
+  get sid(): string; // `${platform}:${selfId}`
 }
 ```
 
-这是最小公共字段。没有 `channelId`、`guildId`、`messageId`——这些全部由 `protocol-im` 扩展。
-
-### 为什么是 plain interface 而不是 class
-
-- 事件本质是数据，不是行为载体
-- 序列化时自然忽略 `body`（函数引用）
-- 不需要原型链和 accessor trick
-- Cordis 的事件 filter 通过 dispatch 时手动设置 tracker 实现，不依赖 class
-
-### NerveEventMap：类型收窄
-
-各 nerve 包通过 declaration merging 注册自己的事件类型：
+### Event：数据载荷接口
 
 ```typescript
-// @athena-ai/nerve 核心
-export interface NerveEventMap {}
-
-// protocol-im 扩展
-declare module "@athena-ai/nerve" {
-  interface NerveEventMap {
-    "message-created": IMMessageEvent;
-    "message-deleted": IMMessageDeletedEvent;
-    "message-updated": IMMessageUpdatedEvent;
-  }
-}
-
-// nerve-minecraft 扩展
-declare module "@athena-ai/nerve" {
-  interface NerveEventMap {
-    "minecraft/chat": MinecraftChatEvent;
-    "minecraft/block-placed": BlockPlacedEvent;
-    "minecraft/entity-moved": EntityMovedEvent;
-  }
+export interface Event {
+  type: string; // 事件类型 discriminant
+  id: string; // 唯一 ID（幂等去重）
+  selfId: string; // 接收此事件的 Body 标识
+  platform: string; // 平台标识
+  timestamp: number; // 发生时间（ms）
+  _type?: string; // internal 子事件类型
+  _data?: unknown; // internal 子事件载荷
 }
 ```
 
-事件监听时自动收窄类型：
+这是最小公共字段。`channelId`、`guildId`、`message` 等 IM 字段由 `protocol-im` 通过 declaration merging 扩展到 `Event` 接口上。
+
+### 访问器模式（defineAccessor）
+
+Session 的派生字段（`channelId`、`userId`、`content`、`isDirect` 等）不是独立存储的属性，而是挂在 `Session.prototype` 上的访问器，从 `session.event` 的嵌套对象推导：
 
 ```typescript
-// IM 事件——channelId, message 等为必填
-ctx.on("message-created", (event) => {
-  event.channelId; // string
-  event.message; // Message
-  event.userId; // string
-});
+// protocol 基础访问器
+defineAccessor(Session.prototype, "type", ["event", "type"]);
+defineAccessor(Session.prototype, "selfId", ["event", "selfId"]);
+defineAccessor(Session.prototype, "platform", ["event", "platform"]);
+defineAccessor(Session.prototype, "timestamp", ["event", "timestamp"]);
 
-// Minecraft 事件——position, worldId 等为必填
-ctx.on("minecraft/block-placed", (event) => {
-  event.position; // Vec3
-  event.blockType; // string
-});
+// protocol-im 追加的 IM 访问器
+defineAccessor(Session.prototype, "channelId", ["event", "channel", "id"]);
+defineAccessor(Session.prototype, "userId", ["event", "user", "id"]);
+defineAccessor(Session.prototype, "guildId", ["event", "guild", "id"]);
+defineAccessor(Session.prototype, "messageId", ["event", "message", "id"]);
+// ... 以及 content、isDirect 等计算访问器
 ```
 
-各具体事件类型 extends NerveEvent，将公共 optional 字段收窄为必填：
+**adapter 只需填嵌套数据对象**（`channel`/`user`/`guild`/`message`），所有派生字段自动推导。
+
+### 事件类型：cordis.Events 声明 + 交叉类型收窄
+
+事件签名**只在 `cordis.Events` 中声明一份**，不维护平行事件映射表（架构不变式 #12）。
+
+具体事件类型是 `Session &` 交叉类型，将可选字段收窄为必填：
 
 ```typescript
-interface IMMessageEvent extends NerveEvent {
-  type: "message-created";
+// 基础 IM 事件
+export type IMEvent = Session & {
   channelId: string;
   userId: string;
-  messageId: string;
-  message: Message;
   channel: Channel;
   user: User;
-}
+  body: IMBody;
+};
+
+// 消息事件
+export type IMMessageEvent = IMEvent & {
+  type: "message-created";
+  messageId: string;
+  message: Message;
+  content: string;
+};
+```
+
+消费方获得精确类型：
+
+```typescript
+ctx.on("message-created", (event) => {
+  event.channelId; // string（必填）
+  event.message; // Message（必填）
+  event.body; // IMBody（可直接 sendMessage）
+});
+```
+
+### 事件分发路径
+
+```
+adapter → body.session({ type, channel, user, message, ... })
+        → body.dispatch(session)
+        → ctx.emit("internal/session", session)       ← 统一归一化入口
+        → NerveService 归一化器
+            internal 类型 → emit(_type, _data, body)  ← 平台子事件
+            其余 → body.ctx.emit(session.type, session) ← 从 Body 所属 ctx 发射，保持 Life 隔离
+        → cordis.Events 消费者（ctx.on("message-created", ...)）
 ```
 
 ---
@@ -207,11 +255,11 @@ interface IMMessageEvent extends NerveEvent {
 ### 包结构
 
 ```
-@athena-ai/nerve              — Body 基类 + NerveEvent + NerveEventMap + NerveService
-@athena-ai/protocol-im        — IM 公因式协议（类型 + Body 方法扩展 + 事件注册 + 运行时）
-@athena-ai/nerve-onebot       — OneBot adapter（依赖 nerve + protocol-im）
-@athena-ai/nerve-qq           — QQ adapter（依赖 nerve + protocol-im）
-@athena-ai/nerve-minecraft    — Minecraft adapter（依赖 nerve，自包含协议）
+@athena-ai/protocol           — Body 基类 + Session + Event + NerveService + BodyRegistry + defineAccessor
+@athena-ai/protocol-im        — IMBody + IMMethods + IM 实体类型 + Session 访问器 + cordis.Events 声明 + MessageEncoder + WsClient
+@athena-ai/nerve-onebot       — OneBot adapter（依赖 protocol + protocol-im）
+@athena-ai/nerve-qq           — QQ adapter（依赖 protocol + protocol-im）
+@athena-ai/nerve-minecraft    — Minecraft adapter（依赖 protocol，自包含协议）
 ```
 
 ### protocol-im 的定位
@@ -226,11 +274,11 @@ IM 是特例——多种 IM 平台（QQ、Discord、Telegram 等）高度同构�
 
 protocol-im 提供：
 
-1. **类型**：Message、Channel、User、Guild、Element 等 IM 实体
-2. **类型扩展**：NerveEvent 的 IM 字段、Body 的 IM 方法
-3. **事件注册**：message-created 等到 Cordis Events
-4. **运行时**：Body.prototype 上的 IM 默认实现（sendMessage 等）
-5. **工具函数**：MessageEncoder 基类、Element 解析等
+1. **类型**：Message、Channel、User、Guild 等 IM 实体
+2. **IMBody 类**：继承 Body，通过 interface-class merge 声明完整 IM 方法表面
+3. **Session 访问器**：`defineAccessor` 把 IM 派生字段（`channelId`/`userId`/`content`/`isDirect` 等）挂到 `Session.prototype`
+4. **事件注册**：`cordis.Events` 中声明 `message-created`、`guild-member-added` 等完整 IM 事件集
+5. **工具函数**：MessageEncoder 基类、WsClient、Element 工厂
 
 ### 非 IM 场景
 
@@ -297,11 +345,11 @@ interface StoredMessage {
 - `platform + channelId + timestamp`：focus 展开时按频道读取历史
 - `platform + userId + timestamp`：跨频道查某人的消息（旁路读取场景）
 
-#### 只存 Message 实体，不存 NerveEvent
+#### 只存 Message 实体，不存 Session
 
 - 持久化目的是"恢复对话历史"，不是"重放事件"
 - Message 是稳定实体（有全局 ID），同一条消息只存一份
-- Event 是瞬时通知（created、updated、deleted 可能对应同一条 message）
+- Session 是瞬时通知（created、updated、deleted 可能对应同一条 message）
 
 ---
 
@@ -471,9 +519,9 @@ cortex-state/
 
 拆 Event 接口、拆 Methods、删 Bot IM 方法、重组 protocol 包——改动量接近重写。不如实现自己的稳定协议，术语和心智模型一致，避免持续的认知摩擦。
 
-### 统一 NerveEvent 信封 + per-kind 持久化策略
+### 统一 Session 信封 + per-kind 持久化策略
 
-曾考虑在 NerveEvent 上携带 `retention: "persistent" | "ephemeral"` 标记，让不同类型的事件有不同的持久化策略。
+曾考虑在 Event 上携带 `retention: "persistent" | "ephemeral"` 标记，让不同类型的事件有不同的持久化策略。
 
 否决理由：只有 IM 消息值得持久化。其他事件即发即忘。不需要通用的持久化策略机制——这是过度设计。
 
@@ -499,21 +547,17 @@ cortex-state/
 
 以下问题尚未决策，留待后续讨论：
 
-1. **NerveService 的具体 API** — Body 注册/注销/查找的接口设计
+1. **protocol-im 的具体实体类型** — ✅ **已定**：Message、Channel、User、Guild 等已在 `packages/protocol-im/src/types.ts` 中定义，字段参考 Satori 但独立维护
 
-2. **Body 的 Cordis 集成** — Body 如何注册到 Cordis scope？是否需要类似 Satori 的 `bot-connect` / `bot-disconnect` 事件？
+2. **Element 格式** — ✅ **已定**：复用 `@cordisjs/element`（npm 发布版），protocol-im 提供 `at`/`image`/`quote` 等工厂函数
 
-3. **protocol-im 的具体实体类型** — Message、Channel、User、Guild 等的字段定义（可参考 Satori protocol 但不必完全一致）
+3. **message-store 的存储后端** — ✅ **已定**：使用 `@cordisjs/plugin-database`（Cordis 标准 ORM），配合 `@cordisjs/plugin-database-sqlite` 驱动。表名 `athena.messages`，复合主键 `[platform, id]`，索引 `[platform, channelId, timestamp]` 和 `[platform, userId, timestamp]`。实现见 `plugins/message-store/src/index.ts`
 
-4. **Element 格式** — ✅ **已定**：复用 `@cordisjs/element`（npm 发布版），protocol-im 提供 `at`/`image`/`quote` 等工厂函数
+4. **WsMessage 的 id 生成策略** — ✅ **已定**：使用 AI SDK 的 `generateId()`（来自 `ai` 包）。统一依赖一个 ID 生成器，无需自建。实现见 `plugins/cortex-chat/src/workspace.ts` 的 `createWsMessage()`
 
-5. **message-store 的存储后端** — SQLite？文件系统？需要权衡查询能力和部署复杂度
+5. **大型 tool result 的处理** — workspace 中 tool result 可能很大（如返回大量 JSON），是否需要在写入时做截断或引用？
 
-6. **WsMessage 的 id 生成策略** — 使用 AI SDK 的 `generateId()` 还是自己的短 ID 生成器？
-
-7. **大型 tool result 的处理** — workspace 中 tool result 可能很大（如返回大量 JSON），是否需要在写入时做截断或引用？
-
-8. **Checkpoint 历史保留策略** — 只保留最近一个？保留 N 个？保留到什么条件时清理？
+6. **Checkpoint 历史保留策略** — ✅ **已定（初始策略）**：只保留最近一个（`checkpoint-latest.json`）。当前阶段无需历史回溯；未来如需多版本保留可扩展为 `checkpoint-{id}.json` + 索引文件
 
 ---
 

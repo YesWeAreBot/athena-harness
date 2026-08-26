@@ -23,7 +23,6 @@ class CortexChat extends CortexService {
 
   private async onMessage(event: IMMessageEvent) {
     if (event.userId === event.selfId) return;
-    if (event.userId !== "1293865264") return;
 
     const name = this.ctx.life.id;
     const content = event.content;

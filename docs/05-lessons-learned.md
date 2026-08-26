@@ -628,6 +628,8 @@ send_message: tool({
 
 v3/v4 注入 channelId 是**安全措施**（防止跨 channel 操作）；Athena 的 Life 需要跨 channel 操作（"根据 QQ 事件在 Discord 回复"）。LLM 已知完整上下文，能正确选择目标；Cortex 通过 prompt 引导。
 
+> **后续演进**：引入 Focus 机制后，Cortex 内置 tool 有了默认操作目标（focus 频道），大部分操作不再需要显式寻址参数。三层 tool 模型也因此废弃，统一为一种 tool。完整设计见 [cookbook/04-tool-design.md](./cookbook/04-tool-design.md)。
+
 ### 9.7 遗留的开放问题
 
 Bot 归属强制未解决：框架是否应阻止 Life A 使用 Life B 的 bot？当前依赖 prompt 级引导 + isolate（Life A 的 `ctx.message` 里根本没有 Life B 的 bot）。isolate 实际上提供了物理隔离，但同 Life 内的多 bot 之间无约束。

@@ -716,40 +716,41 @@ Group 只做**排序 + 跳过断路器已开的模型**，策略为 `failover` /
 - `ToolExecutionOptions.abortSignal`：原生取消支持
 - 多步 tool loop，停止条件可配（`stopWhen: stepCountIs(n)`）
 
-### 9.3 `ctx.tools` Tool Registry（未实现）
+### 9.3 `ctx.tools` Tool Registry（未实现，设计已修订）
 
-计划中的框架 Service，职责：
+> ⚠️ **三层 tool 模型已废弃。** 当前设计见 [cookbook/04-tool-design.md](./cookbook/04-tool-design.md)。
+> 以下接口描述已按新设计修订。
+
+计划中的全局 Service（不 isolate），职责：
 
 1. **注册/注销** —— 插件注册 tool；Cordis dispose 自动注销
-2. **发现** —— Cortex 装配 agent loop 时查询可用 tool
-3. **执行** —— 统一执行入口（未来可挂 hook/guard）
+2. **发现** —— Cortex 装配 agent loop 时收集当前作用域内可用 tool
 
 ```typescript
 interface ToolRegistry extends Service {
-  register(definition: ToolDefinition): () => void;
-  available(): ToolDefinition[];
-  execute(call: ToolCall, options?: ExecuteOptions): Promise<ToolResult>;
+  register(name: string, tool: CoreTool, options?: { override?: boolean }): () => void;
+  available(): Record<string, CoreTool>;
 }
 ```
 
-**作用域语义**（遵循 Cordis context tree）：
+不负责执行——AI SDK 直接调用 tool 的 `execute` 函数。
+
+**作用域语义**：`ctx.tools` 不 isolate（全局一个实例），内部按 `life` isolate symbol 做作用域过滤：
 
 ```
 Root Context（全局 tool 注册在此）
 ├── read_resource, describe_image          ← 所有 Life 可见
 │
-├── Alice Life Group
-│   ├── ctx.tools: onebot-utils, draw      ← 仅 Alice 可见
-│   └── Cortex 装配: 全局 + alice-scoped + Cortex Layer 2
+├── Alice Life Group（isolate: { life, cortex, nerve }）
+│   ├── ctx.tools.register: set_essence, draw_image  ← 仅 Alice 可见
+│   └── Cortex 装配: coreTools() + ctx.tools.available()
 │
-└── Bob Life Group
-    ├── ctx.tools: onebot-utils            ← 仅 Bob 可见（无 draw）
-    └── Cortex 装配: 全局 + bob-scoped + Cortex Layer 2
+└── Bob Life Group（isolate: { life, cortex, nerve }）
+    ├── ctx.tools.register: set_essence    ← 仅 Bob 可见
+    └── Cortex 装配: coreTools() + ctx.tools.available()
 ```
 
-`available()` 沿 context 链向上遍历（local → life → global）。子 context 的 tool 对 sibling context 不可见（Cordis isolate 保证）。
-
-Layer 2 tool（Cortex 定义）**可以完全绕过** `ctx.tools` —— Cortex 可直接把它们传给 `generateText`。Registry 主要服务 Layer 3（插件贡献的）tool。
+Cortex 内置 tool 不走 Registry——Cortex 直接构造后与 `ctx.tools.available()` 合并。Registry 服务插件贡献的 tool。
 
 ---
 

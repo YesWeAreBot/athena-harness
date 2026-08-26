@@ -64,5 +64,6 @@ yarn test             # ← run ALL tests
 | New Service / Cortex / Nerve / Adapter / AI usage | `docs/04-patterns-and-recipes.md`                                   |
 | Avoid known traps (before changes)                | `docs/05-lessons-learned.md` (§13 quick table, §14 Nerve migration) |
 | Progress, known defects, roadmap                  | `docs/06-progress-and-roadmap.md`                                   |
+| Tool design (context, scope, registration)        | `docs/cookbook/04-tool-design.md`                                   |
 
 **Doc sync duty** (when adding packages / Services / IM events / pitfalls / decisions): `docs/03-code-conventions.md` §11.3.

@@ -4,16 +4,30 @@ import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
 import { Schema } from "@athena-ai/core";
-import type { MessageSink, SandboxDispatchPayload, SandboxHubService, SandboxNerveHandle } from "@athena-ai/protocol";
 import type {} from "@cordisjs/plugin-server";
 import type { Client } from "@cordisjs/plugin-webui";
 import { type Context, Service } from "cordis";
 
-import type { DeleteMessagePayload, LifeListPayload, ResponsePayload, SendMessagePayload } from "./shared";
+import type {
+  DeleteMessagePayload,
+  LifeListPayload,
+  MessageSink,
+  ResponsePayload,
+  SandboxDispatchPayload,
+  SandboxHubService,
+  SandboxNerveHandle,
+  SendMessagePayload,
+} from "./shared.js";
 
-export { SandboxBot } from "./bot";
-export { SandboxMessenger } from "./message";
-export * from "./shared";
+export { SandboxBot } from "./bot.js";
+export { SandboxMessenger } from "./message.js";
+export * from "./shared.js";
+
+declare module "cordis" {
+  interface Context {
+    sandbox: SandboxHubService;
+  }
+}
 
 /** Login id used by the harness inside every sandbox platform. */
 export const SELF_ID = "athena";
@@ -87,6 +101,7 @@ function buildSandboxSink(client: Client, lifeId: string): MessageSink {
     },
   };
 }
+
 export default class SandboxHub extends Service<Config> implements SandboxHubService {
   public static readonly name = "sandbox";
   public static readonly inject = ["webui"];

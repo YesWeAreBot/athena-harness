@@ -1,10 +1,9 @@
-import type { MessageSink, SandboxRequestPayload } from "@athena-ai/protocol";
 import type { Guild, GuildMember, List, Message, User } from "@athena-ai/protocol-im";
 import { Channel, IMBody } from "@athena-ai/protocol-im";
 import type { Context } from "cordis";
 
 import { SandboxMessenger } from "./message.js";
-import type { JsonValue } from "./shared.js";
+import type { JsonValue, MessageSink, SandboxRequestPayload } from "./shared.js";
 
 export namespace SandboxBot {
   export interface Config {

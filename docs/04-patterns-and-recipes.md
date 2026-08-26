@@ -1168,8 +1168,8 @@ private async cognize(context: IntegratedContext) {
     system: this.buildSystemPrompt(context.persona),
     messages: this.buildMessages(context),
     tools: {
-      ...this.layer2Tools(),          // Cortex 定义的产品语义 tool
-      // ...this.ctx.tools.available(),  // 【规划中】Layer 3 插件 tool
+      ...this.coreTools(),            // Cortex 内置 tool
+      ...this.ctx.tools.available(),  // 插件贡献 tool（见 cookbook/04-tool-design.md）
       // provider 内建 tool（web search 等）目前不经过 ctx.ai，见 §5.6 的已知缺口
     },
     stopWhen: stepCountIs(8),         // ← 不是 maxSteps
@@ -1179,21 +1179,22 @@ private async cognize(context: IntegratedContext) {
   return { text: result.text, steps: result.steps };
 }
 
-/** Layer 2：产品语义工具 —— LLM 看到的是「角色说话」，不是「调 IM API」 */
-private layer2Tools() {
+/** Cortex 内置工具 —— LLM 看到的是「角色说话」，不是「调 IM API」 */
+private coreTools() {
   return {
     send_message: tool({
-      description: "Say something in a channel. Omit to stay silent.",
+      description: "Say something. Defaults to the current focus channel.",
       inputSchema: z.object({
-        channelId: z.string().describe("Target channel id"),
         content: z.string().describe("What to say"),
+        channelId: z.string().optional().describe("Omit to use focus channel"),
         botSid: z.string().optional().describe("platform:selfId; omit when unambiguous"),
       }),
       // ⚠️ 用单个 `input` 参数，不要解构 —— 见下方「类型推导陷阱」
       execute: async (input) => {
+        const target = input.channelId ?? this.focusSceneId;
         const body = input.botSid ? this.ctx.nerve.get(input.botSid) : this.ctx.nerve.bodies[0];
         if (!body) throw new Error(`No body available for ${input.botSid ?? "any sid"}`);
-        const ids = await body.sendMessage(input.channelId, input.content);
+        const ids = await body.sendMessage(target, input.content);
         return { messageIds: ids };
       },
     }),
@@ -1209,9 +1210,9 @@ private layer2Tools() {
 }
 ```
 
-**关键约定**（D-14 / D-15）：
+**关键约定**（见 [cookbook/04-tool-design.md](./cookbook/04-tool-design.md)）：
 
-- Tool 接收**完整寻址信息**作为 LLM 提供的参数（`channelId`、`botSid`），框架**不注入** context
+- Cortex 内置 tool 省略寻址参数时默认操作于 focus 频道，框架**不注入** context
 - Tool 通过闭包中的 `this.ctx` 访问 service —— service 是活引用，无需捕获具体实例
 - `abortSignal` 由 AI SDK 原生提供（`ToolExecutionOptions.abortSignal`），无需框架注入
 - Tool 是「薄函数」：把 LLM 参数翻译成 service 调用

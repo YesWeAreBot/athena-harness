@@ -346,41 +346,28 @@ Athena:  Life → Cortex → willingness/buffer/integration → 多模态行动�
 
 ---
 
-## 6. 三层工具模型
+## 6. 工具模型
 
-LLM 消费的 tool 来自三个来源，归属不同：
+> ⚠️ **三层模型已废弃。** 原 Layer 1 / Layer 2 / Layer 3 分层在引入 Focus 机制和 Body 注册表后不再适用。
+> 当前设计见 [cookbook/04-tool-design.md](./cookbook/04-tool-design.md)。以下保留历史描述供理解演变。
 
-### Layer 1：Structured Capabilities（结构化能力）
+### 统一 Tool 模型（当前）
 
-- **定义方**：Nerve（Body 实现）
-- **消费方**：Cortex 代码（程序化调用）
-- **抽象层级**：统一协议（如 `event.body.sendMessage(channelId, content)`）
-- **目的**：Cortex 的确定性逻辑依赖这些（输出排队、状态更新、session 管理）
+LLM 消费的 tool 不分层——所有 tool 都是 AI SDK `tool()` 的返回值，合并成统一 `ToolSet` 传给 `generateText`。两种注册来源：
 
-### Layer 2：Product-Semantic Tools（产品语义工具）
+- **Cortex 内置**：Cortex 直接构造（`send_message`、`wait` 等），闭包捕获 focus 状态作为默认寻址
+- **插件贡献**：第三方插件通过 `ctx.tools.register(name, tool)` 注册，Cortex 装配时通过 `ctx.tools.available()` 收集
 
-- **定义方**：Cortex
-- **消费方**：LLM（via tool-calling）
-- **抽象层级**：产品概念（不是平台操作）
-- **目的**：LLM 看到的 tool 是产品有意义的动作，不是原始平台 API
-- **例**：`send_message`（= 角色说话）、`check_phone`（= 看手机）、`wait`（= 让时间流过）
-- **实现**：内部调用 Layer 1
+平台能力通过 Body 方法直接访问（`event.body.sendMessage()`、`ctx.nerve.get(sid)`），不需要额外抽象层。
 
-### Layer 3：Platform Passthrough Tools（平台透传工具）
+### 历史：三层分层（已废弃）
 
-- **定义方**：Nerve / 配套插件（自描述、全保真）
-- **消费方**：LLM（直接消费，Cortex 不需要理解）
-- **抽象层级**：平台原生（保留全部能力）
-- **例**：`onebot.poke`、`onebot.set_group_card`、`discord.create_thread`
-- **控制**：是否暴露、暴露哪些，按部署配置
-- **状态**：机制**延后设计**（D-08）
+早期设计将 tool 分为 Layer 1（Cortex 代码调的平台原语）、Layer 2（Cortex 定义的 LLM tool）、Layer 3（插件贡献的平台特有 LLM tool）。废弃原因：
 
-### 为什么这样分层
-
-- **不做最小公约数抽象** —— 平台暴露其**完整**能力，由 LLM 在运行时泛化
-- **Cortex 保持平台无关** —— Cortex 代码只用 Layer 1，并定义自己的 Layer 2，从不引用平台特有操作
-- **LLM 是平台多样性的消费者** —— 平台差异由 LLM 的泛化能力消解，而非由人类开发者写 adapter 代码消解
-- **Cortex 开发者不打包平台能力** —— 他们做的"再包装"是定义产品语义工具（Layer 2），**不是**包装平台 API
+- Focus 机制恢复了默认操作目标，不需要每个 tool 完整寻址
+- Body 注册表已解决平台访问，Layer 1 不需要单独抽象
+- 从 LLM 视角所有 tool 同质，Layer 2/3 区分增加无谓认知负担
+- 两条注册路径最终合并为一个 ToolSet，说明它们本就是同一种东西
 
 ### 无 tool context 注入
 
