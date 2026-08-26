@@ -134,11 +134,14 @@ __metadata:
     "@athena-ai/core": "workspace:*"
     "@athena-ai/protocol": "workspace:*"
     "@athena-ai/protocol-im": "workspace:*"
+    "@cordisjs/plugin-database": "npm:^4.1.1"
+    "@cordisjs/plugin-database-memory": "npm:^4.1.1"
     cordis: "npm:^4.0.0-rc.8"
   peerDependencies:
     "@athena-ai/core": "workspace:*"
     "@athena-ai/protocol": "workspace:*"
     "@athena-ai/protocol-im": "workspace:*"
+    "@cordisjs/plugin-database": ^4.1.1
     cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
@@ -149,18 +152,6 @@ __metadata:
   peerDependencies:
     "@athena-ai/core": "workspace:*"
     "@athena-ai/protocol": "workspace:*"
-    cordis: ^4.0.0-rc.8
-  languageName: unknown
-  linkType: soft
-
-"@athena-ai/plugin-message-store@workspace:plugins/message-store":
-  version: 0.0.0-use.local
-  resolution: "@athena-ai/plugin-message-store@workspace:plugins/message-store"
-  dependencies:
-    "@athena-ai/core": "workspace:*"
-    cordis: "npm:^4.0.0-rc.8"
-  peerDependencies:
-    "@athena-ai/core": "workspace:*"
     cordis: ^4.0.0-rc.8
   languageName: unknown
   linkType: soft
@@ -434,6 +425,30 @@ __metadata:
     "@cordisjs/plugin-loader": ^1.0.0-rc.4
     cordis: ^4.0.0-rc.5
   checksum: 10c0/d774521fdd5f1e79b71543ad709fc391dfa29af9233970790464f2342cf1874a2cf749011d0617fc02668f7d80243007576d143b90676c9f58e8add82955c88d
+  languageName: node
+  linkType: hard
+
+"@cordisjs/plugin-database-memory@npm:^4.1.1":
+  version: 4.1.1
+  resolution: "@cordisjs/plugin-database-memory@npm:4.1.1"
+  dependencies:
+    cosmokit: "npm:^1.8.1"
+    schemastery: "npm:^3.18.0"
+  peerDependencies:
+    "@cordisjs/plugin-database": ^4.1.1
+    cordis: ^4.0.0-rc.7
+  checksum: 10c0/f292b06950b91e51bb1a2b2ed6f0ba71f37979b01c64df9b8af2430f97ccfa4b82f84c4b996dfe17d1e2985f7d9ac44f5ec336073d7bafaa57282a6ea388d6bd
+  languageName: node
+  linkType: hard
+
+"@cordisjs/plugin-database@npm:^4.1.1":
+  version: 4.1.1
+  resolution: "@cordisjs/plugin-database@npm:4.1.1"
+  dependencies:
+    cosmokit: "npm:^1.8.1"
+  peerDependencies:
+    cordis: ^4.0.0-rc.7
+  checksum: 10c0/600e02192b5f25a72413352e7c7ca519867e812ff10fefbf21b213d54f793a34b7dbe08c1715b6f41cdbff70a816a3cba46d4483e2a365227ed751b9f0b676b3
   languageName: node
   linkType: hard
 

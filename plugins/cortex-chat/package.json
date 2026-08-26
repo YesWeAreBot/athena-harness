@@ -17,12 +17,15 @@
     "@athena-ai/core": "workspace:*",
     "@athena-ai/protocol": "workspace:*",
     "@athena-ai/protocol-im": "workspace:*",
+    "@cordisjs/plugin-database": "^4.1.1",
+    "@cordisjs/plugin-database-memory": "^4.1.1",
     "cordis": "^4.0.0-rc.8"
   },
   "peerDependencies": {
     "@athena-ai/core": "workspace:*",
     "@athena-ai/protocol": "workspace:*",
     "@athena-ai/protocol-im": "workspace:*",
+    "@cordisjs/plugin-database": "^4.1.1",
     "cordis": "^4.0.0-rc.8"
   },
   "cordis": {
@@ -32,7 +35,9 @@
       ],
       "required": [
         "life",
-        "nerve"
+        "nerve",
+        "ai",
+        "database"
       ]
     }
   }

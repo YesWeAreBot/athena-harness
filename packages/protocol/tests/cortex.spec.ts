@@ -1,8 +1,18 @@
-import { Context } from "cordis";
+import { Context, Service } from "cordis";
 import { describe, it, expect } from "vitest";
 
 import { CortexService } from "../src/cortex.ts";
 import { LifeService } from "../src/life.ts";
+
+class TestLife extends LifeService {
+  public id: string;
+  public cortex: Service | null = null;
+
+  constructor(ctx: Context, config: LifeService.Config) {
+    super(ctx, "life");
+    this.id = config.id;
+  }
+}
 
 class TestCortex extends CortexService {
   constructor(ctx: Context) {
@@ -13,7 +23,7 @@ class TestCortex extends CortexService {
 describe("Cortex", () => {
   it("binds with Life on init", async () => {
     const ctx = new Context();
-    await ctx.plugin(LifeService, {
+    await ctx.plugin(TestLife, {
       id: "alice",
     });
     await ctx.plugin(TestCortex);
@@ -22,7 +32,7 @@ describe("Cortex", () => {
 
   it("unbinds on dispose", async () => {
     const ctx = new Context();
-    await ctx.plugin(LifeService, {
+    await ctx.plugin(TestLife, {
       id: "alice",
     });
     const fork = await ctx.plugin(TestCortex);
@@ -33,7 +43,7 @@ describe("Cortex", () => {
 
   it("second Cortex throws", async () => {
     const ctx = new Context();
-    await ctx.plugin(LifeService, {
+    await ctx.plugin(TestLife, {
       id: "alice",
     });
     await ctx.plugin(TestCortex);
