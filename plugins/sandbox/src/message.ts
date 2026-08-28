@@ -1,5 +1,5 @@
-import { MessageEncoder } from "@athena-ai/protocol-im";
-import { Element } from "@cordisjs/element";
+import { Channel, MessageEncoder } from "@athena-ai/protocol-im";
+import { Element, parse } from "@cordisjs/element";
 
 import type { SandboxBot } from "./bot.js";
 
@@ -36,6 +36,19 @@ export class SandboxMessenger extends MessageEncoder<SandboxBot> {
         platform: this.body.platform,
       },
     });
+
+    // Outbound messages are archived from the `send` event, exactly like on a
+    // real platform: without it a Life's own replies never reach its history.
+    const channel = this.body.channelOf(this.channelId);
+    this.body.dispatch(
+      this.body.session({
+        type: "send",
+        user: this.body.user,
+        channel,
+        guild: channel.type === Channel.Type.DIRECT ? undefined : { id: this.channelId },
+        message: { id: messageId, content, elements: parse(content) },
+      }),
+    );
     this.results.push({ id: messageId });
     this.buffer = "";
   }

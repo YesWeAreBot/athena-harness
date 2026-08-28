@@ -15,6 +15,12 @@
     },
     "./package.json": "./package.json"
   },
+  "devDependencies": {
+    "@athena-ai/plugin-sandbox": "workspace:*",
+    "@athena-ai/protocol": "workspace:*",
+    "@athena-ai/protocol-im": "workspace:*",
+    "cordis": "^4.0.0-rc.8"
+  },
   "peerDependencies": {
     "@athena-ai/plugin-sandbox": "workspace:*",
     "@athena-ai/protocol": "workspace:*",

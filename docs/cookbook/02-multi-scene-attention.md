@@ -78,55 +78,44 @@ Cookbook 01 的三块模型（稳定区 / 帧 / 工作区）完全适用，无�
   Life identity + 全局规则 + 工具 schema + 主心智压缩条目
 
 帧:
-  ┌─ awareness ────────────────────────────────┐
-  │  非 focus 场景的极简通知                    │
-  │  （场景名、未读数、最新消息预览、优先级）   │
+  ┌─ focus 声明 ──────────────────────────────┐
+  │  当前 focus 场景（bodySid + channelId）    │
   └────────────────────────────────────────────┘
-  ┌─ focus context ────────────────────────────┐
-  │  当前 focus 场景的展开内容                  │
-  │  （频道信息、参与者、近期历史）             │
+  ┌─ history ─────────────────────────────────┐
+  │  当前 focus 场景的近期历史                 │
+  │  （检查点重建时来自上一代工作区的剪枝，    │
+  │    focus 切换时来自 message-store 拉取）   │
   └────────────────────────────────────────────┘
-  ┌─ global state ─────────────────────────────┐
-  │  全局承诺与待办                             │
-  │  最近的 focus 转移记录                      │
+  ┌─ last_focus_history ──────────────────────┐
+  │  切换前那一代的认知轨迹（仅切换后一代存在）│
+  │  （剪枝后的旧工作区：决策、承诺、工具结果）│
   └────────────────────────────────────────────┘
 
 工作区:
-  本次检查点以来的所有事件流
+  当前检查点以来的所有事件流（step delta）
+  ── 用户消息 / awareness / focus-change 等
 ```
+
+不再有 awareness 块或 global state 块——它们要么是工作区 delta（awareness），要么已由压缩条目承担（global state 中的跨场景承诺与待办）。
+
+### Focus 声明
+
+帧首行声明当前 focus。主心智据此判断"我现在在哪、默认与谁交互"。
+
+### history
+
+当前 focus 场景的内容区，两种来源：
+
+- 常规重建（阈值 / idle）：上一代工作区的**剪枝形态**（`prune(W)`）；
+- focus 切换重建：从 message-store 拉取新 focus 频道的近期历史（可配置条数）。
+
+### last_focus_history
+
+**单代过渡区**：focus 切换后出现一代，保存剪枝后的旧工作区（切换前的对话 + 切换过程），下一次重建即进入压缩条目并消失。它让模型在切到 B 之后的一代里仍能看到自己在 A 里做了什么（未完成的承诺、为什么切换）。
 
 ### Awareness
 
-每个非 focus 场景在帧中只占极少 token。参考信息：
-
-- 场景名称 / 标识
-- 未读消息条数
-- 最新一条消息的预览（截断到一两行）
-- 是否有高优先级事件（被 @、被提及等）
-
-10 个场景的 awareness 可能也就 200-300 tokens。
-
-**Awareness 也需要筛选——不是所有非 focus 场景都值得出现在帧里。** 推荐策略：
-
-- 只展示有未读消息的场景
-- 按最后活跃时间排序，取 top N
-- 被 @ 或提及的场景总是展示
-
-### Focus context
-
-当前 focus 场景的完整局部状态。具体内容取决于场景类型（见 01 的场景速览表）。对日常对话场景，通常包含：
-
-- 频道元信息（名称、类型）
-- 当前参与者
-- 近期消息历史（固定窗口 + 可选检索增强）
-
-### Global state
-
-主心智跨场景的全局信息：
-
-- 尚未完成的承诺（"答应了群 A 的人稍后回复"）
-- 最近几次 focus 切换的记录
-- 跨场景的待办事项
+非 focus 场景的重要事件**不进入帧**，而是作为工作区 delta 到达（见下文 "Awareness delta"）。帧中不存在 awareness 累加器。
 
 ---
 
@@ -146,11 +135,13 @@ Cookbook 01 的三块模型（稳定区 / 帧 / 工作区）完全适用，无�
 
 帧在以下时机重建：
 
-| 触发条件          | 原因                                |
-| ----------------- | ----------------------------------- |
-| Focus 切换        | 帧的 focus context 部分要换成新场景 |
-| 上下文压缩完成    | 工作区被清空，降维结果需要写入新帧  |
-| 系统重启 / 冷启动 | 内存状态丢失，需要从持久化恢复      |
+| 触发条件          | 原因                                                                 |
+| ----------------- | -------------------------------------------------------------------- |
+| Focus 切换        | 帧的 focus 声明 + history 要换成新场景；turn 结束时重建              |
+| 上下文压缩完成    | 工作区被清空，降维结果需要写入新帧                                    |
+| 系统重启 / 冷启动 | 内存状态丢失，需要从持久化恢复                                        |
+
+Focus 切换的时序限定：**turn 内只追加 delta，turn 结束时才重建**。`switch_focus` 在 turn 内只改 logical focus 并追加 focus-change delta；当前 turn 冻结的帧不变。turn 结束后若 `frameFocus !== logicalFocus`，无论工作区是否超过压缩阈值，都触发重建。
 
 两次检查点之间，帧完全不变。所有新内容追加到工作区。
 
@@ -185,8 +176,7 @@ Cookbook 01 的三块模型（稳定区 / 帧 / 工作区）完全适用，无�
 - 工具调用与结果
 - Awareness delta（非 focus 场景的新事件通知）
 - 旁路检索结果
-- Focus 变更记录
-- 新展开的 scene context（turn 内切换 focus 时）
+- Focus 变更记录（focus-change delta）
 
 ### Turn 分隔
 
@@ -196,11 +186,11 @@ Cookbook 01 的三块模型（稳定区 / 帧 / 工作区）完全适用，无�
 
 工具结果延迟降维——原文进入工作区，检查点压缩时统一降维。
 
-理由：turn 内的后续 step 需要看到工具的完整返回值来做决策。只有到了检查点时，旧的工具结果才需要降维。降维规则与 01 一致：成功的可以摘要，失败的保留原文。
+理由：turn 内的后续 step 需要看到工具的完整返回值来做决策。只有到了检查点时，旧的工具结果才需要降维。降维规则与 01 一致：成功的可以摘要（大块输出首尾保留），失败的保留原文。
 
 ### 膨胀控制
 
-工作区会持续增长。通过配置压缩阈值（token 数 / 消息条数）和空闲时间来控制。达到阈值时触发压缩，产生新检查点。
+工作区会持续增长。通过配置压缩阈值（token 估算）和空闲时间来控制。达到阈值时触发压缩，产生新检查点。重建触发判定独立于压缩阈值：turn 结束时先判 `frameFocus !== logicalFocus`（强制重建），再判阈值。
 
 ---
 
@@ -217,7 +207,7 @@ Cookbook 01 的三块模型（稳定区 / 帧 / 工作区）完全适用，无�
 - 目标场景的未完成事项
 - 目标场景的工具或能力
 
-Focus 切换触发帧重建（检查点）。旧 focus 场景的工作区内容降维后保存到该场景的 session store。
+Focus 切换触发帧重建（检查点）。**上一代工作区剪枝后进入帧区 `lastFocusHistory` 区**，随下一次重建进入压缩条目——它不属于任何 per-scene session store，因为 scene session store 已不存在。
 
 ### 2. 旁路读取：不改变 focus 的跨场景查询
 
@@ -249,11 +239,33 @@ Focus 切换触发帧重建（检查点）。旧 focus 场景的工作区内容�
 
 通常情况下，事件只追加，不打断。是否改变注意力，由模型决策决定。
 
+Awareness 消息格式（工作区中的独立 user message）：
+
+```
+<awareness source="bodySid/channelId" trigger="direct|mention" from="userId" scene="bodySid/channelId" ts="HH:MM" id="messageId">
+  <content>消息内容</content>
+  <context>
+    <message from="..." scene="..." ts="..." id="...">触发时的上下文消息</message>
+    ...
+  </context>
+  <reason>可选：cortex 按策略提供的触发原因</reason>
+  <suggestion>可选：建议行为</suggestion>
+</awareness>
+```
+
+- 来源（scene）：`source` / `scene` 属性
+- 触发者：`from` 属性
+- 内容：`<content>`
+- 触发时上下文（N 条，可配置）：`<context>`
+- 可选原因 / 建议行为：`<reason>` / `<suggestion>`
+
+**Awareness 不触发帧重建**；主心智可选择忽略 / `peek_channel` 查看来源频道 / 旁路回复 / 主动切换 focus。
+
 ---
 
 ## Turn 内部行为
 
-Turn = 一次 `streamText` 调用，内部可有多个 step（多次模型调用）。
+Turn = 一次自管循环，每 step 一次 `generateText` 调用，内部可有多个 step（多次模型调用）。
 
 ### Step delta
 
@@ -272,6 +284,8 @@ step 3:
   帧 + 工作区[...已有内容, 当前消息, 工具结果, awareness_delta, 旁路结果]
   → 模型再次调用 → 生成回复
 ```
+
+step 内工具产生的 delta（focus-change 等）先进 pending buffer，等该 step 的 `result.response.messages` 全部追加后再追加，保证 `assistant(tool-call) → tool(result) → focusChange delta` 的时序。
 
 ### 模型的自主决策
 
@@ -313,7 +327,24 @@ step 3:
 
 - 各频道的原始消息
 - 各频道的完整对话历史
-- 可从 scene session store 恢复的局部信息
+- 可从 message-store 恢复的原始消息
+
+### 管线语义
+
+压缩器输入 = 帧区两个内容区 + 上一版压缩条目，一次 LLM 调用：
+
+```
+<previous_memory>      上一版压缩条目
+<frame_history>        当前 focus 的历史
+<last_focus_history>   切换前那一代的认知轨迹（可能不存在）
+```
+
+两段语义不同，压缩 prompt 需区别对待：
+
+- `frame_history` 是客观 IM 消息；
+- `lastFocusHistory` 是主心智自己的认知轨迹（决策、承诺、工具结果），是「保留跨场景决策与未完成承诺」的主要来源。
+
+检查点重建时，剪枝后的旧帧区内容进入压缩输入，新压缩条目替换稳定区中的上一版。帧区不按场景分组——**没有 per-scene 压缩**，scene 不再是认知分区维度。
 
 ### 示例
 
@@ -327,20 +358,13 @@ step 3:
 - 群 A 的回复尚未完成，返回时需要继续处理。
 ```
 
-### Per-scene session store
-
-各场景的局部历史保存在各自的 session store 中：
-
-- Focus 展开时从 store 读取
-- Focus 切走时将工作区中该场景的内容降维后写回
-- 这是 Cortex 的内部状态，不是 Life 的 memory
-
 ### 三层存储的区分
 
 | 层                  | 内容                         | 生命周期                         |
 | ------------------- | ---------------------------- | -------------------------------- |
 | 主心智压缩条目      | 跨场景认知轨迹               | 随主心智，检查点时更新           |
-| Scene session store | 各频道的局部历史             | 随 Cortex，focus 展开/切走时读写 |
+| 工作区 + 帧区       | 检查点之间的认知状态         | 随 Cortex，检查点时重建清空     |
+| message-store       | 各频道的原始 IM 消息档案     | 随 Life，长期保留                |
 | Life memory         | 跨时间、跨 Cortex 的长期经验 | 随 Life，跨重启持续              |
 
 ---
@@ -381,19 +405,19 @@ step 3:
 
 以下问题尚未决策，留待后续讨论：
 
-1. **Session store 的形态** — 每个 scene 的局部历史怎么持久化和恢复？focus 展开时从 store 取多少、取什么格式？
+1. **Session store 的形态** —— 已决：不引入 per-scene session store。场景局部连续性由「全局压缩条目（跨场景承诺）+ message-store（原始历史）」承担，重新进入某频道时从 message-store 拉取近期历史。
 
-2. **Awareness 的数据来源和更新机制** — 谁维护各频道的未读计数和预览？是 Cortex 在内存中维护，还是有独立的服务？
+2. **Awareness 的数据来源和更新机制** —— 已决：路由判定为 direct / @self trigger（非 focus 场景）；awareness 以工作区 delta 到达，触发时从 message-store 拉取该场景 N 条上下文。不在帧中维护未读计数与预览累加器。
 
-3. **Focus 切换的决策机制** — 什么条件触发切换？纯规则（被 @、超时、优先级阈值）还是也可以由模型通过工具决定？两者如何配合？
+3. **Focus 切换的决策机制** —— 已决：由模型通过 `switch_focus` 工具自主决定（CONSTITUTION 提示层抑制过度切换）；turn 内只改 logical focus 并追加 delta，turn 结束时强制重建。
 
-4. **旁路读取的 scope policy** — 什么信息可以跨频道读取？私聊内容能被带到群聊上下文吗？谁定义这个边界？
+4. **旁路读取的 scope policy** —— 未决：什么信息可以跨频道读取？私聊内容能被带到群聊上下文吗？谁定义这个边界？
 
-5. **主心智压缩条目的具体格式和触发策略** — 压缩是 LLM 做还是规则做？保留什么、丢弃什么？
+5. **主心智压缩条目的具体格式和触发策略** —— 已决：压缩由 LLM 完成，剪枝由纯代码完成；压缩器输入 = 帧区两个内容区 + 上一版压缩条目，单次调用；保留跨场景决策与未完成承诺，丢弃可从 message-store 恢复的原始消息。
 
-6. **与 Athena 现有架构的映射** — 主心智对应 Cortex 的哪个部分？awareness 对应 Nerve 事件的哪一层？session store 是 Cortex 的内部状态还是独立包？
+6. **与 Athena 现有架构的映射** —— 已决：主心智 = `CortexChat`；focus = `Attention.frameFocus / logicalFocus`；awareness = 非 focus trigger 的 routed message；scene 作为**寻址原语**保留（`SceneAddress`），作为**认知分区**删除。
 
-7. **"回复时上下文要是最新的"约束** — 如何保证决定回复时，帧或工作区中的信息反映频道的当前状态，而不是滞后的快照？
+7. **"回复时上下文要是最新的"约束** —— 未决：如何保证决定回复时，帧或工作区中的信息反映频道的当前状态，而不是滞后的快照？
 
 ---
 

@@ -117,7 +117,7 @@ Cortex **不能**在运行时动态切换。不同 Cortex 的状态结构互不�
 
 #### 当前实现
 
-`Cortex` abstract class 在 `@athena-ai/protocol`，`static inject = ["life"]`，在 `*[Service.init]()` 中调用 `ctx.life.bind(this)` 并 yield 返回的 disposer。`@athena-ai/cortex-chat` 是唯一实现，目前仅有 echo 逻辑，尚无 LLM 集成。
+`Cortex` abstract class 在 `@athena-ai/protocol`，`static inject = ["life"]`，在 `*[Service.init]()` 中调用 `ctx.life.bind(this)` 并 yield 返回的 disposer。`@athena-ai/cortex-chat` 是唯一实现：Life-scoped 主心智，三区内容老化管线（稳定区 + checkpoint 帧区 + 内存工作区），经 message-store 归档、Attention 路由、core tools 与 `TurnCoordinator` 完成认知循环（详见 [cookbook 02](./cookbook/02-multi-scene-attention.md)、[cookbook 03](./cookbook/03-nerve-event-and-persistence.md)）。
 
 ---
 

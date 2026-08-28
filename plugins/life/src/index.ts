@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { Schema } from "@athena-ai/core";
 import { LifeService } from "@athena-ai/protocol";
 import { Context, Service } from "cordis";
@@ -26,12 +28,14 @@ class Life extends LifeService {
   public static readonly inject = [];
 
   public id: string;
+  public dataDir: string;
   public persona: string;
   public cortex: Service | null = null;
 
   constructor(ctx: Context, config: LifeService.Config) {
     super(ctx, "life");
     this.id = config.id;
+    this.dataDir = path.resolve(config.dataDir ?? ".athena/lives", encodeURIComponent(config.id));
     this.persona = config.persona;
   }
 }
@@ -39,6 +43,7 @@ class Life extends LifeService {
 namespace Life {
   export const Config: Schema<LifeService.Config> = Schema.object({
     id: Schema.string().required(),
+    dataDir: Schema.string().default(".athena/lives").description("Life 的持久化数据根目录"),
     persona: Schema.string().role("textarea").default(DEFAULT_PERSONA).description("Life 的人设描述"),
   });
 }

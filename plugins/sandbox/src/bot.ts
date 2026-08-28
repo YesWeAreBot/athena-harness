@@ -1,5 +1,7 @@
+import type { Session } from "@athena-ai/protocol";
 import type { Guild, GuildMember, List, Message, User } from "@athena-ai/protocol-im";
 import { Channel, IMBody } from "@athena-ai/protocol-im";
+import { parse } from "@cordisjs/element";
 import type { Context } from "cordis";
 
 import { SandboxMessenger } from "./message.js";
@@ -94,6 +96,33 @@ export class SandboxBot extends IMBody<SandboxBot.Config> {
 
   async createDirectChannel(userId: string): Promise<Channel> {
     return { id: `@${userId}`, type: Channel.Type.DIRECT };
+  }
+
+  /**
+   * The normalized `message-created` Session for text typed in the page.
+   *
+   * Every Nerve that drives this body builds the same event, and `elements`
+   * belongs in it: `content` alone cannot answer `isAtSelf()`, so a Cortex that
+   * routes on mentions would never see one typed in the sandbox.
+   */
+  receive(payload: { id: string; user: string; channel: string; content: string; quote?: { id: string; content: string } }): Session {
+    const channel = this.channelOf(payload.channel, payload.user);
+    const user: User = { id: payload.user, name: payload.user };
+    const session = this.session({
+      type: "message-created",
+      user,
+      channel,
+      guild: channel.type === Channel.Type.DIRECT ? undefined : { id: payload.channel },
+      message: { id: payload.id, content: payload.content, elements: parse(payload.content), user, channel },
+    });
+    if (payload.quote) session.quote = { id: payload.quote.id, content: payload.quote.content };
+    return session;
+  }
+
+  /** Sandbox channels are direct when named after the user that owns them. */
+  channelOf(channelId: string, userId?: string): Channel {
+    const direct = userId === undefined ? channelId.startsWith("@") : channelId === `@${userId}`;
+    return { id: channelId, type: direct ? Channel.Type.DIRECT : Channel.Type.TEXT };
   }
 
   // -- Message --

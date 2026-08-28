@@ -69,34 +69,38 @@ Cortex 自己定义的 tool，直接构造，不走 Registry。
 - 生命周期随 Cortex
 
 ```typescript
-private coreTools() {
+// 参数形态只有一种。不要靠"探测第一个参数有没有某个属性"来分派多态签名：
+// Cortex 传进来的 ctx 是带 inject 白名单的 plugin Context，读取未声明的属性
+// 会被 Cordis 直接拒绝，而单元测试常在 root Context 上装配，看不到这一点。
+export function createCoreTools(ctx: Context, runtime: CoreToolRuntime, pacing?: PacingConfig): ToolSet {
   return {
     send_message: tool({
-      description: "Say something. Defaults to the current focus channel.",
-      inputSchema: z.object({
-        content: z.string(),
-        channelId: z.string().optional().describe("Omit to use focus channel"),
-      }),
-      execute: async ({ content, channelId }) => {
-        const target = channelId ?? this.focusSceneId;
-        const body = /* resolve body for target */;
-        await body.sendMessage(target, content);
-        return { sent: true };
+      description: "向频道发送消息。这是消息到达平台的唯一途径。",
+      inputSchema: /* messages: string[], target?: SceneAddress, mode?, continue? */,
+      execute: async (input) => {
+        const target = input.target ?? runtime.logicalFocus();
+        if (!target) return { ok: false, error: { name: "NoFocusError", message: "No focus Scene is available" } };
+        const body = ctx.nerve.get(target.bodySid);
+        if (!body || typeof body.sendMessage !== "function") {
+          return { ok: false, error: { name: "BodyNotFound", message: `Body not found: ${target.bodySid}` } };
+        }
+        // 失败原样返回给模型：结构化错误，绝不返回伪造的 message id
+        return { ok: true, messageIds: await body.sendMessage(target.channelId, parse(input.messages[0])) };
       },
     }),
 
     wait: tool({
-      description: "Do nothing this turn and let time pass.",
-      inputSchema: z.object({
-        reason: z.string().describe("Why waiting is the right choice"),
-      }),
-      execute: async () => ({ waited: true }),
+      description: "显式沉默。本工具立即结束本轮，不发送任何消息。",
+      inputSchema: /* reason: string */,
+      execute: async () => ({ ok: true }),
     }),
   };
 }
 ```
 
 **"不回复"是一等决策。** `wait` tool 让沉默成为 LLM 的显式选择，而非超时或无 tool call 的副产物。
+
+**Cortex 内置 tool 不闭包捕获 Cortex 实例，而是接受一个窄接口**（上面的 `runtime`）：读 logical focus、切 focus、读频道历史（`peek_channel` 经 message-store）、追加 workspace delta（同步 `appendWorkspaceDelta(messages: readonly ModelMessage[]): void`，内存数组）。这些写操作都必须经过唯一的 mutation owner（`TurnCoordinator` / runner 的 pending delta buffer），tool 不直接写 workspace——否则 turn 的串行写入顺序就没人保证了。`recordSceneCursor` 与 scene cursor 已删除（无 per-scene session store）。
 
 ### 插件贡献 Tool
 
@@ -151,20 +155,50 @@ LLM 看到的是统一的 tool 集合，不区分来源。
 
 ## Focus 与寻址
 
-### 默认操作于 Focus 场景
+### Scene 身份：bodySid + channelId
 
-大部分 Cortex 内置 tool 省略寻址参数时作用于当前 focus 场景：
+寻址参数不是一个字符串 id，而是一对：
+
+```typescript
+interface SceneAddress {
+  bodySid: string; // `${platform}:${selfId}`
+  channelId: string;
+}
+```
+
+不能用 `platform + channelId`：一个 Life 可以拥有多个同平台 Body，而它们可能各自持有同名 channel（两个 QQ 号都在群 `42` 里）。持久化 key 由单一模块编解码（`encodeSceneAddress` / `decodeSceneAddress`），业务代码不做 `split(":")`。给模型看的简写形式只是展示，不是身份。
+
+### 默认操作于 logical focus
+
+大部分 Cortex 内置 tool 省略寻址参数时作用于当前 **logical focus**：
 
 ```
-send_message({ content: "你好" })              → 发到 focus 频道
-send_message({ content: "...", channelId: "xxx" }) → 发到指定频道（跨场景）
+send_message({ messages: ["你好"] })                                  → 发到 logical focus
+send_message({ messages: ["..."], target: { bodySid, channelId } })   → 发到指定 Scene（跨场景）
 ```
+
+**frame focus 与 logical focus 是两个字段。** turn 开始时冻结的帧描述 frame focus，`switch_focus` 只移动 logical focus 并追加 focusChange delta——本 turn 的帧不重建。新的 frame 在本 turn 结束后的重建事务里才建立：`promoteFocus()` 提升 frame focus，`history` 从 message-store 拉取新 focus 频道近期历史，`lastFocusHistory` 保存剪枝后的旧工作区。所以同一个 turn 里，"帧里写的 focus"和"send_message 的默认目标"可以不同，这是有意的：帧不变是上下文缓存与可复现性的前提。重建触发独立于压缩阈值——只要 `frameFocus !== logicalFocus` 就强制重建。
+
+### 目标必须解析到唯一 Body
+
+```typescript
+const body = ctx.nerve.get(target.bodySid);
+if (!body || typeof body.sendMessage !== "function") {
+  return { ok: false, error: { name: "BodyNotFound", message: `Body not found: ${target.bodySid} channel ${target.channelId}` } };
+}
+```
+
+三条硬规则：
+
+- **不扫描 `ctx.nerve.bodies` 猜目标。** 猜错就是投递到错误的平台。
+- **缺 Body、缺能力、平台拒绝都返回结构化失败**（带 `bodySid` 与 `channelId`，以及原始错误名/消息）。多条消息按序发送时，首条失败即停止并报告 `sent` + `failedAt`。
+- **永不返回伪造的成功 id。** `mock:*` 之类的占位返回值会让模型以为自己说过话——它会据此继续对话，而对面什么都没收到。能力缺失必须表现为失败。
 
 ### 插件 Tool 的寻址策略
 
 插件 tool 可以选择：
 
-- **始终要求手动选址**——tool 参数中 `channelId`/`botSid` 为必填。LLM 在帧中看到 focus 标识和可用 body 列表，填充参数不构成决策负担。
+- **始终要求手动选址**——tool 参数中 `target` 为必填。LLM 在帧中看到 focus 标识和可用 body 列表，填充参数不构成决策负担。
 - **接受 focus 作为默认**——如果插件能访问 Cortex 的 focus 状态（通过事件或约定），也可以把它作为默认值。但这引入了对 Cortex 内部状态的耦合，通常不推荐。
 
 推荐做法：**插件 tool 使用手动选址。** 保持与 Cortex 的解耦。
@@ -173,9 +207,9 @@ send_message({ content: "...", channelId: "xxx" }) → 发到指定频道（跨�
 
 LLM 在帧中能看到：
 
-- 当前 focus 频道的标识和名称
+- 当前 focus Scene 的 `bodySid` 与 `channelId`
 - 可用 body 的列表（`platform:selfId`）
-- 各频道的 awareness 信息
+- 各 Scene 的 awareness 信息
 
 这些信息足以让 LLM 正确填写寻址参数。
 
@@ -244,27 +278,31 @@ Root Context（全局 tool 注册在此）
 
 ---
 
-## 与检查点的关系
+## 与检查点和每 turn 装配的关系
 
-### Tool 集合属于稳定区参数
+Tool schema 是 LLM request payload 的一部分，但不是 checkpoint 持久状态。`cortex-chat` 在每个 turn 都执行：
 
-Tool 集合和 system prompt、模型选择、thinking level 同级——它们共同构成 LLM 请求的前缀部分。
+```text
+buildPromptSnapshot(current persona, current compaction, checkpoint Frame)
+assembleTools(ctx, runtime, ...)
+generateText({ messages: [...stable, ...frame, ...workspace], tools })
+```
 
-检查点触发条件：
+因此：
 
-| 重建级别                    | 触发条件                                                                              | 重建范围                   |
-| --------------------------- | ------------------------------------------------------------------------------------- | -------------------------- |
-| **完整重建**（稳定区 + 帧） | system prompt 变化、tool 集合变化、thinking level 变化、模型/参数变化、cache TTL 到期 | 整个前缀失效，从头重建     |
-| **帧重建**                  | focus 切换、压缩完成                                                                  | 稳定区不动，帧重建         |
-| **无重建**                  | 其余一切                                                                              | 以 step delta 追加到工作区 |
+- 在两个 turn 之间注册或注销 tool，下一 turn 的 provider request 会直接看到新集合；
+- persona 或 compaction 变化，下一 turn 的 stable messages 会直接反映当前值；
+- provider prompt/tool cache 是否命中，由实际 request payload 决定，不由 Athena checkpoint 发出额外失效信号；
+- checkpoint（version 2）只保存恢复需要的 focus / history / lastFocusHistory / compaction，不保存 `stableFingerprint`；
+- 不得因 tool/persona/模型配置变化而丢弃 checkpoint，否则会误删长期摘要、focus 与恢复边界。
 
 ### 什么不应放在 Tool Description 中
 
-Tool description 属于稳定区——每次变化都触发完整重建，代价高。
+Tool description 会随每个 request 一起发送，仍应保持静态、简洁，避免把频繁变化的信息复制进每次调用。
 
 **不应放**：
 
-- 当前可用 bot 列表（频繁变化）
+- 当前可用 Body 列表（频繁变化）
 - 频道名称和状态（随时可能变）
 - 任何运行时动态信息
 
@@ -276,13 +314,12 @@ Tool description 属于稳定区——每次变化都触发完整重建，代价
 
 动态信息的正确位置：
 
-- **帧**（帧重建时更新）：可用 body 列表、focus 频道信息
-- **工作区**（step delta）：新到的消息、awareness 通知、状态变化
+- **帧**：可用 Body、focus 与 scene 状态
+- **工作区**：新消息、awareness、tool result 与状态 delta
 
 ### 不变式
 
-**检查点之间，稳定区绝对稳定、帧相对稳定。环境和参数变化尽量以 delta 进工作区；确实要改变环境时才重建检查点。**
-
+每个 turn 使用当下真实的 prompt 与 tool payload；checkpoint 只负责认知状态恢复，不承担 provider cache invalidation。
 ---
 
 ## 否决方案：三层 Tool 模型
@@ -323,15 +360,15 @@ Layer 2 直接传给 AI SDK，Layer 3 走 `ctx.tools` Registry。
 
 ## 待定事项
 
-以下问题尚未决策，留待实现时确认：
+以下问题尚未决策，留待后续确认：
 
-1. **`Context.current` 机制验证** — ToolRegistry 需要在 `register()` 和 `available()` 时获取 caller 的 context 以做作用域判断。需确认 Cordis 是否提供等价机制，或 `register` 需接受显式 `ctx` 参数。
+1. **`Context.current` 机制** — ✅ **已定**：`ToolRegistry.register()` / `available()` 通过 caller 的 Cordis context 判断作用域（root 注册 = 全局可见，Life 组内注册 = 仅该 Life 可见），实现见 `packages/core/src/tools.ts`。
 
-2. **变化检测机制** — Cortex 怎么知道"tool 集合变了"？选项：ToolRegistry 在注册/注销时 emit 事件，或 Cortex 每 turn 开始时快照对比。
+2. **变化检测机制** — ✅ **已定**：不建立 checkpoint 指纹。prompt 与 tool 集合每 turn 从当前状态重装配，provider cache 根据真实 request payload 自行命中或失效。
 
 3. **Tool 集合动态过滤** — 某些 turn 可能不该暴露所有 tool（如 rate limited 时收窄）。这应是 Cortex 装配时的过滤逻辑，不是 Registry 的职责。具体机制待定。
 
-4. **Tool 命名约定** — 是否命名空间化（`onebot:set_essence`）还是扁平（`set_essence`）。当前倾向扁平，冲突时报错。
+4. **Tool 命名约定** — ✅ **已定**：扁平命名。装配时如果插件 tool 与内置 tool 同名，抛诊断错误，不静默覆盖——覆盖掉 `send_message` 意味着这个 Life 从此说不出话。
 
 ---
 

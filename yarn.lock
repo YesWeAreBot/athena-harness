@@ -254,6 +254,11 @@ __metadata:
 "@athena-ai/plugin-sandbox-nerve@workspace:plugins/sandbox-nerve":
   version: 0.0.0-use.local
   resolution: "@athena-ai/plugin-sandbox-nerve@workspace:plugins/sandbox-nerve"
+  dependencies:
+    "@athena-ai/plugin-sandbox": "workspace:*"
+    "@athena-ai/protocol": "workspace:*"
+    "@athena-ai/protocol-im": "workspace:*"
+    cordis: "npm:^4.0.0-rc.8"
   peerDependencies:
     "@athena-ai/plugin-sandbox": "workspace:*"
     "@athena-ai/protocol": "workspace:*"
@@ -261,7 +266,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@athena-ai/plugin-sandbox@workspace:plugins/sandbox":
+"@athena-ai/plugin-sandbox@workspace:*, @athena-ai/plugin-sandbox@workspace:plugins/sandbox":
   version: 0.0.0-use.local
   resolution: "@athena-ai/plugin-sandbox@workspace:plugins/sandbox"
   dependencies:

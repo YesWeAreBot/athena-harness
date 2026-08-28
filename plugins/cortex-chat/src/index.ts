@@ -1,18 +1,21 @@
 import { Schema } from "@athena-ai/core";
+import type { LanguageModel, ModelMessage } from "@athena-ai/core";
 import { CortexService } from "@athena-ai/protocol";
 import type { IMMessageEvent } from "@athena-ai/protocol-im";
-import type { Context } from "cordis";
-import { Logger } from "cordis";
+import { Context, Service } from "cordis";
+import type { Logger } from "cordis";
 
 import { Attention } from "./attention.js";
-import { type Checkpoint, createCheckpoint, emptyCheckpoint, loadCheckpoint, saveCheckpoint } from "./checkpoint.js";
-import { compact, estimateTokens, extractConversationText } from "./compaction.js";
+import type { RouteResult } from "./attention.js";
+import { CheckpointStore, createCheckpoint, emptyCheckpoint, type Checkpoint } from "./checkpoint.js";
+import { compactWorkspace } from "./compaction.js";
 import { CortexChatConfig, CortexChatConfigSchema } from "./config.js";
-import { AgentLoop } from "./loop.js";
 import { MessageStore } from "./message-store.js";
-import { buildFrameMessage, buildSystemMessages } from "./prompt.js";
-import { TurnQueue } from "./queue.js";
-import { type WsMessage, WorkspaceStore } from "./workspace-store.js";
+import { renderUserMessage } from "./render.js";
+import { createCheckpointBuilder, createProductionRunner } from "./runner.js";
+import type { CheckpointBuilder, RunnerDeps } from "./runner.js";
+import { parseInitialFocus, sameScene } from "./scene.js";
+import { TurnCoordinator, type TurnAdmission, type TurnInput } from "./turn-coordinator.js";
 
 class CortexChat extends CortexService {
   public static readonly name = "cortex-chat";
@@ -21,12 +24,26 @@ class CortexChat extends CortexService {
   public readonly config: CortexChat.Config;
   public readonly logger: Logger;
   public readonly messages: MessageStore;
-  public readonly workspace: WorkspaceStore;
-
-  private readonly queue: TurnQueue;
-  private readonly attention: Attention;
+  public readonly workspace: ModelMessage[];
+  public readonly checkpointStore: CheckpointStore;
+  public readonly attention: Attention;
+  public readonly coordinator: TurnCoordinator;
   private checkpoint: Checkpoint;
+  private readonly checkpointBuilder: CheckpointBuilder;
+  private readonly runnerDeps: RunnerDeps;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private disposed = false;
+  private checkpointLoadFailed = false;
+  private readonly readyGate = Promise.withResolvers<void>();
+
+  /**
+   * Resolves once the checkpoint is restored and inbound routing is live.
+   *
+   * Restoration is asynchronous and deliberately not awaited by `Service.init`
+   * (a Cortex must not block its Life's activation on disk I/O), so callers that
+   * need to know when this Cortex started accepting events await this instead.
+   */
+  public readonly ready: Promise<void> = this.readyGate.promise;
 
   constructor(ctx: Context, config: CortexChat.Config) {
     super(ctx, "cortex");
@@ -34,167 +51,179 @@ class CortexChat extends CortexService {
     this.config = config;
     this.logger = ctx.logger("cortex-chat");
     this.messages = new MessageStore(ctx);
-    this.workspace = new WorkspaceStore(ctx);
-    this.queue = new TurnQueue(ctx, { logger: this.logger });
-    this.attention = new Attention({
-      store: this.messages,
-      initialFocus: config.initialFocus || null,
-    });
+    this.workspace = [];
+    this.checkpointStore = new CheckpointStore(ctx);
     this.checkpoint = emptyCheckpoint();
 
-    // Load checkpoint on start
-    void this.initialize();
-
-    ctx.on("message-created", (event: IMMessageEvent) => {
-      void this.onMessage(event);
-    });
-  }
-
-  private async initialize(): Promise<void> {
-    const saved = await loadCheckpoint();
-    if (saved) {
-      this.checkpoint = saved;
-      if (saved.focusSceneId) {
-        const at = saved.focusSceneId.indexOf(":");
-        if (at !== -1) {
-          this.attention.setFocus(saved.focusSceneId.slice(0, at), saved.focusSceneId.slice(at + 1));
-        }
-      }
-    }
-  }
-
-  private async onMessage(event: IMMessageEvent): Promise<void> {
-    if (event.userId === event.selfId) return;
-
-    // Archive every incoming message unconditionally
-    await this.messages.store({
-      platform: event.platform,
-      id: event.messageId,
-      channelId: event.channelId,
-      userId: event.userId,
-      content: event.content,
-      timestamp: event.timestamp,
+    const initialFocus = parseInitialFocus(config.initialFocus ?? "");
+    this.attention = new Attention({
+      store: this.messages,
+      initialFocus,
+      awarenessHistoryLimit: config.focusHistoryLimit,
+      onColdStart: () => this.persistColdStartFrame(),
     });
 
-    // Route through attention
-    const routed = await this.attention.route(event);
-
-    if (routed.kind === "ignore") return;
-
-    if (routed.kind === "background") {
-      // Focus non-trigger: append to workspace without firing a turn
-      await this.workspace.append(...routed.messages);
-      return;
-    }
-
-    // trigger or awareness → fire a turn
-    this.clearIdleTimer();
-    await this.fireTurn(routed.messages);
-  }
-
-  private async fireTurn(messages: WsMessage[]): Promise<void> {
-    const snap = this.attention.snapshot();
-    const model = this.ctx.ai.language(this.config.model || undefined);
-
-    // Build system prompt
-    const systemMessages = buildSystemMessages({
-      persona: this.ctx.life.persona,
-      compaction: this.checkpoint.compaction,
-    });
-    const system = systemMessages.map((m) => (m as { content: string }).content).join("\n\n");
-
-    // Build frame message for context
-    const history =
-      snap.focusChannelId && snap.focusPlatform
-        ? await this.messages.getByChannel(snap.focusPlatform, snap.focusChannelId, { limit: this.config.historyLimit })
-        : [];
-
-    const frame = buildFrameMessage({
-      focusChannelId: snap.focusChannelId,
-      focusPlatform: snap.focusPlatform,
-      isDirect: false,
-      history,
-      awarenessLines: this.attention.awarenessFrameLines(),
-    });
-
-    // Append frame context to workspace before the turn
-    void frame; // Frame is part of system context, not workspace messages
-
-    const loop = new AgentLoop({
-      ctx: this.ctx,
+    this.coordinator = new TurnCoordinator({
       workspace: this.workspace,
-      messageStore: this.messages,
-      queue: this.queue,
-      logger: this.logger,
-      maxSteps: this.config.maxSteps,
-      model,
-      system,
-      compaction: this.checkpoint.compaction,
-      focusSceneId: snap.focusSceneId,
-      pacing: this.config.pacing,
-      customInnerThought: this.config.customInnerThought,
-      onFocusSwitched: async (platform, channelId) => {
-        await this.handleFocusSwitch(platform, channelId);
+      aggregateWindow: config.aggregateWindow ?? 0,
+      compaction: {
+        summarize: (request) => compactWorkspace({ ...request, model: this.compactionModel() }),
+        buildCheckpoint: (compaction, frame) => this.checkpointBuilder(compaction, frame),
+        checkpointStore: this.checkpointStore,
+        getCheckpoint: () => this.checkpoint,
+        setCheckpoint: (next) => {
+          this.checkpoint = next;
+        },
+        needsRebuild: () => {
+          const snapshot = this.attention.snapshot();
+          if (!sameScene(snapshot.frameFocus, snapshot.logicalFocus)) return true;
+          return this.checkpoint.focus !== null && !sameScene(this.checkpoint.focus, snapshot.logicalFocus);
+        },
+        logicalFocus: () => this.attention.snapshot().logicalFocus,
+        readFocusHistory: async (focus) => (await this.messages.readScene(focus, { limit: config.focusHistoryLimit })).map(renderUserMessage),
+        promoteFocus: () => {
+          this.attention.promoteFocus();
+        },
+        pruneOptions: {
+          toolOutputMaxChars: config.toolOutputMaxChars,
+          toolOutputHeadChars: config.toolOutputHeadChars,
+          toolOutputTailChars: config.toolOutputTailChars,
+        },
+        thresholdTokens: config.compactThreshold,
+        logger: this.logger,
       },
     });
+    this.runnerDeps = {
+      ctx,
+      workspace: this.workspace,
+      messages: this.messages,
+      attention: this.attention,
+      coordinator: this.coordinator,
+      checkpointStore: this.checkpointStore,
+      getCheckpoint: () => this.checkpoint,
+      setCheckpoint: (next) => {
+        this.checkpoint = next;
+      },
+      config,
+      logger: this.logger,
+    };
+    this.checkpointBuilder = createCheckpointBuilder();
+  }
 
-    await loop.run(messages);
+  *[Service.init]() {
+    yield* super[Service.init]();
+    void this.start().then(
+      () => this.readyGate.resolve(),
+      (error: unknown) => {
+        this.logger.warn("cortex-chat.initialize.failed", { error });
+        this.readyGate.reject(error);
+      },
+    );
+    // `ready` is optional for callers; the warn above is the reported failure.
+    void this.ready.catch(() => {});
+    yield async () => {
+      this.disposed = true;
+      this.clearIdleTimer();
+      await this.coordinator.stop();
+    };
+  }
 
-    // Post-turn: check compaction threshold and schedule idle timer
-    await this.postTurnCompaction();
+  private async start(): Promise<void> {
+    await this.initialize();
+    if (this.disposed) return;
+
+    this.coordinator.bindRunner(createProductionRunner(this.runnerDeps));
+    this.messages.attach();
+    this.ctx.on("message-created", (event: IMMessageEvent) => {
+      void this.onMessage(event).catch((error) => {
+        this.logger.warn("cortex-chat.message.failed", { error });
+      });
+    });
     this.scheduleIdleCompaction();
   }
 
-  private async handleFocusSwitch(platform: string, channelId: string): Promise<void> {
-    this.attention.setFocus(platform, channelId);
-    this.attention.clearAwarenessForFocus();
-
-    // Save current checkpoint before rebuilding
-    this.checkpoint = createCheckpoint({
-      focusSceneId: this.attention.snapshot().focusSceneId,
-      frameMessages: [],
-      compaction: this.checkpoint.compaction,
-    });
-    await saveCheckpoint(this.checkpoint);
-  }
-
-  private async postTurnCompaction(): Promise<void> {
-    const all = await this.workspace.readAll();
-    const text = extractConversationText(all);
-    const tokens = estimateTokens(text);
-
-    if (tokens >= this.config.compactThreshold) {
-      await this.runCompaction();
+  private async initialize(): Promise<void> {
+    try {
+      const saved = await this.checkpointStore.load();
+      if (saved) {
+        this.checkpoint = saved;
+        this.attention.restoreFocus(saved.focus);
+        return;
+      }
+      await this.persistColdStartFrame();
+    } catch (error) {
+      this.checkpointLoadFailed = true;
+      this.logger.warn("cortex-chat.loadCheckpoint.failed", { error });
     }
   }
 
-  private async runCompaction(): Promise<void> {
-    const all = await this.workspace.readAll();
-    const compactModel = this.config.compactModel || this.config.model || undefined;
-    const model = this.ctx.ai.language(compactModel);
-
-    const compacted = await compact({
-      workspace: all,
-      previousCompaction: this.checkpoint.compaction,
-      persona: this.ctx.life.persona,
-      personaName: "Athena",
-      model,
-    });
-
-    this.checkpoint = createCheckpoint({
-      focusSceneId: this.attention.snapshot().focusSceneId,
-      frameMessages: [],
-      compaction: compacted,
-    });
-    await saveCheckpoint(this.checkpoint);
-    await this.workspace.clear();
+  private async persistColdStartFrame(): Promise<void> {
+    if (this.checkpointLoadFailed) return;
+    const focus = this.attention.snapshot().frameFocus;
+    if (this.checkpoint.focus !== null || focus === null) return;
+    const next = createCheckpoint({ focus, history: [], lastFocusHistory: [], compaction: this.checkpoint.compaction });
+    await this.checkpointStore.save(next);
+    this.checkpoint = next;
   }
 
+  private async onMessage(event: IMMessageEvent): Promise<void> {
+    if (event.selfId === event.userId) return;
+
+    const stored = await this.messages.storeEvent(event);
+    const message = renderUserMessage(stored);
+    const routed: RouteResult = await this.attention.route({ event, stored, message });
+    if (routed.kind === "ignore") return;
+
+    if (routed.kind === "background") {
+      this.coordinator.appendWorkspaceDelta(routed.messages);
+      return;
+    }
+
+    this.clearIdleTimer();
+    await this.fireTurn(routed.messages, routed.kind === "awareness" ? "awareness" : "message");
+  }
+
+  private async fireTurn(messages: readonly ModelMessage[], cause: TurnInput["cause"]): Promise<void> {
+    let admission: TurnAdmission;
+    try {
+      admission = this.coordinator.submit({ messages, cause });
+    } catch (error) {
+      this.logger.warn("cortex-chat.submit.failed", { error });
+      return;
+    }
+
+    // Post-turn handling never blocks the caller: a turn's threshold compaction
+    // is applied by the coordinator itself, so this only schedules idle
+    // compaction and reports an unsuccessful turn.
+    void admission.done
+      .then((result) => {
+        if (result.status === "failed") this.logger.warn("cortex-chat.turn.failed", { turnId: admission.turnId, error: result.error });
+        if (result.status === "aborted") this.logger.warn("cortex-chat.turn.aborted", { turnId: admission.turnId, reason: result.reason });
+        this.scheduleIdleCompaction();
+      })
+      .catch((error) => {
+        this.logger.warn("cortex-chat.turn.done.rejected", { turnId: admission.turnId, error });
+      });
+  }
+
+  /** The compaction model, falling back to the main model and then to the default. */
+  private compactionModel(): LanguageModel {
+    const configured = this.config.compactModel || this.config.model;
+    return this.ctx.ai.language(configured === "" ? undefined : configured);
+  }
+
+  /**
+   * Idle compaction is a coordinator request like any other, so the timer can
+   * never start a transition next to an active turn.
+   */
   private scheduleIdleCompaction(): void {
     if (this.config.idleTimeout <= 0) return;
     this.clearIdleTimer();
     this.idleTimer = setTimeout(() => {
-      void this.runCompaction();
+      this.idleTimer = null;
+      void this.coordinator.requestCompaction().catch((error: unknown) => {
+        this.logger.warn("cortex-chat.idleCompaction.failed", { error });
+      });
     }, this.config.idleTimeout);
   }
 

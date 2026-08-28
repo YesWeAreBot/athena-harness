@@ -30,10 +30,9 @@ async function setup(): Promise<Context> {
 }
 
 describe("CortexChat", () => {
-  it("activates when both life and nerve are available", async () => {
+  it("activates with the protocol NerveService owned by Life", async () => {
     const ctx = await setup();
     await ctx.plugin(Life, { id: "alice" });
-    await ctx.plugin(NerveService);
     await ctx.plugin(CortexChat);
     expect(ctx.cortex).toBeInstanceOf(CortexChat);
   });
@@ -46,18 +45,9 @@ describe("CortexChat", () => {
     expect(ctx.get("cortex")).toBeUndefined();
   });
 
-  it("does not activate without nerve service", async () => {
-    const ctx = await setup();
-    await ctx.plugin(Life, { id: "alice" });
-    // Don't await — fiber stays PENDING because 'nerve' inject is unmet
-    ctx.plugin(CortexChat);
-    expect(ctx.get("cortex")).toBeUndefined();
-  });
-
   it("binds as the active cortex in Life", async () => {
     const ctx = await setup();
     await ctx.plugin(Life, { id: "alice" });
-    await ctx.plugin(NerveService);
     await ctx.plugin(CortexChat);
     expect(ctx.life.cortex).toBeInstanceOf(CortexChat);
   });

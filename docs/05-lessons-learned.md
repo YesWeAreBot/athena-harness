@@ -77,7 +77,7 @@ accessor 的 effect-dispose（`delete this.props[name]`）只在 fiber 销毁时
 
 ---
 
-## 2. `provide` 不能重复：为什么四个 token 都要隔离
+## 2. `provide` 不能重复：为什么三个 Life token 都要隔离
 
 ### 2.1 现象 A：未隔离 cortex
 
@@ -103,20 +103,23 @@ Only one Cortex per Life
 
 ### 2.3 结论
 
-Life **必须**是 per-group 的 managed plugin，**不能**放在 prelude。这是 `@athena-ai/core`（prelude shell）与 `@athena-ai/plugin-life`（per-group service）分家的直接原因。
+Life **必须**是 per-group managed plugin，不能放在 prelude；`NerveService` 也不能由 root core 持有。protocol 的 `LifeService` 在 Life fiber 内安装 NerveService，使两者共享同一个隔离域和生命周期。
 
-四个 token 缺一不可：
+三个 token 缺一不可：
 
-| Token     | 不隔离的后果                                      |
-| --------- | ------------------------------------------------- |
-| `life`    | 共享 Life → 第二个 Cortex `bind()` 抛错           |
-| `cortex`  | `provide('cortex')` 冲突                          |
-| `message` | MessageService 冲突 + 事件作用域过滤失效          |
-| `satori`  | `provide('satori')` 冲突；adapter 无法区分 domain |
+| Token    | 不隔离的后果                                                                                          |
+| -------- | ----------------------------------------------------------------------------------------------------- |
+| `life`   | 共享 Life → 第二个 Cortex `bind()` 抛错                                                               |
+| `cortex` | `provide('cortex')` 冲突                                                                              |
+| `nerve`  | 第二个 Life 激活时 fail fast；如果绕过该检查，事件过滤、Body registry 与相同 sid 寻址都会跨 Life 泄漏 |
+
+事件过滤仍必须保留：Cordis 事件按名字全进程广播，Life-owned NerveService 解决所有权，owning-domain check 与 `Session[Context.filter]` 解决实际投递范围。两层缺一不可。
 
 ### 2.4 证据
 
-- `plugins/life/src/life.ts:35-46` —— `bind()` 检查
+- `packages/protocol/src/life.ts` —— LifeService 安装并拥有 NerveService，重复 nerve domain 明确失败
+- `packages/protocol/src/nerve.ts` —— owning-domain check 与 `Session[Context.filter]`
+- `packages/protocol/tests/life.spec.ts`、`plugins/cortex-chat/tests/multi-life-sandbox.spec.ts` —— 所有权、释放、错误配置与真实双 Life 拓扑
 - `.specify/specs/multi-life-isolation-design.md` §1.2, §1.3
 
 ---
@@ -743,10 +746,10 @@ Root Context
       ├── registry: Map<lifeId, SandboxNerveHandle>
       └── 按 lifeId 路由 → nerve.dispatch(payload)
 
-Life Group（isolate: { life, cortex, message, satori }）
-└── SandboxNerve（inject: ['sandbox', 'satori', 'life']）
+Life Group（isolate: { life, cortex, nerve }）
+└── SandboxNerve（inject: ['sandbox', 'nerve', 'life']）
       ├── 以 lifeId 向 Hub 注册
-      └── 在本地 ctx.satori 创建 SandboxBot
+      └── 在本地 ctx.nerve 懒创建 SandboxBot
 ```
 
 配套决策：
@@ -837,41 +840,49 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 
 ## 13. 速查：容易再犯的错
 
-| 错误                                         | 正确做法                                                                                   | 详见                                          |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
-| 在 Service 构造函数调 `ctx.mixin()`          | 用普通 getter，或让调用方写 `ctx.<svc>.<prop>`                                             | §1                                            |
-| 用 `ctx.bots` / `ctx.satori.bots`            | **已不存在**（vendor 移除）。用 `ctx.nerve.get(sid)`                                       | §14.3                                         |
-| 用 `ctx.message`（capability-message）       | **已删除**。订阅 `cordis.Events`（`message-created`），发送用 `event.body`                 | §14.3                                         |
-| 用 `===` 比较 service 引用                   | 按 `.name` 比较                                                                            | §3.3                                          |
-| 依赖 `this.ctx` 解析 isolate                 | 构造时自存 `this._self = ctx`                                                              | §3.4                                          |
-| 直接读 `session.bot.ctx` 判归属              | 先 `unwrap()`                                                                              | §3.5                                          |
-| Life 放在 prelude                            | Life 是 per-group managed plugin                                                           | §2.2                                          |
-| 少隔离一个 token                             | 三个都要：`life` / `cortex` / `nerve`                                                      | §2.3                                          |
-| 在框架层做事件队列                           | Cortex 自管理缓冲                                                                          | §4                                            |
-| 为"统一"而包装 Satori / AI SDK               | 直接用；只在需要隔离/作用域时加层                                                          | §6                                            |
-| 内核继承领域实现基类                         | 内核用原生 cordis Context                                                                  | §7.1                                          |
-| 让事件对象承载状态                           | 状态归 Life / Cortex                                                                       | §7.2                                          |
-| tool 依赖注入的 context                      | tool 用参数接收完整寻址                                                                    | §9                                            |
-| 全局资源与 per-Life 资源混在一个插件         | 拆 Hub + Nerve                                                                             | §11                                           |
-| `cordis` 放 `dependencies`                   | 放 `peerDependencies` + 部署侧 `resolutions`                                               | §12                                           |
-| 测试里 `await` 一个 inject 未满足的 plugin   | 不要 await，直接断言 `ctx.get(...)` undefined                                              | [04](./04-patterns-and-recipes.md) §7.1       |
-| 期望 `Service<T>` 提供 `this.config`         | **不提供。** 自己写 `constructor(ctx, public config: Config)`                              | [A](./appendix/A-cordis-primer.md) §3.1       |
-| `static optional = [...]`                    | cordis v4 没有。用 `ctx.get(name)` 或 `ctx.inject([...], cb)`                              | [A](./appendix/A-cordis-primer.md) §5.2       |
-| `waterfall` 当 reducer 用                    | 是 `next()` 中间件链；调用方要传链尾 `inner`                                               | [A](./appendix/A-cordis-primer.md) §6.3       |
-| `generateText({ maxSteps })`                 | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                                                 | [04](./04-patterns-and-recipes.md) §5.2       |
-| tool 的 `execute` 解构参数                   | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                                          | [04](./04-patterns-and-recipes.md) §5.2       |
-| `models.yml` 里写 `maxTokens`                | AI SDK 的名字是 `maxOutputTokens`；写错会被 loader 丢掉并 warn                             | [04](./04-patterns-and-recipes.md) §5.7       |
-| 把模型列表塞进 provider 插件的 Config        | Config 只有 `id` / `apiKey` / `baseURL`；其余进 `models.yml`                               | [04](./04-patterns-and-recipes.md) §5.5       |
-| anti-slop 报 `unknown` / `any` 边界错误      | 定义 JsonValue/YamlValue 等命名域类型，避免业务参数、返回值和字典值使用逃逸类型            | [03](./03-code-conventions.md) §类型安全 lint |
-| 为断言随手写 `as unknown as T`               | 优先类型谓词/`instanceof`/泛型；无法消除时在语句前写真实 `SAFETY:` 不变量                  | [03](./03-code-conventions.md) §类型安全 lint |
-| 用 `Reflect.get` / `Reflect.apply` 访问实现  | 使用公开 getter、类型化属性访问或 `Function.call`                                          | [03](./03-code-conventions.md) §类型安全 lint |
-| 指望 `ctx.ai` 内部帮你重试 / failover        | `candidates()` 只给排好序的候选，循环写在 Cortex 里                                        | [04](./04-patterns-and-recipes.md) §5.1       |
-| 自己写代码合并模型默认参数                   | 用 AI SDK 的 `defaultSettingsMiddleware`，语义已是"调用方胜出"                             | [02](./02-architecture.md) §9.1               |
-| 在 `*[Service.init]()` 里 `yield` promise    | cordis fiber 只接受 disposer 函数。异步启动用 fire-and-forget（`this.connect()` 不 await） | §14.1                                         |
-| 维护平行的 `NerveEventMap` + `cordis.Events` | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式）                                | §14.2                                         |
-| Body 子类各自手写注册到 nerve                | Body 基类提供默认 `*[Service.init]()`；子类 `yield* super[Service.init]()`                 | §14.4                                         |
-| adapter 请求/响应桥用模块级全局 listeners    | 放 Internal/body 实例上（`Map<echo, {resolve, timer}>`）                                   | §14.5                                         |
-| 手搓事件字段（isDirect/guildId）             | 填**嵌套数据对象**，`session()` 访问器自动推导（satori 模式）                              | §14.6                                         |
+| 错误                                              | 正确做法                                                                                    | 详见                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 在 Service 构造函数调 `ctx.mixin()`               | 用普通 getter，或让调用方写 `ctx.<svc>.<prop>`                                              | §1                                            |
+| 用 `ctx.bots` / `ctx.satori.bots`                 | **已不存在**（vendor 移除）。用 `ctx.nerve.get(sid)`                                        | §14.3                                         |
+| 用 `ctx.message`（capability-message）            | **已删除**。订阅 `cordis.Events`（`message-created`），发送用 `event.body`                  | §14.3                                         |
+| 用 `===` 比较 service 引用                        | 按 `.name` 比较                                                                             | §3.3                                          |
+| 依赖 `this.ctx` 解析 isolate                      | 构造时自存 `this._self = ctx`                                                               | §3.4                                          |
+| 直接读 `session.bot.ctx` 判归属                   | 先 `unwrap()`                                                                               | §3.5                                          |
+| Life 放在 prelude                                 | Life 是 per-group managed plugin                                                            | §2.2                                          |
+| 少隔离一个 token                                  | 三个都要：`life` / `cortex` / `nerve`                                                       | §2.3                                          |
+| 在框架层做事件队列                                | Cortex 自管理缓冲                                                                           | §4                                            |
+| 为"统一"而包装 Satori / AI SDK                    | 直接用；只在需要隔离/作用域时加层                                                           | §6                                            |
+| 内核继承领域实现基类                              | 内核用原生 cordis Context                                                                   | §7.1                                          |
+| 让事件对象承载状态                                | 状态归 Life / Cortex                                                                        | §7.2                                          |
+| tool 依赖注入的 context                           | tool 用参数接收完整寻址                                                                     | §9                                            |
+| 全局资源与 per-Life 资源混在一个插件              | 拆 Hub + Nerve                                                                              | §11                                           |
+| `cordis` 放 `dependencies`                        | 放 `peerDependencies` + 部署侧 `resolutions`                                                | §12                                           |
+| 测试里 `await` 一个 inject 未满足的 plugin        | 不要 await，直接断言 `ctx.get(...)` undefined                                               | [04](./04-patterns-and-recipes.md) §7.1       |
+| 期望 `Service<T>` 提供 `this.config`              | **不提供。** 自己写 `constructor(ctx, public config: Config)`                               | [A](./appendix/A-cordis-primer.md) §3.1       |
+| `static optional = [...]`                         | cordis v4 没有。用 `ctx.get(name)` 或 `ctx.inject([...], cb)`                               | [A](./appendix/A-cordis-primer.md) §5.2       |
+| `waterfall` 当 reducer 用                         | 是 `next()` 中间件链；调用方要传链尾 `inner`                                                | [A](./appendix/A-cordis-primer.md) §6.3       |
+| `generateText({ maxSteps })`                      | `ai@7` 没有。用 `stopWhen: stepCountIs(n)`                                                  | [04](./04-patterns-and-recipes.md) §5.2       |
+| tool 的 `execute` 解构参数                        | 用单个 `input`；解构 + 转发可选字段会破坏 TS 推导                                           | [04](./04-patterns-and-recipes.md) §5.2       |
+| `models.yml` 里写 `maxTokens`                     | AI SDK 的名字是 `maxOutputTokens`；写错会被 loader 丢掉并 warn                              | [04](./04-patterns-and-recipes.md) §5.7       |
+| 把模型列表塞进 provider 插件的 Config             | Config 只有 `id` / `apiKey` / `baseURL`；其余进 `models.yml`                                | [04](./04-patterns-and-recipes.md) §5.5       |
+| anti-slop 报 `unknown` / `any` 边界错误           | 定义 JsonValue/YamlValue 等命名域类型，避免业务参数、返回值和字典值使用逃逸类型             | [03](./03-code-conventions.md) §类型安全 lint |
+| 为断言随手写 `as unknown as T`                    | 优先类型谓词/`instanceof`/泛型；无法消除时在语句前写真实 `SAFETY:` 不变量                   | [03](./03-code-conventions.md) §类型安全 lint |
+| 用 `Reflect.get` / `Reflect.apply` 访问实现       | 使用公开 getter、类型化属性访问或 `Function.call`                                           | [03](./03-code-conventions.md) §类型安全 lint |
+| 指望 `ctx.ai` 内部帮你重试 / failover             | `candidates()` 只给排好序的候选，循环写在 Cortex 里                                         | [04](./04-patterns-and-recipes.md) §5.1       |
+| 自己写代码合并模型默认参数                        | 用 AI SDK 的 `defaultSettingsMiddleware`，语义已是"调用方胜出"                              | [02](./02-architecture.md) §9.1               |
+| 在 `*[Service.init]()` 里 `yield` promise         | cordis fiber 只接受 disposer 函数。异步启动用 fire-and-forget（`this.connect()` 不 await）  | §14.1                                         |
+| 维护平行的 `NerveEventMap` + `cordis.Events`      | 事件签名只在 `cordis.Events` 声明一份（satori/koishi 模式）                                 | §14.2                                         |
+| Body 子类各自手写注册到 nerve                     | Body 基类提供默认 `*[Service.init]()`；子类 `yield* super[Service.init]()`                  | §14.4                                         |
+| adapter 请求/响应桥用模块级全局 listeners         | 放 Internal/body 实例上（`Map<echo, {resolve, timer}>`）                                    | §14.5                                         |
+| 手搓事件字段（isDirect/guildId）                  | 填**嵌套数据对象**，`session()` 访问器自动推导（satori 模式）                               | §14.6                                         |
+| `await result.finalStep` 就能拿到结果             | `streamText` 的 promise 要先 `await result.consumeStream()` 才 settle                       | §15.1                                         |
+| 指望 provider 错误被 throw 出来                   | 只有 `onError` 拿得到原文；`result.steps` 只给 `No output generated.`                       | §15.2                                         |
+| 在 `onStepEnd` 里抛错表示失败                     | 会被静默吞掉。自己记录 + abort，再让 turn 以 `failed` 结束                                  | §15.3                                         |
+| 手工从 `step.content` 拼 assistant / tool message | 直接存 `step.response.messages`；`ToolResultPart` 无 `input`，tool-error 不在 `toolResults` | §15.4                                         |
+| 怕 `prepareStep` 返回全量消息会重复               | `messages` 是完整替换，SDK 不再追加                                                         | §15.5                                         |
+| 把 system message 放进 `messages`                 | 默认被拒；需要就显式 `allowSystemInMessages: true`                                          | §15.6                                         |
+| 不传 `stopWhen` 也会多步                          | 默认只跑一步                                                                                | §15.7                                         |
+| 序列化层把 `undefined` 属性当错误                 | 等于属性不存在，跳过即可；该报错的是 function / symbol / bigint / 循环引用                  | §15.8                                         |
 
 ---
 
@@ -940,3 +951,68 @@ find . -path '*/node_modules/cordis/package.json' -not -path '*/node_modules/*/n
 ### 14.7 协议拆分越薄，删除越容易
 
 **正面教训**：`protocol`（无 IM 语义：Body 基类 + NerveEvent + NerveService）与 `protocol-im`（IM 增强：实体类型 + IMBody + cordis.Events 声明）的拆分，让"删掉整个 vendored Satori"变成**纯增量替换**——没有一处需要反向迁移。保持协议层"只含类型契约 + 极薄基类"是值得坚持的方向。
+
+---
+
+## 15. AI SDK v7 `streamText` 的真实行为
+
+2026-08 把 `cortex-chat` 的 turn loop 接到 `ai@7.0.73`。以下每条都在 `node_modules/ai@7.0.73` 上用最小 fake provider 实测过，不是从文档推断的。踩过的坑集中在**错误不会自己冒出来**和**中间形状不要自己拼**两类。
+
+> **2026-08-28 修订**：三区管线重设计后 runner 改为**自管 step 循环**——每 step 一次 `generateText`，不再使用 `streamText` 的内部循环与 `prepareStep` / `onStepEnd` / `onError` / `stopWhen` / `consumeStream`。§15.1–15.3、15.5、15.7 描述的 hook 时序与错误传播缺陷因此**整体消失**（`await generateText` 直接 throw，普通 try/catch 即可；`maxSteps` 由外层 `while` 控制）。§15.4（不要自己拼中间形状）与 §15.6（`allowSystemInMessages: true`）仍然适用——`result.response.messages` 就是 canonical `ModelMessage[]`，workspace 里合法存在 system 角色 delta。§15.8 的 JSON 序列化问题随 workspace 不再持久化而消失。
+
+### 15.1 promise 只在 stream 被消费后才 settle
+
+**现象**：照着"`await result.finalStep`"写，进程直接挂住，没有报错也没有超时。
+
+**根因**：`streamText` 的 `steps` / `finalStep` / `usage` 都依赖 stream 被拉取。没有消费者时背压让整个 loop 停在第一步。
+
+**结论**：runner 必须 `await result.consumeStream()`（或自己迭代 `fullStream`），之后才读那些 promise。
+
+### 15.2 provider 错误既不 reject，也不保留原文
+
+**现象**：provider 抛 `Error("provider unavailable")`，`consumeStream()` 正常返回；`await result.steps` 抛的是 `No output generated. Check the stream for errors.`——原始信息没了，只有 `console.error` 里有。
+
+**根因**：`streamText` 默认的 `onError` 是 `console.error`；错误被当作 stream 事件处理，不走 promise rejection。
+
+**结论**：想把原始错误变成 `TurnResult.failed`，只能显式传 `onError: ({ error }) => ...` 记下来。不要依赖 catch。
+
+### 15.3 `onStepEnd` 里抛出的异常被静默吞掉
+
+**现象**：step 持久化失败（workspace 写盘报错），turn 仍然报 `completed`，错误不在 `onError`、也不 reject `consumeStream()`。
+
+**结论**：`onStepEnd` 里必须自己 try/catch，把错误记下来并主动终止循环（内部 `AbortController` abort，或加一条 `stopWhen`），再让该 turn 以 `failed` 收尾。否则"必要状态先落库"这条不变式在这里断掉。
+
+### 15.4 不要自己拼 step 的中间形状
+
+**现象**：第一版按 `step.content` 手工映射 assistant part、再用 `step.toolResults` 拼 tool message，写了近 100 行，并且两处踩雷：
+
+- `ToolResultPart` 没有 `input` 字段，`output` 必须是 `ToolResultOutput` 标签联合（`{ type: "json" | "text" | "error-text", value }`），直接塞 tool 的返回值类型不过、发回 provider 也会被拒；
+- tool `execute` 抛错时**不进** `step.toolResults`，只在 `step.content` 里变成 `tool-error` part。只映射 `toolResults` 会留下没有配对结果的 tool call，下一次请求就被 provider 拒。
+
+**结论**：`step.response.messages` 已经是这个 step 的 canonical `ModelMessage[]`（AI SDK 自己把 part 级 `providerMetadata` 转成 `providerOptions`、包好 tool output、把 tool-error 变成 `error-text`、成对给出 assistant + tool message）。直接整条存下来，只额外挂自己的 metadata。`step.content` 用来做判断（是否投递、是否终止），不用来重建消息。
+
+### 15.5 `prepareStep` 的 `messages` 是完整替换
+
+**现象**：担心"返回全量 workspace 会和 SDK 自己累积的 response message 重复"。
+
+**实测**：一旦 `prepareStep` 返回 `messages`，该 step 的 prompt 就**只有**这些消息，SDK 不再追加任何东西。所以每个 step 边界返回 `stable + 冻结 frame + 最新 workspace` 是安全的，也是让 workspace 真正成为 source of truth 的唯一方式。
+
+### 15.6 `messages` 里默认不许出现 system message
+
+**现象**：`InvalidPromptError: System messages are not allowed in the prompt or messages fields.`
+
+**根因**：`standardizePrompt` 的 `allowSystemInMessages` 默认 `false`，期望 system 走 `instructions`。
+
+**结论**：workspace 里合法地存在 system 角色的 delta（focus-change、scene-context），顺序又必须保持，所以调用时显式 `allowSystemInMessages: true`，让三段上下文按 `stable → frame → workspace` 原样进 `messages`。
+
+### 15.7 默认 `stopWhen` 只跑一步
+
+**现象**：不传 `stopWhen` 时 tool call 之后没有第二次模型调用。
+
+**结论**：默认是单步。多步 loop 必须显式给 `stopWhen`（`isLoopFinished()` 永不为真，只是占位；真正的边界是 `isStepCount(maxSteps)` 和自定义的终止判定）。`stopWhen` 只在这一步产生了 tool call 时才被咨询——模型直接输出文本时 loop 自然结束。
+
+### 15.8 JSON 序列化层不要拒绝"未设置的可选属性"
+
+**现象**：`workspace-store` 的 codec 把值为 `undefined` 的对象属性当作"不可序列化"抛错。接上 AI SDK 之后每条 assistant message 都写不进去——`providerOptions` / `providerExecuted` 这类可选字段普遍是 `undefined`。
+
+**结论**：`undefined` 属性等于"该属性不存在"，`JSON.stringify` 本来就会丢掉它，序列化层跳过即可；真正需要报错的是 `function` / `symbol` / `bigint` 和循环引用。让每个生产者去剥 `undefined` 是把成本推给了所有调用方。

@@ -703,7 +703,7 @@ Athena Harness 如果发生下面这些变化，就可能失去自己的特点�
 
 - `@athena-ai/plugin-life`：角色身份。
 - `@athena-ai/nerve-onebot`：OneBot 平台连接器（消息能力）。
-- `@athena-ai/cortex-chat`：聊天剧本。
+- `@athena-ai/cortex-chat`：主心智认知循环（三区上下文管线：稳定区 / checkpoint 帧区 / 内存工作区；message-store 客观档案；core tools 与自管 turn loop；剪枝 + 单次压缩）。
 - `@athena-ai/plugin-sandbox`：沙盒前台。
 - `@athena-ai/sandbox-nerve`：沙盒后台。
 

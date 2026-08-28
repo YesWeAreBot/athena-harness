@@ -73,17 +73,9 @@ export default class SandboxNerve {
       body: { id, content, user, channel, platform, lifeId: this._lifeId },
     });
 
-    const event = bot.session({
-      type: "message-created",
-      user: { id: user, name: user },
-      channel: { id: channel, type: channel === `@${user}` ? 1 : 0 },
-      guild: channel === `@${user}` ? undefined : { id: channel },
-      message: { id, content, user: { id: user, name: user }, channel: { id: channel, type: channel === `@${user}` ? 1 : 0 } },
-    });
-    if (payload.quote) {
-      event.quote = { id: payload.quote.id, content: payload.quote.content };
-    }
-    bot.dispatch(event);
+    // The body owns event normalization, so every Nerve driving it produces the
+    // same normalized `message-created` (including parsed `elements`).
+    bot.dispatch(bot.receive({ id, user, channel, content, quote: payload.quote }));
   }
 
   private async _request(method: string, payload: SandboxRequestPayload): Promise<unknown> {

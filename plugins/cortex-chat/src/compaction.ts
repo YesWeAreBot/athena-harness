@@ -1,145 +1,149 @@
-import { generateText, type LanguageModel } from "@athena-ai/core";
+import { generateText } from "@athena-ai/core";
+import type { AssistantModelMessage, LanguageModel, ModelMessage, ToolModelMessage, UserModelMessage } from "@athena-ai/core";
 
-import type { WsMessage } from "./workspace-store.js";
+// ─── Contract ────────────────────────────────────────────────────────────────
 
-// ─── Config ──────────────────────────────────────────────────────────────────
-
-export interface CompactionConfig {
-  thresholdTokens?: number; // default 8000
-  idleMs?: number; // default 300_000
-  model?: LanguageModel;
-  persona?: string;
-  personaName?: string;
+export interface CompactionInput {
+  readonly history: readonly ModelMessage[];
+  readonly lastFocusHistory: readonly ModelMessage[];
+  readonly previousCompaction: string | null;
+  readonly model: LanguageModel;
 }
 
-// ─── Extraction ──────────────────────────────────────────────────────────────
-
-/** Content part shape from AI SDK ModelMessage */
-interface TextPart {
-  type?: string;
-  text?: string;
-  content?: string;
+export interface CompactionResult {
+  readonly compaction: string;
 }
 
-type MessageContent = string | TextPart[];
+/** What the `TurnCoordinator` hands to its summarizer; it owns the model choice. */
+export type SummarizeRequest = Omit<CompactionInput, "model">;
 
-/* oxlint-disable anti-slop(no-runtime-typeof) -- parsing polymorphic AI SDK content shape at I/O boundary */
-function textContent(content: MessageContent): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    const parts: string[] = [];
-    for (const p of content) {
-      if (p.text) parts.push(p.text);
-      else if (p.content) parts.push(p.content);
-    }
-    return parts.join("\n");
-  }
-  return "";
-}
-/* oxlint-enable anti-slop(no-runtime-typeof) */
+// ─── Transcript ──────────────────────────────────────────────────────────────
 
-function assistantTextContent(content: MessageContent): string | null {
-  const t = textContent(content);
-  return t.length > 0 ? t : null;
-}
-
-interface ToolCallPart {
-  type: string;
-  toolName?: string;
-}
-
-export function extractConversationText(messages: WsMessage[]): string {
+function renderUserContent(content: UserModelMessage["content"]): string[] {
+  if (typeof content === "string") return [`[user] ${content}`];
   const lines: string[] = [];
-  for (const m of messages) {
-    // SAFETY: WsMessage is a union with discriminant `role`
-    const msg = m as { role: string; content: MessageContent };
-    if (msg.role === "tool") continue;
-    if (msg.role === "user") {
-      const t = textContent(msg.content);
-      if (t) lines.push(`[user]: ${t}`);
-    } else if (msg.role === "assistant") {
-      const t = assistantTextContent(msg.content);
-      if (t) lines.push(`[assistant]: ${t}`);
-      if (Array.isArray(msg.content)) {
-        for (const p of msg.content as ToolCallPart[]) {
-          if (p.type === "tool-call" && p.toolName) {
-            lines.push(`[tool_call]: ${p.toolName}`);
-          }
-        }
-      }
+  for (const part of content) {
+    if (part.type === "text") lines.push(`[user] ${part.text}`);
+    else if (part.type === "file") lines.push(`[user file] ${part.mediaType}`);
+  }
+  return lines;
+}
+
+function renderAssistantContent(content: AssistantModelMessage["content"]): string[] {
+  if (typeof content === "string") return [`[assistant] ${content}`];
+  const lines: string[] = [];
+  for (const part of content) {
+    switch (part.type) {
+      case "text":
+        lines.push(`[assistant] ${part.text}`);
+        break;
+      case "reasoning":
+        lines.push(`[reasoning] ${part.text}`);
+        break;
+      case "tool-call":
+        lines.push(`[tool_call] ${part.toolName} ${JSON.stringify(part.input)}`);
+        break;
+      case "tool-result":
+        lines.push(`[tool_result] ${part.toolName} ${JSON.stringify(part.output)}`);
+        break;
+      case "file":
+        lines.push(`[assistant file] ${part.mediaType}`);
+        break;
+      default:
+        break;
     }
   }
-  return lines.join("\n");
+  return lines;
 }
 
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 3);
+function renderToolContent(content: ToolModelMessage["content"]): string[] {
+  const lines: string[] = [];
+  for (const part of content) {
+    if (part.type === "tool-approval-response") {
+      lines.push(`[tool_approval] ${part.approved ? "granted" : "denied"}${part.reason === undefined ? "" : `: ${part.reason}`}`);
+      continue;
+    }
+    const output = part.output;
+    if (output.type === "error-text") lines.push(`[tool_error] ${part.toolName}: ${output.value}`);
+    else if (output.type === "text") lines.push(`[tool_result] ${part.toolName} ${output.value}`);
+    else if (output.type === "execution-denied") lines.push(`[tool_denied] ${part.toolName}${output.reason === undefined ? "" : `: ${output.reason}`}`);
+    else lines.push(`[tool_result] ${part.toolName} ${JSON.stringify(output.value)}`);
+  }
+  return lines;
 }
 
-// ─── Prompts ─────────────────────────────────────────────────────────────────
+function renderMessage(message: ModelMessage): string[] {
+  if (message.role === "system") return [`[system] ${message.content}`];
+  if (message.role === "user") return renderUserContent(message.content);
+  if (message.role === "assistant") return renderAssistantContent(message.content);
+  return renderToolContent(message.content);
+}
 
-function compactionSystem(personaName: string): string {
+function renderMessages(messages: readonly ModelMessage[]): string {
+  return messages.flatMap(renderMessage).join("\n");
+}
+
+export function estimateTokens(messages: readonly ModelMessage[]): number {
+  return Math.ceil(renderMessages(messages).length / 3);
+}
+
+// ─── Prompt ─────────────────────────────────────────────────────────────────
+
+const GLOBAL_SYSTEM = [
+  "你正在压缩一个数字生命主心智的工作记忆。把当前帧区和上一版压缩条目浓缩为下一次 checkpoint 使用的记忆条目。",
+  "",
+  "输入区的含义：",
+  "- frame_history 是较新的客观消息与认知记录，细节程度高于上一版压缩条目。",
+  "- last_focus_history 是切换 focus 前一代被剪枝的认知轨迹；保留其中跨 focus 的决策、承诺和未完成事项。",
+  "- previous_memory 是更早的压缩内容；在不丢失重要事实的前提下平滑更新它。",
+  "",
+  "保留：",
+  "- 跨 focus 的决策与理由",
+  "- 已经作出但尚未完成的承诺",
+  "- 与他人形成的关系判断与态度变化",
+  "- 影响后续行为的重要事实与偏好",
+  "- 仍在等待回应的对话线索",
+  "- 工具调用失败的原因与目标（谁、哪个频道、什么错误）",
+  "",
+  "不保留：",
+  "- 可以从消息档案恢复的原始消息内容",
+  "- 成功工具调用的参数与完整返回值",
+  "- 已经彻底结束且无后续影响的事务",
+  "- 时间戳与消息 ID",
+  "",
+  "输出格式：直接输出记忆条目，无标题无前缀，每条以 · 开头，一行一条。",
+  '如果没有值得记住的内容，输出"(无新记忆)"。',
+].join("\n");
+
+function compactionPrompt(input: CompactionInput): string {
   return [
-    `你正在为 ${personaName} 压缩主心智的工作记忆。将一段对话和思考过程浓缩为简短的记忆条目，供下一个检查点使用。`,
-    "",
-    "保留：",
-    "- 与他人形成的关系判断（喜欢、信任、警惕、默契等）",
-    '- 未完成的承诺和待办（"答应了某人稍后回复"、"需要查一个东西"）',
-    '- 跨频道的决策和理由（"因为 X 从群 A 切到群 B"）',
-    '- 重要事实和偏好发现（"用户 A 是程序员，偏好简洁回复"）',
-    '- 情感和态度的形成或变化（"对这个话题感到厌烦"、"和用户 B 聊得来"）',
-    '- 正在进行中的对话线索（"用户 C 在等我回复关于明天的安排"）',
-    "",
-    "不保留：",
-    "- 可以从聊天记录恢复的原始消息内容",
-    "- 工具调用的技术细节（参数、返回值）",
-    "- 已经完全解决且无后续影响的事务",
-    "- 重复或冗余信息",
-    "- 时间戳和消息 ID",
-    "",
-    "输出格式：直接输出记忆条目，无标题无前缀。使用短句，每条以 · 开头，一行一条。",
-    '如果对话中没有值得记住的内容，输出"(无新记忆)"。',
-  ].join("\n");
-}
-
-function compactionPrompt(persona: string, previous: string | null, conversation: string): string {
-  return [
-    "<persona>",
-    persona,
-    "</persona>",
-    "",
     "<previous_memory>",
-    previous ?? "(无)",
+    input.previousCompaction ?? "(无)",
     "</previous_memory>",
     "",
-    "<conversation>",
-    conversation,
-    "</conversation>",
+    "<frame_history>",
+    renderMessages(input.history) || "(无)",
+    "</frame_history>",
+    "",
+    "<last_focus_history>",
+    renderMessages(input.lastFocusHistory) || "(无)",
+    "</last_focus_history>",
   ].join("\n");
 }
 
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
-export async function compact(opts: {
-  workspace: WsMessage[];
-  previousCompaction: string | null;
-  persona: string;
-  personaName: string;
-  model: LanguageModel;
-  signal?: AbortSignal;
-}): Promise<string> {
-  const conversation = extractConversationText(opts.workspace);
-  if (!conversation.trim()) return opts.previousCompaction ?? "(无新记忆)";
-  const system = compactionSystem(opts.personaName);
-  const prompt = compactionPrompt(opts.persona, opts.previousCompaction, conversation);
+/** Produce one global compaction entry from the two frame regions and older memory. */
+export async function compactWorkspace(input: CompactionInput): Promise<CompactionResult> {
+  if (input.history.length === 0 && input.lastFocusHistory.length === 0) {
+    return { compaction: input.previousCompaction ?? "" };
+  }
+
   const result = await generateText({
-    model: opts.model,
-    system,
-    prompt,
-    abortSignal: opts.signal,
+    model: input.model,
+    system: GLOBAL_SYSTEM,
+    prompt: compactionPrompt(input),
   });
-  const text = (result.text ?? "").trim();
-  if (!text) return opts.previousCompaction ?? "(无新记忆)";
-  if (opts.previousCompaction) return `${opts.previousCompaction}\n${text}`;
-  return text;
+  const text = result.text.trim();
+  return { compaction: text.length > 0 ? text : (input.previousCompaction ?? "") };
 }

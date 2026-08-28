@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 
-import { MessageEncoder } from "@athena-ai/protocol-im";
-import type { Element } from "@cordisjs/element";
+import { Channel, MessageEncoder } from "@athena-ai/protocol-im";
+import { Element } from "@cordisjs/element";
 
 import { CQCode } from "./cqcode.js";
 import type { OneBotBody } from "./index.js";
@@ -18,6 +18,7 @@ interface Author {
 class State {
   author: Partial<Author> = {};
   children: CQCode[] = [];
+  canonical: Element[] = [];
 
   constructor(public type: "message" | "forward") {}
 }
@@ -25,92 +26,120 @@ class State {
 export class OneBotMessageEncoder extends MessageEncoder<OneBotBody> {
   private stack: State[] = [new State("message")];
   private children: CQCode[] = [];
+  private canonical: Element[] = [];
 
   get isDirect(): boolean {
     return this.channelId.startsWith(PRIVATE_PFX);
   }
 
+  private push(platform: CQCode, canonical: Element): void {
+    this.children.push(platform);
+    this.canonical.push(canonical);
+  }
+
   private text(text: string): void {
-    this.children.push({ type: "text", data: { text } });
+    this.push({ type: "text", data: { text } }, Element("text", { content: text }));
+  }
+
+  private lineBreak(): void {
+    const platform = this.children[this.children.length - 1];
+    const canonical = this.canonical[this.canonical.length - 1];
+    if (platform?.type !== "text" || canonical?.type !== "text") {
+      this.text("\n");
+      return;
+    }
+    if (platform.data.text.endsWith("\n")) return;
+    platform.data.text += "\n";
+    canonical.attrs.content += "\n";
+  }
+
+  private dispatchSend(messageId: string, elements: Element[]): void {
+    const content = elements.map((element) => element.toString()).join("");
+    const channel = { id: this.channelId, type: this.isDirect ? Channel.Type.DIRECT : Channel.Type.TEXT };
+    const guild = this.isDirect ? undefined : { id: this.channelId };
+    const user = this.body.user ?? { id: this.body.selfId };
+    const message = { id: messageId, content, elements, user, channel, guild };
+    this.body.dispatch(this.body.session({ type: "send", user, channel, guild, message }));
+    this.results.push(message);
   }
 
   private async forward(): Promise<void> {
-    if (!this.stack[0].children.length) return;
-    const session = this.body.session();
-    session.type = "send";
-    session.content = "";
-    session.messageId = this.isDirect
-      ? `${await this.body.internal.sendPrivateForwardMsg(this.channelId.slice(PRIVATE_PFX.length), this.stack[0].children)}`
-      : `${await this.body.internal.sendGroupForwardMsg(this.channelId, this.stack[0].children)}`;
-    session.userId = this.body.selfId;
-    session.channelId = this.channelId;
-    session.guildId = this.isDirect ? undefined : this.channelId;
-    session.isDirect = this.isDirect;
-    this.body.dispatch(session);
-    this.results.push({ id: session.messageId! });
+    const state = this.stack[0];
+    if (!state.children.length) return;
+    const messageId = this.isDirect
+      ? `${await this.body.internal.sendPrivateForwardMsg(this.channelId.slice(PRIVATE_PFX.length), state.children)}`
+      : `${await this.body.internal.sendGroupForwardMsg(this.channelId, state.children)}`;
+    this.dispatchSend(messageId, [Element("figure", {}, state.canonical)]);
+    state.children = [];
+    state.canonical = [];
   }
 
   async flush(): Promise<void> {
-    // trim start
+    if (this.children.length !== this.canonical.length) throw new Error("OneBot encoder platform and canonical segments drifted");
+
     while (true) {
       const first = this.children[0];
       if (first?.type !== "text") break;
+      const canonical = this.canonical[0];
+      if (canonical?.type !== "text") throw new Error("OneBot encoder text segments drifted");
       first.data.text = first.data.text.trimStart();
+      canonical.attrs.content = first.data.text;
       if (first.data.text) break;
       this.children.shift();
+      this.canonical.shift();
     }
 
-    // trim end
     while (true) {
       const last = this.children[this.children.length - 1];
       if (last?.type !== "text") break;
+      const canonical = this.canonical[this.canonical.length - 1];
+      if (canonical?.type !== "text") throw new Error("OneBot encoder text segments drifted");
       last.data.text = last.data.text.trimEnd();
+      canonical.attrs.content = last.data.text;
       if (last.data.text) break;
       this.children.pop();
+      this.canonical.pop();
     }
 
-    // flush
     const { type, author } = this.stack[0];
     if (!this.children.length && !author.messageId) return;
     if (type === "forward") {
+      const parent = this.stack[1];
+      if (!parent) throw new Error("OneBot forward state has no parent");
       if (author.messageId) {
-        this.stack[1].children.push({
-          type: "node",
-          data: {
-            id: author.messageId,
-          },
-        });
+        parent.children.push({ type: "node", data: { id: author.messageId } });
+        parent.canonical.push(Element("message", { id: author.messageId }));
       } else {
-        this.stack[1].children.push({
+        const name = author.name || this.body.user?.name || "";
+        const userId = author.id || this.body.selfId;
+        const time = `${Math.floor((+author.time! || Date.now()) / 1000)}`;
+        parent.children.push({
           type: "node",
           data: {
-            name: author.name || this.body.user?.name || "",
-            uin: author.id || this.body.selfId,
-            // SAFETY: OneBot forward API accepts CQCode[] directly; the string type in the interface is for the serialized form (koishi parity);
+            name,
+            uin: userId,
+            // SAFETY: OneBot forward API accepts CQCode[] directly; the string type in the interface is for the serialized form (koishi parity).
             // oxlint-disable-next-line anti-slop/no-chained-type-assertions
             content: this.children as unknown as string,
-            time: `${Math.floor((+author.time! || Date.now()) / 1000)}`,
+            time,
           },
         });
+        parent.canonical.push(Element("message", { userId, username: name, time }, this.canonical));
       }
 
       this.children = [];
+      this.canonical = [];
       return;
     }
 
-    const session = this.body.session();
-    session.type = "send";
-    session.content = "";
-    session.messageId = this.isDirect
-      ? `${await this.body.internal.sendPrivateMsg(this.channelId.slice(PRIVATE_PFX.length), this.children)}`
-      : `${await this.body.internal.sendGroupMsg(this.channelId, this.children)}`;
-    session.userId = this.body.selfId;
-    session.channelId = this.channelId;
-    session.guildId = this.isDirect ? undefined : this.channelId;
-    session.isDirect = this.isDirect;
-    this.body.dispatch(session);
-    this.results.push({ id: session.messageId! });
+    const platform = this.children;
+    const canonical = this.canonical;
+    const messageId = this.isDirect
+      ? `${await this.body.internal.sendPrivateMsg(this.channelId.slice(PRIVATE_PFX.length), platform)}`
+      : `${await this.body.internal.sendGroupMsg(this.channelId, platform)}`;
+    this.dispatchSend(messageId, canonical);
     this.children = [];
+    this.canonical = [];
   }
 
   private async sendFile(attrs: Record<string, string>): Promise<void> {
@@ -122,17 +151,9 @@ export class OneBotMessageEncoder extends MessageEncoder<OneBotBody> {
     } else {
       await this.body.internal.uploadGroupFile(this.channelId, file, name);
     }
-    const session = this.body.session();
-    session.type = "send";
-    // 相关 API 没有返回 message_id
-    session.messageId = "";
-    session.content = "";
-    session.userId = this.body.selfId;
-    session.channelId = this.channelId;
-    session.guildId = this.isDirect ? undefined : this.channelId;
-    session.isDirect = this.isDirect;
-    this.body.dispatch(session);
-    this.results.push({ id: "" });
+    // The upload APIs expose no platform message id; preserve that fact rather
+    // than inventing one, while still dispatching the canonical sent entity.
+    this.dispatchSend("", [Element("file", { src, title: name })]);
   }
 
   /**
@@ -160,21 +181,14 @@ export class OneBotMessageEncoder extends MessageEncoder<OneBotBody> {
     } else if (type === "br") {
       this.text("\n");
     } else if (type === "p") {
-      const prev = this.children[this.children.length - 1];
-      if (prev?.type === "text") {
-        if (!prev.data.text.endsWith("\n")) {
-          prev.data.text += "\n";
-        }
-      } else {
-        this.text("\n");
-      }
+      this.lineBreak();
       await this.render(children);
       this.text("\n");
     } else if (type === "at") {
       if (attrs.type === "all") {
-        this.children.push({ type: "at", data: { qq: "all" } });
+        this.push({ type: "at", data: { qq: "all" } }, Element("at", { type: "all" }));
       } else {
-        this.children.push({ type: "at", data: { qq: attrs.id, name: attrs.name } });
+        this.push({ type: "at", data: { qq: attrs.id, name: attrs.name } }, Element("at", { id: attrs.id, name: attrs.name }));
       }
     } else if (type === "sharp") {
       if (attrs.id) this.text(attrs.id);
@@ -182,54 +196,53 @@ export class OneBotMessageEncoder extends MessageEncoder<OneBotBody> {
       if (attrs.platform && attrs.platform !== this.body.platform) {
         await this.render(children);
       } else {
-        this.children.push({ type: "face", data: { id: attrs.id } });
+        this.push({ type: "face", data: { id: attrs.id } }, Element("face", { id: attrs.id }));
       }
     } else if (type === "a") {
       await this.render(children);
       if (attrs.href) this.text(`（${attrs.href}）`);
     } else if (["video", "audio", "image", "img"].includes(type)) {
       if (type === "video" || type === "audio") await this.flush();
-      if (type === "audio") type = "record";
-      if (type === "img") type = "image";
-      attrs = { ...attrs };
-      attrs.file = attrs.src || attrs.url;
-      delete attrs.src;
-      delete attrs.url;
-      if (attrs.cache) {
-        attrs.cache = 1;
-      } else {
-        attrs.cache = 0;
-      }
-      const cap = /^data:([\w/.+-]+);base64,/.exec(attrs.file);
-      if (cap) attrs.file = `base64://${attrs.file.slice(cap[0].length)}`;
-      this.children.push({ type, data: attrs });
+      const canonicalType = type === "img" ? "image" : type;
+      const source = attrs.src || attrs.url;
+      const canonicalAttrs: Element["attrs"] = { ...attrs, src: source };
+      delete canonicalAttrs.url;
+      delete canonicalAttrs.file;
+      const platformType = canonicalType === "audio" ? "record" : canonicalType;
+      const platformAttrs: Element["attrs"] = { ...attrs, file: source };
+      delete platformAttrs.src;
+      delete platformAttrs.url;
+      platformAttrs.cache = attrs.cache ? 1 : 0;
+      const cap = /^data:([\w/.+-]+);base64,/.exec(platformAttrs.file);
+      if (cap) platformAttrs.file = `base64://${platformAttrs.file.slice(cap[0].length)}`;
+      this.push({ type: platformType, data: platformAttrs }, Element(canonicalType, canonicalAttrs));
     } else if (type === "file") {
       await this.flush();
       await this.sendFile(attrs);
     } else if (type === "onebot:music") {
       await this.flush();
-      this.children.push({ type: "music", data: attrs });
+      this.push({ type: "music", data: attrs }, Element("onebot:music", attrs));
     } else if (type === "onebot:tts") {
       await this.flush();
-      this.children.push({ type: "tts", data: attrs });
+      this.push({ type: "tts", data: attrs }, Element("onebot:tts", attrs));
     } else if (type === "onebot:poke") {
       await this.flush();
-      this.children.push({ type: "poke", data: attrs });
+      this.push({ type: "poke", data: attrs }, Element("onebot:poke", attrs));
     } else if (type === "onebot:gift") {
       await this.flush();
-      this.children.push({ type: "gift", data: attrs });
+      this.push({ type: "gift", data: attrs }, Element("onebot:gift", attrs));
     } else if (type === "onebot:share") {
       await this.flush();
-      this.children.push({ type: "share", data: attrs });
+      this.push({ type: "share", data: attrs }, Element("onebot:share", attrs));
     } else if (type === "onebot:json") {
       await this.flush();
-      this.children.push({ type: "json", data: attrs });
+      this.push({ type: "json", data: attrs }, Element("onebot:json", attrs));
     } else if (type === "onebot:xml") {
       await this.flush();
-      this.children.push({ type: "xml", data: attrs });
+      this.push({ type: "xml", data: attrs }, Element("onebot:xml", attrs));
     } else if (type === "onebot:cardimage") {
       await this.flush();
-      this.children.push({ type: "cardimage", data: attrs });
+      this.push({ type: "cardimage", data: attrs }, Element("onebot:cardimage", attrs));
     } else if (type === "author") {
       Object.assign(this.stack[0].author, attrs);
     } else if (type === "figure") {
@@ -241,7 +254,7 @@ export class OneBotMessageEncoder extends MessageEncoder<OneBotBody> {
       await this.forward();
     } else if (type === "quote") {
       await this.flush();
-      this.children.push({ type: "reply", data: attrs });
+      this.push({ type: "reply", data: attrs }, Element("quote", attrs));
     } else if (type === "message") {
       await this.flush();
       if ("forward" in attrs) {

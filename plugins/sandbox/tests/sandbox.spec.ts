@@ -1,6 +1,7 @@
 import { NerveService } from "@athena-ai/protocol";
 import type { MessageSink, SandboxDispatchPayload, SandboxNerveHandle, SandboxRequestPayload } from "@athena-ai/protocol";
-import type { IMMessageEvent } from "@athena-ai/protocol-im";
+import { isAtSelf } from "@athena-ai/protocol-im";
+import type { IMMessageEvent, IMSendEvent } from "@athena-ai/protocol-im";
 import { Context, type Fiber } from "cordis";
 import type { Dict } from "cosmokit";
 import { describe, expect, it } from "vitest";
@@ -92,15 +93,7 @@ class TestNerve implements SandboxNerveHandle {
     const id = Math.random().toString(36).slice(2);
     sink.send({ type: "sandbox/message", body: { id, content, user, channel, platform, lifeId: LIFE_ID } });
 
-    const event = bot.session({
-      type: "message-created",
-      user: { id: user, name: user },
-      channel: { id: channel, type: channel === `@${user}` ? 1 : 0 },
-      guild: channel === `@${user}` ? undefined : { id: channel },
-      message: { id, content, user: { id: user, name: user }, channel: { id: channel, type: channel === `@${user}` ? 1 : 0 } },
-    });
-    if (quote) event.quote = { id: quote.id, content: quote.content };
-    bot.dispatch(event);
+    bot.dispatch(bot.receive({ id, user, channel, content, quote }));
   }
 
   async request(method: string, data: SandboxRequestPayload): Promise<unknown> {
@@ -173,7 +166,10 @@ async function setup() {
     return listener.call(client, { lifeId: LIFE_ID, ...body });
   };
 
-  return { ctx, webui, client, sessions, invoke, hub, nerve, unregister };
+  const sent: IMSendEvent[] = [];
+  ctx.on("send", (event) => void sent.push(event));
+
+  return { ctx, webui, client, sessions, sent, invoke, hub, nerve, unregister };
 }
 
 async function sendFromBrowser(user: string, channel: string, content: string) {
@@ -203,6 +199,13 @@ describe("sandbox plugin", () => {
     expect(sessions[0].userId).toBe("Alice");
     expect(sessions[0].isDirect).toBe(true);
     expect(sessions[0].messageId).toBe(echo?.body?.id);
+  });
+
+  it("parses content into elements so a mention is detectable", async () => {
+    const { sessions } = await sendFromBrowser("Alice", "#", `<at id="${SELF_ID}"/> look at this`);
+
+    expect(isAtSelf(sessions[0])).toBe(true);
+    expect(sessions[0].message.elements?.map((element) => element.type)).toEqual(["at", "text"]);
   });
 
   it("stamps the lifeId on every frame it forwards to the browser", async () => {
@@ -292,6 +295,19 @@ describe("SandboxMessenger", () => {
     const bubbles = client.frames.filter((frame) => frame.type === "sandbox/message");
     // one echo of the browser input plus one bubble per message element
     expect(bubbles.map((frame) => frame.body?.content)).toEqual(["hello", "one", "two"]);
+  });
+
+  it("dispatches one send event per bubble so outbound messages can be archived", async () => {
+    const { nerve, sent } = await sendFromBrowser("Alice", "@Alice", "hello");
+    const bot = await nerve.bot();
+
+    const ids = await bot.sendMessage("@Alice", "<message>one</message><message>two</message>");
+
+    expect(sent.map((event) => event.message.content)).toEqual(["one", "two"]);
+    expect(sent.map((event) => event.messageId)).toEqual(ids);
+    expect(sent[0].userId).toBe(SELF_ID);
+    expect(sent[0].channelId).toBe("@Alice");
+    expect(sent[0].isDirect).toBe(true);
   });
 });
 

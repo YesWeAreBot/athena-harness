@@ -1,12 +1,10 @@
 import { AIService } from "@athena-ai/ai";
-import { NerveService } from "@athena-ai/protocol";
 import { Context } from "cordis";
 
 import { ToolRegistry } from "./tools.js";
 
 export function apply(ctx: Context) {
   ctx.plugin(ToolRegistry);
-  ctx.plugin(NerveService);
   ctx.plugin(AIService);
 }
 

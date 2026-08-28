@@ -242,11 +242,20 @@ ctx.on("message-created", (event) => {
 adapter → body.session({ type, channel, user, message, ... })
         → body.dispatch(session)
         → ctx.emit("internal/session", session)       ← 统一归一化入口
-        → NerveService 归一化器
-            internal 类型 → emit(_type, _data, body)  ← 平台子事件
-            其余 → body.ctx.emit(session.type, session) ← 从 Body 所属 ctx 发射，保持 Life 隔离
+        → NerveService 归一化器（只有拥有该 Body 的那个 NerveService 处理）
+            internal 类型 → emit(session, _type, _data, body)  ← 平台子事件
+            其余 → body.ctx.emit(session, session.type, session)
         → cordis.Events 消费者（ctx.on("message-created", ...)）
 ```
+
+**Cordis 事件是进程级广播，"从 Body 所属 ctx 发射"本身并不产生隔离。** `emit` 只按事件名查 hook，不看 Context 树；`internal/session` 同样会到达进程内每一个 `NerveService`。所以隔离靠两件事同时成立：
+
+1. 只有 `nerve` isolate 与 Body 相同的那个 `NerveService` 重新 emit（否则每多一个 Life 就多一次重复投递）；
+2. 重新 emit 时把 Session 自己作为 `thisArg` 传入，`Session[Context.filter]` 把投递限制在该 Body 的 `nerve` isolate 内。
+
+没有第 2 条，另一个 Life 的 Cortex 会归档并回复不属于它的消息——这是 Task 15 实测到的真实缺陷，不是理论风险。adapter 侧无需关心：`body.dispatch(session)` 就够了。
+
+`NerveService` 的第一层所有权由 protocol 的 `LifeService` 保证：每个 Life 激活时在自己的 `nerve` isolate 下安装一个 NerveService，Life dispose 时一并释放。若两个 Life 共享同一个 `nerve` domain，第二个 Life 必须在启动时 fail fast；不能把 root 级单例当成可工作的 fallback。上面的 owning-domain check 与 filter 是事件总线上的第二层防线。
 
 ---
 
@@ -312,38 +321,54 @@ import type {} from "@athena-ai/nerve-minecraft";
 
 ### 设计原则
 
-1. **只有 IM 消息值得持久化**——其他事件即发即忘，仅存在于消费者内存
-2. **两种独立的持久化**：消息归档（客观记录）和工作区（主观认知过程）
+1. **只有 IM 消息值得跨进程持久化**——其他事件即发即忘，仅存在于消费者内存
+2. **认知状态分三层**：message-store（客观消息归档，跨进程）+ checkpoint（帧区 + 压缩条目，跨进程）+ workspace（内存思考草稿，进程内）。没有 per-scene session store——scene 是寻址原语，不是认知分区
 3. **工作区是 LLM 上下文的 source of truth**——不从归档重建
+4. **路径属于 Life**：所有文件都在 `ctx.life.dataDir` 之下，进程里没有共享的全局状态目录
 
-类比：手机里的聊天记录是「消息归档」，你脑子里对对话的记忆是「工作区」。两者独立，内容可能重叠但格式和用途完全不同。
+类比：手机里的聊天记录是「消息归档」，你保存的聊天摘要笔记是「checkpoint 压缩条目」，你正打了一半的回复草稿是「工作区」。
 
 ---
 
 ### IM 消息归档（message-store）
 
-message-store 监听 IM 事件（`message-created`、`send`），自动归档消息实体。
+message-store 监听 IM 事件（`message-created`、`send`），无条件归档消息实体。它是 `plugins/cortex-chat` 的**内部模块**，不是独立 Cordis Service——归档服务于该 Life 的认知，没有第二个消费者需要它。
 
 #### StoredMessage 形态
 
 ```typescript
 interface StoredMessage {
-  id: string; // 消息平台 ID（主键）
-  platform: string; // 来源平台
-  channelId: string; // 所属频道
+  bodySid: string; // `${platform}:${selfId}`，Scene 身份的一半
+  channelId: string; // Scene 身份的另一半
+  messageId: string; // 平台消息 ID
   userId: string; // 发送者
-  elements: Element[]; // 结构化内容
-  timestamp: number; // 发送时间
+  userName?: string;
+  content: string; // canonical content（Athena element 语法）
+  timestamp: number;
   replyTo?: string; // 引用的消息 ID
 }
 ```
 
+两个要点：
+
+- **身份用 `bodySid`，不用 `platform`。** 一个 Life 可以拥有多个同平台 Body，它们可能访问同名 channel；只有 `bodySid + channelId` 是稳定的 Scene 身份。
+- **只存 canonical `content: string`，不存第二份 `elements`。** `content` 与 element 树同源，可在边界用 `parse` / `toString` 互转（`<at id>`、`<quote id>`、媒体元素都在串里）。存两份就会有两个"真相"，且它们会漂移。adapter 有责任把入站与出站消息都归一化成这个串——`content` 为空的 `send` 事件会在档案里留下"这个 Life 什么都没说过"的假记录。
+
+**OneBot 出站 canonical 规则**：encoder 同时维护平台 CQCode segment 与 canonical Athena Element segment。canonical 取 encoder 最终决定发送的语义，但在 OneBot 字段降级前表示：mention 保持 `<at id>`、媒体保持 `src`、段落/链接记录实际换行与文本语义、forward 记录 `<figure>/<message>`、文件上传记录 `<file src title>`。普通、forward、file 的 `send` 事件以及 `createMessage()` 返回实体都从同一 canonical segment 构造，禁止从 CQCode 反向猜测。
+
 判断是否是 Life 自己发的：`userId === body.selfId`。不需要额外 `isSelf` 字段。
 
-#### 索引策略
+#### 表与索引
 
-- `platform + channelId + timestamp`：focus 展开时按频道读取历史
-- `platform + userId + timestamp`：跨频道查某人的消息（旁路读取场景）
+行上额外带一个内部 `lifeId` 列（不出现在公开类型里）：两个 Life 恰好持有同一个 `bodySid` 时不能共享行。
+
+```text
+primary: [lifeId, bodySid, messageId]
+indexes: [lifeId, bodySid, channelId, timestamp, messageId]   // focus 展开、peek
+         [lifeId, bodySid, userId, timestamp, messageId]      // 跨频道查某人
+```
+
+读取恒为时间升序，`limit` 保留**最近** N 条——只有一套分页语义。
 
 #### 只存 Message 实体，不存 Session
 
@@ -355,161 +380,135 @@ interface StoredMessage {
 
 ### Workspace（LLM 上下文）
 
-Workspace 存储的是 LLM 调用的完整输入输出——主心智的认知过程。
+Workspace 是主心智的**内存工作区**：LLM 调用的完整输入输出。它是 `ModelMessage[]`，由 `CortexChat` 持有，跨 turn 存活、重建时清空，**不跨进程持久化**。
 
-#### WsMessage 类型
+#### 直接保留 AI SDK 原生消息
 
-在 AI SDK 的 `ModelMessage` 基础上扩展极薄的元数据：
+工作区不做中间格式投影、不加外层信封：
 
 ```typescript
-import type { AssistantModelMessage, SystemModelMessage, ToolModelMessage, UserModelMessage, LanguageModelUsage } from "ai";
+// CortexChat 持有
+public readonly workspace: ModelMessage[];
 
-/** 所有 workspace 消息共享的元数据 */
-export interface MessageMeta {
-  id: string;
-  ts: number;
-}
-
-export interface WsUserMessage extends MessageMeta, UserModelMessage {}
-
-export interface WsSystemMessage extends MessageMeta, SystemModelMessage {}
-
-export interface WsAssistantMessage extends MessageMeta, AssistantModelMessage {
-  usage?: LanguageModelUsage;
-  finishReason?: string;
-}
-
-export interface WsToolMessage extends MessageMeta, ToolModelMessage {}
-
-export type WsMessage = WsUserMessage | WsSystemMessage | WsAssistantMessage | WsToolMessage;
+// AI SDK 输出与 step delta 原样追加
+workspace.push(...result.response.messages);
+workspace.push(...pendingToolDeltas);
+// 重建时按覆盖长度清空前缀
+workspace.splice(0, coveredLength);
 ```
 
-设计要点：
-
-- `id` + `ts`：最小公共元数据，用于去重和时序
-- `usage` + `finishReason`：只在 assistant message 上，记录 LLM 调用的结果信息
-- 直接 extends AI SDK 原生类型，不额外造类型
-- `providerOptions` 自然保留（来自 AI SDK 原生字段）
-
-#### 存储格式：JSONL
-
-每行一个 `WsMessage` 的 JSON：
-
-```jsonl
-{"id":"m_1","ts":1692000000,"role":"system","content":"你是..."}
-{"id":"m_2","ts":1692000001,"role":"user","content":[{"type":"text","text":"你好"}]}
-{"id":"m_3","ts":1692000002,"role":"assistant","content":[{"type":"text","text":"你好！"}],"usage":{"promptTokens":50,"completionTokens":12,"totalTokens":62},"finishReason":"stop"}
-```
-
-- 写入：`JSON.stringify(msg) + '\n'` append
-- 读取：逐行 `JSON.parse` 得到 `WsMessage[]`
-- 检查点时清空文件
+- `ModelMessage` 的形状是 `{ role, content, providerOptions? }`；`providerOptions` 随消息传递，不提取到信封外
+- `result.response.messages` 就是该 step 的 canonical `ModelMessage[]`：AI SDK 已把 part 级 `providerMetadata` 转成 `providerOptions`、把 tool 返回值包成 `ToolResultOutput`、把 `tool-error` 变成 `{ type: "error-text", value }`，并成对给出 assistant + tool message——整条存下来即可，不要自己从 `step.content` 重建
+- `usage` 与 `finishReason` 是 runner 局部变量（用于 `TurnResult`），不挂在 message 上
+- 用户消息进入工作区前经 `render.ts` 渲染为带元数据的 `<message from=... scene=... ts=... id=...>` 格式（见 cookbook 02 §Awareness）
 
 #### 写入时序
 
 ```
 1. 事件到达 Cortex
-2. Cortex 将事件转换为 WsMessage（user/system message）
-3. Append 到 workspace（持久化）
-4. 从 workspace 读取全部 WsMessage → 转为 ModelMessage[]
-5. 调用 LLM（streamText）
-6. LLM 返回结果转为 WsMessage（assistant/tool message）
-7. Append 到 workspace（持久化）
+2. Cortex 归档到 message-store，路由为 user message（渲染元数据）或 awareness delta
+3. 追加到 workspace（内存）
+4. 组装请求：stable + frame + workspace（引用）
+5. 调用 LLM（每 step 一次 generateText）
+6. result.response.messages 原样 push 进 workspace
+7. 该 step 的 pending tool delta（如 focusChange）在 response 之后追加
 8. 如果有后续 step，回到 4
 ```
 
 **关键约束：请求 LLM 时只能从 workspace 读取，不能从 message-store 逐条重建。**
 
-#### toModelMessage 转换
-
-发送给 LLM 时，剥掉我们加的元数据，保留 AI SDK 原生字段：
-
-```typescript
-function toModelMessage(ws: WsMessage): ModelMessage {
-  // 剥掉 id, ts, usage, finishReason
-  // 保留 role, content, providerOptions
-  const { id, ts, ...rest } = ws;
-  if (rest.role === "assistant") {
-    const { usage, finishReason, ...msg } = rest;
-    return msg;
-  }
-  return rest;
-}
-```
-
 ---
 
 ### Checkpoint
 
-检查点是帧的快照，记录"此刻 LLM 上下文的前缀部分"。
+检查点是**唯一的跨进程认知状态**，保存结构化帧区快照。帧区以结构化形式存放，渲染发生在请求组装时——不存渲染结果，避免下一轮压缩反解 XML。
 
 ```typescript
-interface Checkpoint {
+interface Frame {
+  focus: SceneAddress | null; // 不是字符串 id：Scene 身份是结构化的
+  history: ModelMessage[]; // 当前 focus 的历史
+  lastFocusHistory: ModelMessage[]; // 切换前一代的认知轨迹（仅切换后一代存在）
+}
+
+interface Checkpoint extends Frame {
+  version: 2;
   id: string;
-  ts: number;
-  focusSceneId: string | null;
-  /** 帧部分的 messages（system prompt + 压缩条目 + awareness + focus context） */
-  frameMessages: ModelMessage[];
-  /** 压缩条目文本（主心智认知轨迹） */
-  compaction: string | null;
+  createdAt: number;
+  compaction: string | null; // 压缩条目文本（主心智跨 Scene 的认知轨迹）
 }
 ```
+
+- version 从 1 升到 2，**不写兼容 loader**——旧文件加载直接抛错，由运维删除（开发阶段 checkpoint 可丢弃）
+- `frameMessages` / `workspaceGeneration` 已删除：帧区由 `renderFrame()` 从 `Frame` 字段确定性投影，工作区不再持久化所以没有 generation
+- 当前 persona、stable messages 与 tool payload 在每个 turn 按实时状态重新装配；checkpoint 只负责认知状态恢复，不承担 provider cache invalidation
 
 #### 触发时机
 
 同 [cookbook 02](./02-multi-scene-attention.md) 的检查点触发条件：
 
-- Focus 切换
-- 上下文压缩完成
-- 系统重启 / 冷启动
+- 一个 turn 结束后 `frameFocus !== logicalFocus`（强制重建，与阈值无关）
+- 一个 turn 结束后 workspace 超过 token 阈值
+- idle 超时
 
-#### 检查点流程
+focus 切换的时序限定：turn 内 frame 必须冻结，`switch_focus` 只移动 logical focus 并追加 focusChange delta，新 frame 在本 turn 结束后的 transition 里由 `promoteFocus()` 建立。
 
-1. 压缩当前 workspace 中的认知轨迹 → 生成 compaction
-2. 组装新的 frameMessages（稳定区 + 新帧）
-3. 写入 Checkpoint 文件
-4. 清空 workspace.jsonl
+#### 检查点流程（重建事务）
+
+串行顺序是恢复契约，不可交换：
+
+```text
+1. 代码剪枝当前 workspace → F' = prune(W)（reasoning 剔除、tool 对合并、失败原文保留）
+2. 压缩器一次调用：C' = summarize(旧 history + 旧 lastFocusHistory + 旧 compaction)
+3. 写入 Checkpoint 文件（临时文件 + rename，原子）
+4. 替换内存中的 checkpoint
+5. 成功后 workspace.splice(0, n) 清空
+```
+
+第 3 步之前的任何失败都保留旧 checkpoint、保留整个 workspace，并把原始错误抛回调用方（下一次重建重试）。focus 切换重建时 `history` 从 message-store 拉取新 focus 频道近期历史（`readScene` + `focusHistoryLimit`），`lastFocusHistory = prune(W)`。
 
 #### 恢复流程
 
 ```
-LLM input = Checkpoint.frameMessages + workspace.map(toModelMessage)
+LLM input = stable（constitution + persona + compaction）+ renderFrame(checkpoint) + workspace
 ```
 
-完整、确定、无重建逻辑。
+完整、确定、无重建逻辑。checkpoint 读取时只有"文件不存在"才返回空状态；损坏、权限、版本不兼容都必须报错，不能静默当成冷启动之外的任何东西——损坏的文件保留在原处，供人排查。重启后工作区为空，从 checkpoint 恢复帧，之后的事件重新累积。
 
 ---
 
 ### 文件组织
 
 ```
-cortex-state/
-  checkpoint-latest.json          // 最近的 checkpoint
-  workspace.jsonl                  // 当前 workspace（append-only）
+<ctx.life.dataDir>/cortex-chat/
+  checkpoint.json                  // 最近的 checkpoint（临时文件 + rename 原子写）
 ```
+
+`dataDir` 由 Life 解析（`path.resolve(config.dataDir, encodeURIComponent(id))`），所以多 Life 天然分开。**没有** `process.cwd()` 之下的共享目录。工作区在内存中，没有 workspace 文件；消息档案在数据库里，行上带内部 `lifeId` 列。
 
 ---
 
-## 两个 store 的关系
+## 存储的关系：档案馆 + 认知状态
 
-|          | message-store                    | workspace                      |
-| -------- | -------------------------------- | ------------------------------ |
-| 存什么   | 原始 IM 消息（Element[]）        | AI SDK ModelMessage + 薄元数据 |
-| 来源     | 自动监听事件写入                 | Cortex 主动写入                |
-| 谁读     | Cortex（focus 展开、旁路读取）   | Cortex（组装 LLM 请求）        |
-| 索引     | platform + channelId + timestamp | 追加顺序（JSONL 行序）         |
-| 去重     | 按 messageId                     | 不去重（追加式）               |
-| 内容格式 | 平台消息原文                     | 格式化后的 LLM 内容            |
-| 生命周期 | 长期保留                         | 每个检查点周期清空             |
+|          | message-store                          | checkpoint（帧区 + 压缩条目）    | workspace（内存）                    |
+| -------- | -------------------------------------- | -------------------------------- | ------------------------------------ |
+| 回答什么 | 这个 Scene 发生过哪些原始消息？        | 主心智的持久化认知状态（跨进程） | 主心智此刻正在思考什么（进程内）     |
+| 存什么   | canonical `content` 串                 | Frame（focus / history / lastFocusHistory）+ compaction | AI SDK `ModelMessage[]`    |
+| 来源     | 自动监听事件写入                       | 重建事务（prune → summarize → save） | runner 追加 response 与 delta        |
+| 谁读     | focus 展开、`peek_channel`、压缩输入   | 组装 LLM 请求前缀                 | 组装 LLM 请求尾部                     |
+| 索引     | `lifeId + bodySid + channelId + ts`    | 单文件，按 Life 分目录            | 数组追加顺序                          |
+| 生命周期 | 长期保留                               | 长期保留（每次重建替换）          | 进程内跨 turn，重建时清空             |
 
-**message-store 是档案馆，workspace 是工作笔记本。**
+**message-store 是档案馆，checkpoint 是跨进程的认知快照，workspace 是进程内的思考草稿。**
 
-一条用户消息在两处各出现一次：
+一条用户消息在多处各出现一次：
 
 1. message-store：作为客观消息记录（`StoredMessage`）
-2. workspace：作为 LLM 输入（`WsUserMessage`，可能被格式化、附加 awareness 上下文）
+2. workspace：作为 LLM 输入（渲染为带元数据的 `<message>`）
+3. 重建后：剪枝形态进入 checkpoint 帧区，更早的内容以压缩条目形态继续存在
 
-两者独立存储，不互相派生。Focus 展开时从 message-store 读历史 → 格式化为帧 → 写入 Checkpoint。之后这些内容从 Checkpoint 读，不再回 message-store。
+三者不互相派生。Focus 展开时从 message-store 读历史（`readScene`）拉取新 focus 的近期历史；当前 focus 的普通帧历史来自上一代工作区的剪枝，不从 message-store 重建整个历史。
+
+**任一时刻，一段内容只存在于一个区**（外加 message-store 作为客观档案）。不存在 per-scene session store：scene 是寻址原语（`SceneAddress` / `SceneCursor`），不是认知分区。
 
 ---
 
@@ -551,13 +550,15 @@ cortex-state/
 
 2. **Element 格式** — ✅ **已定**：复用 `@cordisjs/element`（npm 发布版），protocol-im 提供 `at`/`image`/`quote` 等工厂函数
 
-3. **message-store 的存储后端** — ✅ **已定**：使用 `@cordisjs/plugin-database`（Cordis 标准 ORM），配合 `@cordisjs/plugin-database-sqlite` 驱动。表名 `athena.messages`，复合主键 `[platform, id]`，索引 `[platform, channelId, timestamp]` 和 `[platform, userId, timestamp]`。实现见 `plugins/message-store/src/index.ts`
+3. **message-store 的存储后端** — ✅ **已定**：使用 `@cordisjs/plugin-database`（Cordis 标准 ORM）。表名 `athena.messages`，主键 `[lifeId, bodySid, messageId]`，索引 `[lifeId, bodySid, channelId, timestamp, messageId]` 与 `[lifeId, bodySid, userId, timestamp, messageId]`。实现在 `plugins/cortex-chat/src/message-store.ts`——它是 Cortex 的内部模块，不是独立插件（`plugins/message-store` 仍是占位，见 `docs/06-progress-and-roadmap.md`）
 
-4. **WsMessage 的 id 生成策略** — ✅ **已定**：使用 AI SDK 的 `generateId()`（来自 `ai` 包）。统一依赖一个 ID 生成器，无需自建。实现见 `plugins/cortex-chat/src/workspace.ts` 的 `createWsMessage()`
+4. ~~WsMessage 的 id 生成策略~~ — **已作废**：2026-08-28 重设计后工作区是内存 `ModelMessage[]`，没有 workspace-store、没有 `WsMessage` 信封、没有元数据 id
 
-5. **大型 tool result 的处理** — workspace 中 tool result 可能很大（如返回大量 JSON），是否需要在写入时做截断或引用？
+5. **大型 tool result 的处理** — ✅ **已定**：剪枝阶段（`prune.ts`）对成功的大块 tool output 保留首尾（默认 1000/400/400 字符，可配置 `toolOutputMaxChars` / `toolOutputHeadChars` / `toolOutputTailChars`）、裁去中间并插入省略标记；失败的工具名、错误信息与目标标识原样保留
 
-6. **Checkpoint 历史保留策略** — ✅ **已定（初始策略）**：只保留最近一个（`checkpoint-latest.json`）。当前阶段无需历史回溯；未来如需多版本保留可扩展为 `checkpoint-{id}.json` + 索引文件
+6. **Checkpoint 历史保留策略** — ✅ **已定（初始策略）**：只保留最近一个（`checkpoint.json`）。当前阶段无需历史回溯；未来如需多版本保留可扩展为 `checkpoint-{id}.json` + 索引文件
+
+7. ~~scene session 的清理~~ — **已作废**：scene session store 已删除；跨场景连续性由全局压缩条目承担，无 per-scene 状态需要清理
 
 ---
 

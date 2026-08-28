@@ -92,21 +92,21 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 
 ### 2.1 当前包清单
 
-| 包                                | 路径                        | 提供的 Service | 角色                                                                                                                        |
-| --------------------------------- | --------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `@athena-ai/core`                 | `packages/core`             | —              | Prelude shell；重导出 cordis/cosmokit/Schema                                                                                |
-| `@athena-ai/protocol`             | `packages/protocol`         | `nerve`        | Nerve 核心：Body 基类、Session 信封、NerveService、Cortex 基类、Hook Protocol 契约                                        |
-| `@athena-ai/protocol-im`          | `packages/protocol-im`      | —              | IM 协议层：实体类型、Methods 表、IMBody 默认实现、事件契约、MessageEncoder、WsClient                                        |
-| `@athena-ai/ai`                   | `packages/ai`               | `ai`           | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                            |
-| `@athena-ai/plugin-life`          | `plugins/life`              | `life`         | Life 实现：persona、memory、one-Cortex 强制                                                                                 |
-| `@athena-ai/cortex-chat`          | `plugins/cortex-chat`       | `cortex`       | Reactive Cortex（当前为 echo 骨架，消费 `message-created` 事件）                                                            |
-| `@athena-ai/plugin-sandbox`       | `plugins/sandbox`           | `sandbox`      | 全局 SandboxHub + SandboxBot（IMBody 实现）：WebUI 页面、文件服务器、WS 路由                                                |
-| `@athena-ai/sandbox-nerve`        | `plugins/sandbox-nerve`     | —              | per-Life Nerve：注册 Hub、创建 SandboxBot（`ctx.nerve` 注册）                                                               |
-| `@athena-ai/provider-openai`      | `plugins/provider-openai`   | —              | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                         |
-| `@athena-ai/provider-deepseek`    | `plugins/provider-deepseek` | —              | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                       |
-| `@athena-ai/nerve-onebot`         | `plugins/nerve-onebot`      | —              | OneBot v11 Nerve adapter（IMBody 实现）：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket        |
-| `@athena-ai/plugin-content-filter` | `plugins/content-filter`   | —              | Hook Protocol 参考插件：监听 `cortex/before-enact`，按配置内容结构化否决行动                                                  |
-| `@athena-ai/plugin-message-store` | `plugins/message-store`     | —              | 占位，未开始（Phase 3 消息持久化）                                                                                          |
+| 包                                 | 路径                        | 提供的 Service  | 角色                                                                                                                 |
+| ---------------------------------- | --------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `@athena-ai/core`                  | `packages/core`             | `tools`, `ai`   | Prelude shell；安装 root 级 ToolRegistry / AIService，并重导出 cordis/cosmokit/Schema                                |
+| `@athena-ai/protocol`              | `packages/protocol`         | `nerve`         | Nerve 核心：Body、Session、NerveService；LifeService 激活时在同一 Life 域安装 NerveService                           |
+| `@athena-ai/protocol-im`           | `packages/protocol-im`      | —               | IM 协议层：实体类型、Methods 表、IMBody 默认实现、事件契约、MessageEncoder、WsClient                                 |
+| `@athena-ai/ai`                    | `packages/ai`               | `ai`            | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                     |
+| `@athena-ai/plugin-life`           | `plugins/life`              | `life`, `nerve` | Life 实现：id、persona、dataDir、one-Cortex 强制；继承 LifeService 获得同域 NerveService                             |
+| `@athena-ai/cortex-chat`           | `plugins/cortex-chat`       | `cortex`        | Life-scoped 主心智：三区管线（稳定区 / checkpoint 帧区 / 内存工作区）、message-store 档案、attention、core tools、自管 turn loop、剪枝 + 单次压缩与恢复 |
+| `@athena-ai/plugin-sandbox`        | `plugins/sandbox`           | `sandbox`       | 全局 SandboxHub + SandboxBot（IMBody 实现）：WebUI 页面、文件服务器、WS 路由                                         |
+| `@athena-ai/sandbox-nerve`         | `plugins/sandbox-nerve`     | —               | per-Life Nerve：注册 Hub、创建 SandboxBot（`ctx.nerve` 注册）                                                        |
+| `@athena-ai/provider-openai`       | `plugins/provider-openai`   | —               | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                  |
+| `@athena-ai/provider-deepseek`     | `plugins/provider-deepseek` | —               | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                |
+| `@athena-ai/nerve-onebot`          | `plugins/nerve-onebot`      | —               | OneBot v11 Nerve adapter（IMBody 实现）：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket |
+| `@athena-ai/plugin-content-filter` | `plugins/content-filter`    | —               | Hook Protocol 参考插件：监听 `cortex/before-enact`，按配置内容结构化否决行动                                         |
+| `@athena-ai/plugin-message-store`  | `plugins/message-store`     | —               | 占位，未开始（Phase 3 消息持久化）                                                                                   |
 
 ### 2.2 依赖方向
 
@@ -128,9 +128,9 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 （IMBody 实现，inject:        （inject: ['life', 'nerve']）
  ['nerve', 'http']）
 
-@athena-ai/plugin-life（provides 'life'）        @athena-ai/plugin-sandbox（provides 'sandbox'，root 级）
-        ↑                                                ↑
-@athena-ai/cortex-chat（inject: ['life', 'nerve']）  @athena-ai/sandbox-nerve（inject: ['sandbox', 'nerve', 'life']，per-Life）
+@athena-ai/plugin-life（provides 'life'；LifeService 同域提供 'nerve'）
+        ↑
+@athena-ai/cortex-chat / sandbox-nerve / nerve-*（都消费同一 Life 域的 ctx.nerve）
 
 @athena-ai/ai（provides 'ai'，root 级全局单例）
         ↑
@@ -173,10 +173,10 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 │  ┌─ Life Group Context（@cordisjs/plugin-group）──────────────────────——┐   │
 │  │  isolate: { life, cortex, nerve }                                 │   │
 │  │                                                                   │   │
-│  │  ctx.life = Life                       ← persona / memory         │   │
+│  │  ctx.life = Life                       ← id / persona / dataDir    │   │
+│  │    └── LifeService 安装同 fiber 子插件 NerveService              │   │
 │  │                                                                   │   │
-│  │  ctx.nerve = NerveService              ← Body 注册表              │   │
-│  │    └── bodies: [OneBotBody, SandboxBot, ...]  ← 按 sid 寻址        │   │
+│  │  ctx.nerve = NerveService              ← 该 Life 的 Body 注册表  │   │
 │  │                                                                   │   │
 │  │  ctx.cortex = CortexChat               ← inject: ['life','nerve'] │   │
 │  │    ├── ctx.on('message-created', ...)                             │   │
@@ -209,19 +209,19 @@ npm scope：`@athena-ai`（工作名，未来可能替换为最终品牌名）
 ### 4.1 载体形态
 
 - **容器**：`@cordisjs/plugin-group`，配置 `isolate: { life: true, cortex: true, nerve: true }`
-- **Service**：`@athena-ai/plugin-life` 提供 `'life'`，每 group 一个 fiber
+- **Service**：`@athena-ai/plugin-life` 提供 `'life'`；protocol 的 `LifeService` 在同一个 Life fiber 下安装并拥有 `'nerve'`
 - **生命周期**：
-  - 启动：group → Life 激活 → Cortex inject life → `bind()` → Cortex 激活
-  - 销毁：group disposed → Cortex fiber dispose → yielded disposer 触发 → `_cortex = null` → Life fiber dispose
-- **资源回收**：cordis fiber dispose 自动执行所有收集到的 disposable
+  - 启动：group → Life 激活并安装 NerveService → adapter / Cortex 的 nerve inject 满足 → Cortex `bind()`
+  - 销毁：group disposed → Cortex 与 adapter 释放 → Life fiber dispose → 其 NerveService listener/registry 一并释放
+- **错误配置**：两个 Life 若只隔离 `life/cortex` 而共享 `nerve` 域，第二个 Life 激活立即抛错；禁止静默共享 registry
 
 ### 4.2 为什么这三个 key 都要隔离
 
-| Key      | 不隔离的后果                                                                                                       |
-| -------- | ------------------------------------------------------------------------------------------------------------------ |
-| `life`   | 两个 group 共享同一个 Life 实例 → 第二个 Cortex `bind()` 抛 `Only one Cortex per Life`                             |
-| `cortex` | 第二个 CortexChat 的 `provide('cortex', self)` 撞上已存在的 store slot → 抛 `service "cortex" has been registered` |
-| `nerve`  | 事件作用域失效：`body.dispatch` 的事件会广播给所有 Life 的 Cortex                                                  |
+| Key      | 不隔离的后果                                                                                                            |
+| -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `life`   | 两个 group 共享同一个 Life 实例 → 第二个 Cortex `bind()` 抛 `Only one Cortex per Life`                                  |
+| `cortex` | 第二个 CortexChat 的 `provide('cortex', self)` 撞上已存在的 store slot → 抛 `service "cortex" has been registered`      |
+| `nerve`  | 第二个 Life 激活时因同域已有 NerveService fail fast；若绕过所有权约束，事件过滤和同 sid Body 寻址都会退化为跨 Life 泄漏 |
 
 ### 4.3 目标 app.yml
 
@@ -318,11 +318,11 @@ Body.dispatch(session)
   │  packages/protocol/src/nerve.ts
   │  this.ctx.emit("internal/session", session)
   ▼
-NerveService 归一化器（root）
-  │  internal → emit(_type, _data)；其余 → body.ctx.emit(session.type, session)
+Life 域 NerveService 归一化器
+  │  仅 Body 与自己属于同一 nerve isolate 时重新 emit
+  │  Session 作为 thisArg，经 Context.filter 限制正式事件的目标域
   ▼
-Cordis EventsService
-  │  按 isolate 作用域投递给 hook
+Cordis EventsService（事件名全进程广播，隔离由上面的 owning check + filter 实现）
   ▼
 Cortex 的 ctx.on('message-created', handler)
   │  event.body = 来源 Body（IMBody 实例）
@@ -505,9 +505,9 @@ adapter
 Body.dispatch(session)
   │  ① this.ctx.emit("internal/session", session)          ← 统一入口（拦截/转发/持久化挂载点）
   ▼
-NerveService 归一化器（root 注册）
-  │  ① internal 类型 → emit(event._type, event._data)      ← satori 模式：onebot/poke 等子事件
-  │  ② 其余 → session.body.ctx.emit(session.type, session) ← 从来源域重发射，保持 Life 隔离
+Life 域 NerveService 归一化器（由 LifeService 安装）
+  │  ① 仅处理同 nerve isolate 的 Body；internal → emit(session, _type, _data, body)
+  │  ② 其余 → emit(session, session.type, session)，由 Session[Context.filter] 限制目标域
   ▼
 cordis.Events 消费者（ctx.on("message-created", ...)）
 ```
@@ -603,7 +603,7 @@ interface SandboxHubService {
 
 ### 8.4 Sandbox 是 Nerve 模式的参考实现
 
-Sandbox 展示了非 IM 平台如何接入：它不是 Satori adapter，而是自己创建 `SandboxBot`（继承 Satori `Bot`）注册进本地 `ctx.satori`。这条路径对未来的 `capability-minecraft` / `capability-audio` 同样适用 —— 只是注册目标换成对应的 capability service。
+Sandbox 展示了 Hub + per-Life Nerve 模式：root `SandboxHub` 持有 WebUI/文件服务器/WS 路由，group 内 `SandboxNerve` 按 lifeId 注册并在本地 `ctx.nerve` 懒创建 `SandboxBot`（IMBody）。未来同时包含全局入口与 per-Life 实体的 capability 也应采用同样所有权拆分。
 
 ---
 
@@ -611,7 +611,7 @@ Sandbox 展示了非 IM 平台如何接入：它不是 Satori adapter，而是�
 
 ### 9.1 AIService（`packages/ai`，provides `ai`）
 
-`AIService` 是 **root 级全局单例**，不进 `{ life, cortex, message, satori }` 隔离集合 —— 模型是无状态共享资源，且 AI SDK 的 `ProviderV4` 天然跨模态（D-33）。
+`AIService` 是 **root 级全局单例**，不进 `{ life, cortex, nerve }` 隔离集合 —— 模型是无状态共享资源，且 AI SDK 的 `ProviderV4` 天然跨模态（D-33）。
 
 职责三分：
 

@@ -51,6 +51,17 @@ export function defineAccessor(prototype: object, name: string, keys: string[]):
 }
 
 /**
+ * The isolate symbol a context resolves `nerve` under.
+ *
+ * Two Lives isolate `nerve`, so this identifies which Nerve domain a context —
+ * a Body's or a listener's — belongs to. Contexts outside any Life share the
+ * root value.
+ */
+function nerveDomain(ctx: Context): symbol | undefined {
+  return ctx[Context.isolate]["nerve"];
+}
+
+/**
  * Unified runtime envelope for every event travelling from a Nerve Body
  * into Cortex. Follows the Satori Session model: the payload lives in
  * `session.event`, and derived views (`content`, `channelId`, ...) are
@@ -81,6 +92,18 @@ export class Session {
 
   get sid(): string {
     return `${this.event.platform}:${this.event.selfId}`;
+  }
+
+  /**
+   * Restrict delivery to the Body's own Nerve domain.
+   *
+   * Cordis events are process-global: a listener anywhere receives an emit from
+   * anywhere unless the emitted `thisArg` filters it. `NerveService` therefore
+   * emits every Session with the Session itself as `thisArg`, and this filter
+   * keeps a second Life from observing — and archiving — another Life's events.
+   */
+  [Context.filter](target: Context): boolean {
+    return nerveDomain(target) === nerveDomain(this.body.ctx);
   }
 
   /** Mark this session as an internal event with a subtype and payload. */
@@ -215,20 +238,25 @@ export class NerveService extends Service {
   constructor(ctx: Context) {
     super(ctx, "nerve");
     ctx.on("internal/session", (session: Session) => {
-      // Re-emit from the source Body's context so the event stays within the
-      // originating Life group (cordis scoping bubbles child → parent).
+      // `internal/session` reaches every NerveService in the process, so only
+      // the one owning the Body's domain re-emits; otherwise a second Life
+      // would emit another Life's events a second time.
+      if (nerveDomain(session.body.ctx) !== nerveDomain(ctx)) return;
+
+      // Re-emit from the source Body's context, with the Session as `thisArg`
+      // so `Session[Context.filter]` keeps delivery inside that domain.
       // SAFETY: runtime event names are dynamic (onebot/poke, message-created,
       // ...); cordis overloads `emit` on `keyof Events`, which cannot express
       // them, so we bypass the static signature once at the boundary. The
       // concrete signatures remain declared in cordis.Events.
-      const emit = session.body.ctx.emit as (name: string, ...args: unknown[]) => void;
+      const emit = session.body.ctx.emit as (thisArg: object, name: string, ...args: unknown[]) => void;
       if (session.type === "internal") {
         // SAFETY: `_type` is set by setInternal before dispatch; internal
         // events always carry it.
-        emit(session.event._type!, session.event._data, session.body);
+        emit(session, session.event._type!, session.event._data, session.body);
         return;
       }
-      emit(session.type, session);
+      emit(session, session.type, session);
     });
   }
 

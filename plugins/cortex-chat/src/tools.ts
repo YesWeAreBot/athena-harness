@@ -1,249 +1,428 @@
-import { jsonSchema, Tool } from "@athena-ai/core";
-import type { IMBody } from "@athena-ai/protocol-im";
-import { Element, parse, text } from "@cordisjs/element";
+import { jsonSchema } from "@athena-ai/core";
+import type { ModelMessage, Tool, ToolSet } from "@athena-ai/core";
+// `@cordisjs/element` arrives through protocol-im, which re-exports it: this
+// package declares protocol-im, not the element library.
+import { parse } from "@athena-ai/protocol-im";
+import type { Element, Fragment, IMBody } from "@athena-ai/protocol-im";
 import type { Context } from "cordis";
 
-import type { MessageStore } from "./message-store.js";
+import type { SceneAddress } from "./scene.js";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Shared types ────────────────────────────────────────────────────────────
 
 export interface PacingConfig {
-  charactersPerSecond: number;
-  maxTotalDelayMs: number;
+  readonly charactersPerSecond: number;
+  readonly maxTotalDelayMs: number;
 }
 
-export interface SwitchFocusDeps {
-  onSwitch: (platform: string, channelId: string) => Promise<void>;
+export interface SendMessageInput {
+  readonly messages: readonly string[];
+  readonly target?: SceneAddress;
+  readonly mode?: "element" | "raw";
+  readonly continue?: boolean;
+  readonly inner_thought?: string;
 }
 
-export interface PeekDeps {
-  store: MessageStore;
+export type SendMessageOutput =
+  | { readonly ok: true; readonly messageIds: readonly string[]; readonly count: number }
+  | {
+      readonly ok: false;
+      readonly sent: readonly string[];
+      readonly failedAt: number;
+      readonly error: { readonly name: string; readonly message: string; readonly code?: string };
+    };
+
+export interface SwitchFocusInput {
+  readonly target: SceneAddress;
+  readonly reason: string;
+}
+
+export interface SwitchFocusOutput {
+  readonly ok: true;
+  readonly focus: SceneAddress;
+}
+
+export interface PeekChannelInput {
+  readonly target: SceneAddress;
+  readonly limit?: number;
+}
+
+export interface PeekChannelOutput {
+  readonly scene: SceneAddress;
+  readonly messages: ReadonlyArray<{
+    readonly userId: string;
+    readonly content: string;
+    readonly timestamp: number;
+  }>;
+}
+
+export interface WaitInput {
+  readonly reason: string;
+}
+
+export type WaitOutput = { readonly ok: true };
+
+export interface CoreToolRuntime {
+  logicalFocus(): SceneAddress | null;
+  switchFocus(target: SceneAddress, reason: string): Promise<SwitchFocusOutput>;
+  peekChannel(target: SceneAddress, limit: number): Promise<PeekChannelOutput>;
+  appendWorkspaceDelta(messages: readonly ModelMessage[]): void;
+}
+
+// ─── Pacing & sleep ──────────────────────────────────────────────────────────
+
+function elementTextLength(el: Element): number {
+  const raw = (el.attrs as Record<string, unknown>).content;
+  const content = typeof raw === "string" ? raw.length : 0;
+  return content + el.children.reduce((sum, child) => sum + elementTextLength(child), 0);
+}
+
+function messageLength(content: string, mode: "element" | "raw"): number {
+  if (mode === "raw") return content.length;
+  try {
+    const els = parse(content) as unknown as Element[];
+    if (!els || els.length === 0) return content.length;
+    const len = els.reduce((sum, el) => sum + elementTextLength(el), 0);
+    return len > 0 ? len : content.length;
+  } catch {
+    return content.length;
+  }
+}
+
+function pacedDelay(chars: number, pacing: PacingConfig, elapsed: number): number {
+  const raw = Math.min(Math.max(250, Math.ceil((chars / pacing.charactersPerSecond) * 1000)), 10_000);
+  return elapsed + raw >= pacing.maxTotalDelayMs ? 250 : Math.round(raw);
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return Promise.resolve();
+  if (signal?.aborted) {
+    const reason: unknown = (signal as unknown as { reason?: unknown }).reason ?? new DOMException("Aborted", "AbortError");
+    return Promise.reject(reason);
+  }
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      cleanup();
+      const reason: unknown = (signal as unknown as { reason?: unknown }).reason ?? new DOMException("Aborted", "AbortError");
+      reject(reason);
+    };
+    const cleanup = () => {
+      signal?.removeEventListener("abort", onAbort);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 // ─── send_message ────────────────────────────────────────────────────────────
 
-namespace SendMessageTool {
-  export interface Input {
-    messages: string[];
-    channel?: string;
-    mode?: "element" | "raw";
-    continue?: boolean;
-    inner_thought?: string;
-  }
-  export type Output =
-    | { ok: true; messageIds: string[]; count: number }
-    | { ok: false; error: { name: string; message: string }; sent: string[]; failedAt: number };
+export function createSendMessageTool(opts: {
+  ctx: Context;
+  runtime: CoreToolRuntime;
+  pacing?: PacingConfig;
+  innerThought?: boolean;
+}): Tool<SendMessageInput, SendMessageOutput, never> {
+  const { ctx, runtime } = opts;
+  const pacing: PacingConfig = opts.pacing ?? { charactersPerSecond: 8, maxTotalDelayMs: 60_000 };
+  const innerThought: boolean = opts.innerThought ?? true;
 
-  export interface Options {
-    ctx: Context;
-    defaultChannelId: string;
-    pacing: PacingConfig;
-    innerThought: boolean;
-  }
-}
-
-function pacedDelay(segment: readonly Element[], pacing: PacingConfig, elapsed: number): number {
-  const characters = segment.reduce((total, el) => total + elementTextLength(el), 0);
-  const raw = Math.min(Math.max(250, Math.ceil((characters / pacing.charactersPerSecond) * 1000)), 10_000);
-  return elapsed + raw >= pacing.maxTotalDelayMs ? 250 : Math.round(raw);
-}
-
-function elementTextLength(el: Element): number {
-  const raw = el.attrs.content;
-  const content = raw ? raw.length : 0;
-  return content + el.children.reduce((sum, child) => sum + elementTextLength(child), 0);
-}
-
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  if (ms <= 0 || signal?.aborted) return Promise.resolve();
-  const { promise, resolve } = Promise.withResolvers<void>();
-  const finish = () => {
-    clearTimeout(timer);
-    signal?.removeEventListener("abort", finish);
-    resolve();
-  };
-  const timer = setTimeout(finish, ms);
-  signal?.addEventListener("abort", finish, { once: true });
-  return promise;
-}
-
-interface JsonSchemaProperty {
-  type: string;
-  enum?: string[];
-  minLength?: number;
-  minItems?: number;
-  items?: JsonSchemaProperty;
-  description?: string;
-}
-
-export function createSendMessageTool(opts: SendMessageTool.Options): Tool<SendMessageTool.Input, SendMessageTool.Output, never> {
-  const { ctx, defaultChannelId, pacing, innerThought } = opts;
   return {
     description: sendMessageDescription(innerThought),
-    inputSchema: jsonSchema<SendMessageTool.Input>({
+    inputSchema: jsonSchema<SendMessageInput>({
       type: "object",
       properties: {
-        ...(innerThought ? { inner_thought: { type: "string", description: "本次发送前的内心独白；只保留在你自己的历史里，不会发送给任何人" } } : {}),
-        mode: { type: "string", enum: ["element", "raw"], description: "element（默认）解析消息元素；raw 原样发送纯文本" },
-        channel: { type: "string", minLength: 1, description: "目标频道 ID；留空则发往当前频道" },
+        ...(innerThought
+          ? {
+              inner_thought: {
+                type: "string",
+                description: "本次发送前的内心独白；只保留在你自己的历史里，不会发送给任何人",
+              },
+            }
+          : {}),
+        target: {
+          type: "object",
+          properties: {
+            bodySid: { type: "string", minLength: 1 },
+            channelId: { type: "string", minLength: 1 },
+          },
+          required: ["bodySid", "channelId"],
+          description: "目标场景；留空则发往 logicalFocus",
+        },
+        mode: {
+          type: "string",
+          enum: ["element", "raw"],
+          description: "element（默认）解析消息元素；raw 原样发送纯文本",
+        },
         messages: {
           type: "array",
           minItems: 1,
           items: { type: "string", minLength: 1 },
           description: "要发送的消息，每一项作为一条独立消息按顺序发出",
         },
-        continue: { type: "boolean", description: "true 时发送后继续生成下一步，可以再调用工具或再次发送消息" },
+        continue: {
+          type: "boolean",
+          description: "true 时发送后继续生成下一步，可以再调用工具或再次发送消息",
+        },
       },
       required: ["messages"],
     }),
-    execute: async (input, options) => {
-      const target = input.channel ?? defaultChannelId;
-      const messages: string[] = Array.isArray(input.messages) ? input.messages : [];
-      if (messages.length === 0) return { ok: false, error: { name: "InvalidInput", message: "messages is empty" }, sent: [], failedAt: 0 };
+    execute: async (input: SendMessageInput, toolOptions) => {
+      // The declared input type is what the schema asks for, not what a model
+      // actually sends, so both shape checks below are runtime facts.
+      const msgs: readonly string[] = Array.isArray(input.messages) ? input.messages : [];
+      if (msgs.length === 0) {
+        return { ok: false, sent: [], failedAt: 0, error: { name: "InvalidInput", message: "messages is empty" } } as SendMessageOutput;
+      }
       // oxlint-disable-next-line anti-slop(no-runtime-typeof) -- I/O boundary: LLM tool input is untyped at runtime
-      if (messages.some((m) => typeof m !== "string" || m.length === 0))
-        return { ok: false, error: { name: "InvalidInput", message: "messages must be non-empty strings" }, sent: [], failedAt: 0 };
-      if (input.mode && input.mode !== "element" && input.mode !== "raw")
-        return { ok: false, error: { name: "InvalidInput", message: `mode must be "element" or "raw"` }, sent: [], failedAt: 0 };
-      const mode = input.mode ?? "element";
-      const total = input.messages.length;
+      if (msgs.some((m) => typeof m !== "string" || m.length === 0)) {
+        return {
+          ok: false,
+          sent: [],
+          failedAt: 0,
+          error: { name: "InvalidInput", message: "messages must be non-empty strings" },
+        } as SendMessageOutput;
+      }
+      // The declared type says `"element" | "raw"`, but a model can send anything.
+      const modeVal: string | undefined = input.mode;
+      if (modeVal !== undefined && modeVal !== "element" && modeVal !== "raw") {
+        return {
+          ok: false,
+          sent: [],
+          failedAt: 0,
+          error: { name: "InvalidInput", message: `mode must be "element" or "raw"` },
+        } as SendMessageOutput;
+      }
+      const mode: "element" | "raw" = modeVal === "raw" ? "raw" : "element";
+
+      const resolvedTarget: SceneAddress | null = input.target ?? runtime.logicalFocus();
+
+      if (!resolvedTarget) {
+        return {
+          ok: false,
+          sent: [],
+          failedAt: 0,
+          error: { name: "NoFocusError", message: "No focus Scene is available" },
+        } as SendMessageOutput;
+      }
+
+      const { bodySid, channelId } = resolvedTarget;
+
+      // Resolve body exactly once
+      const body = (ctx.nerve.get as (sid: string) => unknown)(bodySid) as (IMBody & { supports?: (name: string) => boolean }) | undefined;
+
+      if (!body || typeof body.sendMessage !== "function") {
+        return {
+          ok: false,
+          sent: [],
+          failedAt: 0,
+          error: {
+            name: "BodyNotFound",
+            message: `Body not found or unsupported: ${bodySid} channel ${channelId}`,
+          },
+        } as SendMessageOutput;
+      }
+
+      // Validate IM body supports sendMessage if supports() is available
+      if (typeof body.supports === "function" && !body.supports("message.send") && !body.supports("message.create")) {
+        // Still allow if supports reports missing — diagnostic
+        return {
+          ok: false,
+          sent: [],
+          failedAt: 0,
+          error: {
+            name: "UnsupportedBody",
+            message: `Body ${bodySid} does not support sendMessage for ${channelId}`,
+          },
+        } as SendMessageOutput;
+      }
+
+      const signal = (toolOptions as { abortSignal?: AbortSignal } | undefined)?.abortSignal;
       const sent: string[] = [];
       let elapsed = 0;
-      const abort = (index: number, error: { name: string; message: string }): SendMessageTool.Output => ({ ok: false, error, sent, failedAt: index });
-      const signal = options?.abortSignal as AbortSignal | undefined;
-      for (const [index, message] of messages.entries()) {
-        try {
-          const segmentGroups: readonly Element[][] = mode === "raw" ? [[text(message)]] : ([parse(message)] as unknown as readonly Element[][]);
-          for (const segment of segmentGroups as unknown as Array<readonly Element[]>) {
-            const flat = (segment as unknown as { flat?: () => unknown[] }).flat
-              ? (segment as unknown as { flat(): unknown[] }).flat()
-              : (segment as unknown as unknown[]);
-            const flatEls = flat as unknown as readonly Element[];
-            if (sent.length > 0) {
-              const delay = pacedDelay(flatEls, pacing, elapsed);
-              const startedAt = Date.now();
-              await sleep(delay, signal);
-              elapsed += Math.max(delay, Date.now() - startedAt);
-            }
-            if (signal?.aborted) return abort(index, { name: "AbortError", message: "send_message aborted" });
-            const ids = await sendToPlatform(ctx, target, segment as unknown as string);
-            sent.push(...ids);
+
+      for (let index = 0; index < msgs.length; index++) {
+        const message = msgs[index]!;
+        // pacing delay before every message except the first send
+        if (sent.length > 0) {
+          const len = messageLength(message, mode);
+          const delay = pacedDelay(len, pacing, elapsed);
+          const started = Date.now();
+          try {
+            await sleep(delay, signal);
+          } catch (error: unknown) {
+            const r = error as { name?: string; message?: string };
+            return {
+              ok: false,
+              sent: [...sent],
+              failedAt: index,
+              error: { name: r?.name ?? "AbortError", message: r?.message ?? String(error ?? "send_message aborted") },
+            } as SendMessageOutput;
           }
-        } catch (error) {
-          return abort(index, {
-            name: error instanceof Error ? error.name : "Error",
-            message: error instanceof Error ? error.message : String(error),
-          });
+          elapsed += Math.max(delay, Date.now() - started);
+          if (signal?.aborted) {
+            const reason: unknown = (signal as unknown as { reason?: unknown }).reason ?? new DOMException("Aborted", "AbortError");
+            const r = reason as { name?: string; message?: string };
+            return {
+              ok: false,
+              sent: [...sent],
+              failedAt: index,
+              error: { name: r?.name ?? "AbortError", message: r?.message ?? String(reason) },
+            } as SendMessageOutput;
+          }
+        } else if (signal?.aborted) {
+          const reason: unknown = (signal as unknown as { reason?: unknown }).reason ?? new DOMException("Aborted", "AbortError");
+          const r = reason as { name?: string; message?: string };
+          return {
+            ok: false,
+            sent: [...sent],
+            failedAt: index,
+            error: { name: r?.name ?? "AbortError", message: r?.message ?? String(reason) },
+          } as SendMessageOutput;
+        }
+
+        try {
+          const fragment: Fragment = mode === "raw" ? message : (parse(message) as unknown as Fragment);
+          const ids = await body.sendMessage(channelId, fragment as Fragment);
+          const arr: string[] = Array.isArray(ids) ? (ids as string[]).map(String) : [String(ids)];
+          // Never return mock ids — if adapter returned mock-like string but that came from real body, keep it; the only forbidden path is the old mock fallback which we removed.
+          sent.push(...arr);
+        } catch (error: unknown) {
+          if (signal?.aborted) {
+            const reason: unknown = (signal as unknown as { reason?: unknown }).reason ?? error;
+            const r = reason as { name?: string; message?: string };
+            return {
+              ok: false,
+              sent: [...sent],
+              failedAt: index,
+              error: { name: r?.name ?? "AbortError", message: r?.message ?? String(reason) },
+            } as SendMessageOutput;
+          }
+          const e = error as { name?: string; message?: string; code?: string };
+          const name = e?.name ?? (error instanceof Error ? error.name : "Error");
+          const msg = e?.message ?? (error instanceof Error ? error.message : String(error));
+          const code = (e as { code?: string })?.code;
+          return {
+            ok: false,
+            sent: [...sent],
+            failedAt: index,
+            error: { name, message: msg, ...(code ? { code } : {}) },
+          } as SendMessageOutput;
         }
       }
-      return { ok: true, messageIds: sent, count: total };
-    },
-  };
-}
 
-async function sendToPlatform(ctx: Context, channelId: string, fragment: string): Promise<string[]> {
-  const nerve = ctx.nerve;
-  if (nerve?.bodies?.length) {
-    for (const body of nerve.bodies as unknown as IMBody[]) {
-      if (body.sendMessage) {
-        const result = await body.sendMessage(channelId, fragment);
-        return Array.isArray(result) ? result : [String(result)];
-      }
-    }
-  }
-  return [`mock:${channelId}:${Date.now()}`];
+      return { ok: true, messageIds: [...sent], count: msgs.length } as SendMessageOutput;
+    },
+  } as unknown as Tool<SendMessageInput, SendMessageOutput, never>;
 }
 
 // ─── wait ────────────────────────────────────────────────────────────────────
 
-export function createWaitTool(): Tool<{ reason: string }, { ok: true }, never> {
+export function createWaitTool(): Tool<WaitInput, WaitOutput, never> {
   return {
     description:
       "显式沉默。当前场景不需要你发言、或你选择保持沉默时调用。本工具会立即结束本轮，不发送任何消息。reason 说明你为什么决定不回复（仅留在你自己的记录中，不会发送给任何人）。",
-    inputSchema: jsonSchema({
+    inputSchema: jsonSchema<WaitInput>({
       type: "object",
       properties: { reason: { type: "string", description: "为什么选择沉默" } },
       required: ["reason"],
     }),
     execute: async () => ({ ok: true }),
-  } satisfies Tool<{ reason: string }, { ok: true }, never>;
+  } as unknown as Tool<WaitInput, WaitOutput, never>;
 }
 
 // ─── switch_focus ────────────────────────────────────────────────────────────
 
-namespace SwitchFocusTool {
-  export interface Input {
-    channelId: string;
-    platform: string;
-    reason: string;
-  }
-  export interface Output {
-    ok: true;
-    channelId: string;
-    platform: string;
-  }
-}
-
-export function createSwitchFocusTool(deps: SwitchFocusDeps): Tool<SwitchFocusTool.Input, SwitchFocusTool.Output, never> {
+export function createSwitchFocusTool(runtime: CoreToolRuntime): Tool<SwitchFocusInput, SwitchFocusOutput, never> {
   return {
     description:
       "切换你的注意力焦点到另一个频道。切换后当前 turn 继续，你会看到新频道的上下文，可以立即处理那边的事务。reason 说明为什么要切换（用于后续记忆）。注意：切换会触发检查点重建，当前工作区的细枝末节会被压缩进记忆。",
-    inputSchema: jsonSchema({
+    inputSchema: jsonSchema<SwitchFocusInput>({
       type: "object",
       properties: {
-        channelId: { type: "string", description: "要切换到的频道 ID" },
-        platform: { type: "string", description: "目标频道的平台标识" },
+        target: {
+          type: "object",
+          properties: {
+            bodySid: { type: "string", minLength: 1 },
+            channelId: { type: "string", minLength: 1 },
+          },
+          required: ["bodySid", "channelId"],
+          description: "要切换到的场景",
+        },
         reason: { type: "string", description: "切换原因" },
       },
-      required: ["channelId", "platform", "reason"],
+      required: ["target", "reason"],
     }),
-    execute: async ({ channelId, platform }) => {
-      await deps.onSwitch(platform, channelId);
-      return { ok: true, channelId, platform };
+    execute: async (input) => {
+      const out = await runtime.switchFocus(input.target, input.reason);
+      return out;
     },
-  };
+  } as unknown as Tool<SwitchFocusInput, SwitchFocusOutput, never>;
 }
 
 // ─── peek_channel ────────────────────────────────────────────────────────────
 
-namespace PeekChannelTool {
-  export interface Input {
-    channelId: string;
-    platform: string;
-    limit?: number;
-  }
-  export interface Output {
-    channel: string;
-    platform: string;
-    messages: Array<{ userId: string; content: string; time: string }>;
-  }
-}
-
-export function createPeekChannelTool(deps: PeekDeps): Tool<PeekChannelTool.Input, PeekChannelTool.Output, never> {
+export function createPeekChannelTool(runtime: CoreToolRuntime): Tool<PeekChannelInput, PeekChannelOutput, never> {
   return {
     description:
       "旁路读取：查看指定频道的最近消息，不改变你的 focus。适用于收到 awareness 通知后想多看几条再决定，或快速了解某个频道的聊天内容。返回最近的 N 条消息摘要。",
-    inputSchema: jsonSchema({
+    inputSchema: jsonSchema<PeekChannelInput>({
       type: "object",
       properties: {
-        channelId: { type: "string", description: "目标频道 ID" },
-        platform: { type: "string", description: "目标频道的平台标识" },
-        limit: { type: "number", minimum: 1, maximum: 20, description: "要读取的最近消息数，默认 10" },
+        target: {
+          type: "object",
+          properties: {
+            bodySid: { type: "string", minLength: 1 },
+            channelId: { type: "string", minLength: 1 },
+          },
+          required: ["bodySid", "channelId"],
+          description: "目标频道",
+        },
+        limit: {
+          type: "number",
+          minimum: 1,
+          maximum: 20,
+          description: "要读取的最近消息数，默认 10",
+        },
       },
-      required: ["channelId", "platform"],
+      required: ["target"],
     }),
-    execute: async ({ channelId, platform, limit = 10 }) => {
-      const raw = await deps.store.getByChannel(platform, channelId, { limit });
-      const messages = [...raw]
-        .sort((a, b) => a.timestamp - b.timestamp)
-        .map((m) => ({
-          userId: m.userId,
-          content: m.content,
-          time: new Date(m.timestamp).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
-        }));
-      return { channel: channelId, platform, messages };
+    execute: async (input) => {
+      const limit = input.limit ?? 10;
+      const out = await runtime.peekChannel(input.target, limit);
+      return out;
     },
+  } as unknown as Tool<PeekChannelInput, PeekChannelOutput, never>;
+}
+
+// ─── Core assembly ───────────────────────────────────────────────────────────
+
+export function createCoreTools(ctx: Context, runtime: CoreToolRuntime, pacing?: PacingConfig, innerThought?: boolean): ToolSet {
+  const core: Record<string, Tool<unknown, unknown, never>> = {
+    send_message: createSendMessageTool({ ctx, runtime, pacing, innerThought }) as unknown as Tool<unknown, unknown, never>,
+    wait: createWaitTool() as unknown as Tool<unknown, unknown, never>,
+    switch_focus: createSwitchFocusTool(runtime) as unknown as Tool<unknown, unknown, never>,
+    peek_channel: createPeekChannelTool(runtime) as unknown as Tool<unknown, unknown, never>,
   };
+  return core as unknown as ToolSet;
+}
+
+/**
+ * Merge core tools with registered tools. Throws if a registered tool name
+ * conflicts with a core tool instead of silently overriding.
+ */
+export function assembleTools(ctx: Context, runtime: CoreToolRuntime, pacing?: PacingConfig, innerThought?: boolean): ToolSet {
+  const core = createCoreTools(ctx, runtime, pacing, innerThought) as Record<string, unknown>;
+  const ext = (ctx.tools.available() as Record<string, unknown>) ?? {};
+  for (const name of Object.keys(ext)) {
+    if (name in core) {
+      throw new Error(`tool name conflict: "${name}" is already a core tool`);
+    }
+  }
+  return { ...(core as ToolSet), ...(ext as ToolSet) };
 }
 
 // ─── description ─────────────────────────────────────────────────────────────
@@ -260,8 +439,8 @@ function sendMessageDescription(innerThought: boolean): string {
 让分条跟随对话节奏：快速反应和深思熟虑的解释各有恰当的时刻，不要固守习惯性的条数或长度。读者逐条看到消息，每次分条都会让半截回复单独停留片刻，只在不伤害这种「半截状态」的地方分条。事实、指令、代码、链接、结构化内容、修正，以及任何后果重大的内容，都应保持在同一条消息内。
 不要用空行分段。平台不会把空行渲染成视觉分隔，它只是一个被吞掉的空白，让消息看起来格式奇怪。需要分开就分成多条。
 
-## channel
-目标频道 ID。留空发往当前频道；填写其他频道 ID 可以向该频道发送。
+## target
+目标场景（bodySid + channelId）。留空发往当前 focus（logicalFocus）。
 
 ## mode
 - element（默认）：内容按下面的消息元素语法解析，<img> 与 <file> 的资源 URI 会被解析成真实内容。

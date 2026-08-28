@@ -588,10 +588,11 @@ export class Internal {
       const data = await this._get(name, Internal.prepareArg(name, params, args));
       if (!isAsync) return data;
     };
-    isAsync &&
-      (Internal.prototype[`${prop}Async`] = async function (this: Internal, ...args: any[]) {
+    if (isAsync) {
+      Internal.prototype[`${prop}Async`] = async function (this: Internal, ...args: any[]) {
         await this._get(`${name}_async`, Internal.prepareArg(name, params, args));
-      });
+      };
+    }
   }
 
   static defineExtract(name: string, key: string, ...params: string[]) {
@@ -600,10 +601,11 @@ export class Internal {
       const data = await this._get(name, Internal.prepareArg(name, params, args));
       return data[key];
     };
-    isAsync &&
-      (Internal.prototype[`${prop}Async`] = async function (this: Internal, ...args: any[]) {
+    if (isAsync) {
+      Internal.prototype[`${prop}Async`] = async function (this: Internal, ...args: any[]) {
         await this._get(`${name}_async`, Internal.prepareArg(name, params, args));
-      });
+      };
+    }
   }
 
   async setGroupAnonymousBan(groupId: string, meta: string | AnonymousInfo, duration?: number): Promise<void> {

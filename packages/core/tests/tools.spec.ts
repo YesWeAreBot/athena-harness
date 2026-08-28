@@ -141,7 +141,7 @@ describe("ToolRegistry", () => {
   it("available tool's execute remains callable", async () => {
     const ctx = new Context();
     await ctx.plugin(ToolRegistry);
-    const exec = vi.fn(async () => ({ ok: true }));
+    const exec = vi.fn<() => Promise<{ ok: boolean }>>(async () => ({ ok: true }));
     const t = tool({
       description: "with-exec",
       inputSchema: { type: "object" as const, properties: {} } as never,

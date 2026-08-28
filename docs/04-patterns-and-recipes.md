@@ -1101,7 +1101,7 @@ Life Group
 
 ## 5. 使用 AI SDK v7
 
-> ⚠️ **当前状态**：`ctx.ai`（`AIService`）已可用；`cortex-chat` 尚未集成 AI SDK（见 [06](./06-progress-and-roadmap.md) §4 Phase 2-C）。
+> **当前状态**：`ctx.ai`（`AIService`）已可用；`cortex-chat` 已集成 AI SDK v7——runner 使用自管 step 循环（每 step 一次 `generateText`），不使用 `streamText` 的内部循环与 `prepareStep` / `onStepEnd` / `stopWhen`（见 [cookbook 03](./cookbook/03-nerve-event-and-persistence.md) 与 [05-lessons-learned](./05-lessons-learned.md) §15 修订说明）。
 >
 > 本节代码已针对 `ai@7.0.70` + `zod@3.25.76` 用 `tsc` 实测通过。
 
@@ -1451,6 +1451,8 @@ groups: # 仅 language model
       - name: "@athena-ai/core"
 ```
 
+`@athena-ai/core` 只安装 root 级 `ToolRegistry` 与 `AIService`。`NerveService` 不在 prelude：protocol 的 `LifeService` 会在每个 Life group 内安装并拥有它。
+
 ### 6.2 `app.yml`（managed plugin tree）
 
 ```yaml
@@ -1477,11 +1479,8 @@ groups: # 仅 language model
   config:
     - name: "@athena-ai/plugin-life"
       config:
-        persona:
-          name: Alice
-          description: A curious and friendly digital life.
-          traits:
-            personality: curious, friendly, helpful
+        id: alice
+        persona: A curious and friendly digital life.
     - name: "@athena-ai/cortex-chat"
     - name: "@athena-ai/sandbox-nerve"
     - name: "@athena-ai/nerve-onebot"
@@ -1500,11 +1499,8 @@ groups: # 仅 language model
   config:
     - name: "@athena-ai/plugin-life"
       config:
-        persona:
-          name: Bob
-          description: A thoughtful digital philosopher.
-          traits:
-            personality: contemplative
+        id: bob
+        persona: A thoughtful digital philosopher.
     - name: "@athena-ai/cortex-chat"
     - name: "@athena-ai/sandbox-nerve"
     - name: "@athena-ai/nerve-onebot"
@@ -1543,15 +1539,14 @@ groups: # 仅 language model
 
 ### 6.4 isolate 清单速查
 
-| Token                           | 是否隔离 | 原因                                                   |
-| ------------------------------- | -------- | ------------------------------------------------------ |
-| `life`                          | ✅       | 每 Life 独立的 persona / memory / cortex 绑定          |
-| `cortex`                        | ✅       | 否则第二个 `provide('cortex')` 冲突                    |
-| `message`                       | ✅       | 否则 MessageService 冲突 + 事件过滤失效                |
-| `satori`                        | ✅       | 否则 `provide('satori')` 冲突；adapter 无法区分 domain |
-| `sandbox`                       | ❌       | Hub 是全局的，Nerve 从 root inject                     |
-| `webui` / `server` / `database` | ❌       | 共享基础设施                                           |
-| 未来 `minecraft` / `audio`      | ✅       | 与 `message` 同理                                      |
+| Token                                 | 是否隔离     | 原因                                                                                       |
+| ------------------------------------- | ------------ | ------------------------------------------------------------------------------------------ |
+| `life`                                | ✅           | 每 Life 独立的 id / persona / dataDir / cortex 绑定                                        |
+| `cortex`                              | ✅           | 否则第二个 `provide('cortex')` 冲突                                                        |
+| `nerve`                               | ✅           | LifeService 为每个 Life 提供 registry；漏配时第二个 Life fail fast，禁止共享事件域与同 sid |
+| `sandbox`                             | ❌           | Hub 是全局的，SandboxNerve 从 root inject                                                  |
+| `tools` / `ai` / `webui` / `database` | ❌           | root 级共享基础设施；ToolRegistry 内部按 Life caller 过滤                                  |
+| 未来 Life-scoped capability           | 视所有权而定 | 与 Life 同寿命且可能同名多实例的 service 必须隔离                                          |
 
 ---
 
@@ -1560,42 +1555,33 @@ groups: # 仅 language model
 ### 7.1 Service 安装与依赖
 
 ```typescript
-import { NerveService } from "@athena-ai/protocol";
-import { Life } from "@athena-ai/plugin-life";
+import Life from "@athena-ai/plugin-life";
 import { Context } from "cordis";
 import { describe, it, expect } from "vitest";
 
-import CortexChat from "../src/index";
+import CortexChat from "../src/index.js";
 
 describe("CortexChat", () => {
-  it("activates when both life and nerve are available", async () => {
+  it("activates with the protocol NerveService owned by Life", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
-    });
-    await ctx.plugin(NerveService);
+    await ctx.plugin(Life, { id: "alice", persona: "Test persona" });
     await ctx.plugin(CortexChat);
     expect(ctx.cortex).toBeInstanceOf(CortexChat);
   });
 
-  it("does not activate without nerve service", async () => {
-    const ctx = new Context();
-    await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
-    });
-    // 不要 await —— 'nerve' inject 未满足，fiber 停在 PENDING
-    ctx.plugin(CortexChat);
-    expect(ctx.get("cortex")).toBeUndefined();
+  it("fails fast when two Lives share one nerve domain", async () => {
+    const root = new Context();
+    const alice = root.isolate("life", Symbol("alice")).isolate("cortex", Symbol("alice"));
+    const bob = root.isolate("life", Symbol("bob")).isolate("cortex", Symbol("bob"));
+    await alice.plugin(Life, { id: "alice" });
+    await expect(bob.plugin(Life, { id: "bob" })).rejects.toThrow('service "nerve" has been registered');
   });
 
   it("binds as the active cortex in Life", async () => {
     const ctx = new Context();
-    await ctx.plugin(Life, {
-      persona: { name: "Alice", description: "Test", traits: {} },
-    });
-    await ctx.plugin(NerveService);
+    await ctx.plugin(Life, { id: "alice" });
     await ctx.plugin(CortexChat);
-    expect(Reflect.get(ctx.life, "_cortex")).toBeInstanceOf(CortexChat);
+    expect(ctx.life.cortex).toBeInstanceOf(CortexChat);
   });
 });
 ```
