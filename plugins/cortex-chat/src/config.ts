@@ -11,6 +11,7 @@ export interface CortexChatConfig {
   pacing: { charactersPerSecond: number; maxTotalDelayMs: number };
   customInnerThought: boolean;
   focusHistoryLimit: number;
+  awarenessContextLimit: number;
   toolOutputMaxChars: number;
   toolOutputHeadChars: number;
   toolOutputTailChars: number;
@@ -29,7 +30,8 @@ export const CortexChatConfigSchema: Schema<CortexChatConfig> = Schema.object({
     maxTotalDelayMs: Schema.number().default(60_000).description("单次 send_message 的最大累计延迟（ms）"),
   }).description("消息发送节奏"),
   customInnerThought: Schema.boolean().default(true).description("为 send_message 提供 inner_thought 字段"),
-  focusHistoryLimit: Schema.number().default(30).description("focus 展开或 awareness 通知时从 message-store 加载的最大消息数"),
+  focusHistoryLimit: Schema.number().default(30).description("focus 展开时从 message-store 加载的最大消息数"),
+  awarenessContextLimit: Schema.number().default(5).description("awareness 通知附带的上下文消息数上限（0 禁用上下文）"),
   toolOutputMaxChars: Schema.number().default(1_000).description("Maximum characters retained for one successful tool output during frame pruning"),
   toolOutputHeadChars: Schema.number().default(400).description("Characters retained from the beginning of a large successful tool output"),
   toolOutputTailChars: Schema.number().default(400).description("Characters retained from the end of a large successful tool output"),

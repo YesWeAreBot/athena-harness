@@ -59,7 +59,7 @@ class CortexChat extends CortexService {
     this.attention = new Attention({
       store: this.messages,
       initialFocus,
-      awarenessHistoryLimit: config.focusHistoryLimit,
+      awarenessHistoryLimit: config.awarenessContextLimit,
       onColdStart: () => this.persistColdStartFrame(),
     });
 
@@ -73,6 +73,7 @@ class CortexChat extends CortexService {
         getCheckpoint: () => this.checkpoint,
         setCheckpoint: (next) => {
           this.checkpoint = next;
+          this.attention.resetAwarenessCursors();
         },
         needsRebuild: () => {
           const snapshot = this.attention.snapshot();

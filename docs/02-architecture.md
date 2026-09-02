@@ -92,21 +92,21 @@ app.yml plugins（可卸载）             app.yml plugins（可卸载）
 
 ### 2.1 当前包清单
 
-| 包                                 | 路径                        | 提供的 Service  | 角色                                                                                                                 |
-| ---------------------------------- | --------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `@athena-ai/core`                  | `packages/core`             | `tools`, `ai`   | Prelude shell；安装 root 级 ToolRegistry / AIService，并重导出 cordis/cosmokit/Schema                                |
-| `@athena-ai/protocol`              | `packages/protocol`         | `nerve`         | Nerve 核心：Body、Session、NerveService；LifeService 激活时在同一 Life 域安装 NerveService                           |
-| `@athena-ai/protocol-im`           | `packages/protocol-im`      | —               | IM 协议层：实体类型、Methods 表、IMBody 默认实现、事件契约、MessageEncoder、WsClient                                 |
-| `@athena-ai/ai`                    | `packages/ai`               | `ai`            | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                     |
-| `@athena-ai/plugin-life`           | `plugins/life`              | `life`, `nerve` | Life 实现：id、persona、dataDir、one-Cortex 强制；继承 LifeService 获得同域 NerveService                             |
+| 包                                 | 路径                        | 提供的 Service  | 角色                                                                                                                                                    |
+| ---------------------------------- | --------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@athena-ai/core`                  | `packages/core`             | `tools`, `ai`   | Prelude shell；安装 root 级 ToolRegistry / AIService，并重导出 cordis/cosmokit/Schema                                                                   |
+| `@athena-ai/protocol`              | `packages/protocol`         | `nerve`         | Nerve 核心：Body、Session、NerveService；LifeService 激活时在同一 Life 域安装 NerveService                                                              |
+| `@athena-ai/protocol-im`           | `packages/protocol-im`      | —               | IM 协议层：实体类型、Methods 表、IMBody 默认实现、事件契约、MessageEncoder、WsClient                                                                    |
+| `@athena-ai/ai`                    | `packages/ai`               | `ai`            | AIService：Provider Registry、`models.yml` 加载、各模态模型解析、Candidate/Group                                                                        |
+| `@athena-ai/plugin-life`           | `plugins/life`              | `life`, `nerve` | Life 实现：id、persona、dataDir、one-Cortex 强制；继承 LifeService 获得同域 NerveService                                                                |
 | `@athena-ai/cortex-chat`           | `plugins/cortex-chat`       | `cortex`        | Life-scoped 主心智：三区管线（稳定区 / checkpoint 帧区 / 内存工作区）、message-store 档案、attention、core tools、自管 turn loop、剪枝 + 单次压缩与恢复 |
-| `@athena-ai/plugin-sandbox`        | `plugins/sandbox`           | `sandbox`       | 全局 SandboxHub + SandboxBot（IMBody 实现）：WebUI 页面、文件服务器、WS 路由                                         |
-| `@athena-ai/sandbox-nerve`         | `plugins/sandbox-nerve`     | —               | per-Life Nerve：注册 Hub、创建 SandboxBot（`ctx.nerve` 注册）                                                        |
-| `@athena-ai/provider-openai`       | `plugins/provider-openai`   | —               | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                  |
-| `@athena-ai/provider-deepseek`     | `plugins/provider-deepseek` | —               | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                |
-| `@athena-ai/nerve-onebot`          | `plugins/nerve-onebot`      | —               | OneBot v11 Nerve adapter（IMBody 实现）：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket |
-| `@athena-ai/plugin-content-filter` | `plugins/content-filter`    | —               | Hook Protocol 参考插件：监听 `cortex/before-enact`，按配置内容结构化否决行动                                         |
-| `@athena-ai/plugin-message-store`  | `plugins/message-store`     | —               | 占位，未开始（Phase 3 消息持久化）                                                                                   |
+| `@athena-ai/plugin-sandbox`        | `plugins/sandbox`           | `sandbox`       | 全局 SandboxHub + SandboxBot（IMBody 实现）：WebUI 页面、文件服务器、WS 路由                                                                            |
+| `@athena-ai/sandbox-nerve`         | `plugins/sandbox-nerve`     | —               | per-Life Nerve：注册 Hub、创建 SandboxBot（`ctx.nerve` 注册）                                                                                           |
+| `@athena-ai/provider-openai`       | `plugins/provider-openai`   | —               | 注册 AI SDK OpenAI provider（`reusable`，可多实例）                                                                                                     |
+| `@athena-ai/provider-deepseek`     | `plugins/provider-deepseek` | —               | 注册 AI SDK DeepSeek provider（`reusable`，可多实例）                                                                                                   |
+| `@athena-ai/nerve-onebot`          | `plugins/nerve-onebot`      | —               | OneBot v11 Nerve adapter（IMBody 实现）：message receive/send path，依赖 `protocol`、`protocol-im` 与 HTTP WebSocket                                    |
+| `@athena-ai/plugin-content-filter` | `plugins/content-filter`    | —               | Hook Protocol 参考插件：监听 `cortex/before-enact`，按配置内容结构化否决行动                                                                            |
+| `@athena-ai/plugin-message-store`  | `plugins/message-store`     | —               | 占位，未开始（Phase 3 消息持久化）                                                                                                                      |
 
 ### 2.2 依赖方向
 

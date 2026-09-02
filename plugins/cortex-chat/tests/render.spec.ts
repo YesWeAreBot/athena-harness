@@ -39,11 +39,11 @@ describe("workspace message rendering", () => {
     expect(result.content).toMatch(/^<message from="u1" scene="sandbox:alice\/general" ts="\d{2}:\d{2}" id="m1">hello &lt;world&gt; &amp; friends<\/message>$/);
   });
 
-  it("renders awareness with source, trigger, content, and context", () => {
+  it("renders awareness with compact context entries (no scene/id attributes)", () => {
     const result = renderAwarenessMessage({
       message: stored("ping <now>"),
       trigger: "mention",
-      context: [stored("before", { messageId: "m0", timestamp: 1_699_999_999_000 })],
+      context: [stored("before", { messageId: "m0", userId: "u2", userName: "Bob", timestamp: 1_699_999_999_000 })],
       reason: "A user explicitly mentioned the Life.",
       suggestion: "Use peek_channel before changing focus.",
     });
@@ -51,9 +51,36 @@ describe("workspace message rendering", () => {
     expect(result.role).toBe("user");
     expect(result.content).toContain('<awareness source="sandbox:alice/general" trigger="mention" from="u1" scene="sandbox:alice/general"');
     expect(result.content).toContain("ping &lt;now&gt;");
-    expect(result.content).toContain('id="m0"');
+    // Context uses compact <msg> format without scene or id
+    expect(result.content).toContain('<msg from="u2" ts=');
+    expect(result.content).toContain(">before</msg>");
+    expect(result.content).not.toContain('scene="sandbox:alice/general">before');
     expect(result.content).toContain("A user explicitly mentioned the Life.");
     expect(result.content).toContain("Use peek_channel before changing focus.");
+  });
+
+  it("renders truncated hint when totalAvailable exceeds context length", () => {
+    const result = renderAwarenessMessage({
+      message: stored("new msg"),
+      trigger: "direct",
+      context: [stored("only one", { messageId: "m0" })],
+      totalAvailable: 15,
+    });
+
+    expect(result.content).toContain('<context truncated="true" total="15">');
+    expect(result.content).toContain("only one");
+  });
+
+  it("does not render truncated hint when totalAvailable equals context length", () => {
+    const result = renderAwarenessMessage({
+      message: stored("new msg"),
+      trigger: "direct",
+      context: [stored("one", { messageId: "m0" })],
+      totalAvailable: 1,
+    });
+
+    expect(result.content).toContain("<context>");
+    expect(result.content).not.toContain("truncated");
   });
 });
 

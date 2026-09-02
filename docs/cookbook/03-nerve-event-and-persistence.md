@@ -489,14 +489,14 @@ LLM input = stable（constitution + persona + compaction）+ renderFrame(checkpo
 
 ## 存储的关系：档案馆 + 认知状态
 
-|          | message-store                          | checkpoint（帧区 + 压缩条目）    | workspace（内存）                    |
-| -------- | -------------------------------------- | -------------------------------- | ------------------------------------ |
-| 回答什么 | 这个 Scene 发生过哪些原始消息？        | 主心智的持久化认知状态（跨进程） | 主心智此刻正在思考什么（进程内）     |
-| 存什么   | canonical `content` 串                 | Frame（focus / history / lastFocusHistory）+ compaction | AI SDK `ModelMessage[]`    |
-| 来源     | 自动监听事件写入                       | 重建事务（prune → summarize → save） | runner 追加 response 与 delta        |
-| 谁读     | focus 展开、`peek_channel`、压缩输入   | 组装 LLM 请求前缀                 | 组装 LLM 请求尾部                     |
-| 索引     | `lifeId + bodySid + channelId + ts`    | 单文件，按 Life 分目录            | 数组追加顺序                          |
-| 生命周期 | 长期保留                               | 长期保留（每次重建替换）          | 进程内跨 turn，重建时清空             |
+|          | message-store                        | checkpoint（帧区 + 压缩条目）                           | workspace（内存）                |
+| -------- | ------------------------------------ | ------------------------------------------------------- | -------------------------------- |
+| 回答什么 | 这个 Scene 发生过哪些原始消息？      | 主心智的持久化认知状态（跨进程）                        | 主心智此刻正在思考什么（进程内） |
+| 存什么   | canonical `content` 串               | Frame（focus / history / lastFocusHistory）+ compaction | AI SDK `ModelMessage[]`          |
+| 来源     | 自动监听事件写入                     | 重建事务（prune → summarize → save）                    | runner 追加 response 与 delta    |
+| 谁读     | focus 展开、`peek_channel`、压缩输入 | 组装 LLM 请求前缀                                       | 组装 LLM 请求尾部                |
+| 索引     | `lifeId + bodySid + channelId + ts`  | 单文件，按 Life 分目录                                  | 数组追加顺序                     |
+| 生命周期 | 长期保留                             | 长期保留（每次重建替换）                                | 进程内跨 turn，重建时清空        |
 
 **message-store 是档案馆，checkpoint 是跨进程的认知快照，workspace 是进程内的思考草稿。**
 

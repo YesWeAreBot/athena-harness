@@ -7,6 +7,8 @@ export interface AwarenessMessageInput {
   readonly message: StoredMessage;
   readonly trigger: "direct" | "mention";
   readonly context: readonly StoredMessage[];
+  /** Total messages available in this scene (excluding the trigger). When set and greater than context.length, a truncated hint is rendered. */
+  readonly totalAvailable?: number;
   readonly reason?: string;
   readonly suggestion?: string;
 }
@@ -35,12 +37,19 @@ export function renderUserMessage(message: StoredMessage): UserModelMessage {
   };
 }
 
+/** Compact single-line format for awareness context entries (same-scene, no scene attribute). */
+function formatContextEntry(message: StoredMessage): string {
+  return `<msg from="${escapeXml(message.userId)}" ts="${formatTime(message.timestamp)}">${escapeXml(message.content)}</msg>`;
+}
+
 export function renderAwarenessMessage(input: AwarenessMessageInput): UserModelMessage {
-  const context = input.context.length === 0 ? "(no context)" : input.context.map((message) => renderUserMessage(message).content).join("\n");
+  const truncated = input.totalAvailable !== undefined && input.totalAvailable > input.context.length;
+  const contextTag = truncated ? `<context truncated="true" total="${input.totalAvailable}">` : "<context>";
+  const context = input.context.length === 0 ? "(no context)" : input.context.map(formatContextEntry).join("\n");
   const lines = [
     `<awareness source="${escapeXml(sceneText(input.message))}" trigger="${input.trigger}" ${sceneAttributes(input.message)}>`,
     `<content>${escapeXml(input.message.content)}</content>`,
-    "<context>",
+    contextTag,
     context,
     "</context>",
   ];
